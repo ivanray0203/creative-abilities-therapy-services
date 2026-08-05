@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreComplaintRequest;
+use App\Models\Client;
 use App\Models\Complaint;
 use App\Models\ScheduleSession;
 use App\Models\User;
@@ -115,8 +116,8 @@ class ComplaintController extends Controller
         }
 
         if ($request->hasFile('file')) {
-            $folderName = 'Complaint-'.($attributes['client_id'] ?? $attributes['therapist_id'] ?? 'unknown').'-'.now()->format('YmdHis');
-            $attributes = [...$attributes, ...$drive->upload($request->file('file'), 'Complaints', $folderName)];
+            $client = Client::query()->find($attributes['client_id']);
+            $attributes = [...$attributes, ...$drive->upload($request->file('file'), 'client', $this->clientFolderName($client))];
         }
 
         $complaint = Complaint::query()->create($attributes);
@@ -124,6 +125,18 @@ class ComplaintController extends Controller
         AuditLogger::log('Filed complaint', 'System', "Filed a {$complaint->type} #{$complaint->id}", 'warning');
 
         return to_route($this->routeName($request, 'complaints.index'))->with('success', 'Complaint filed successfully.');
+    }
+
+    private function clientFolderName(?Client $client): string
+    {
+        if ($client === null) {
+            return 'unknown';
+        }
+
+        $intake = $client->originalIntake;
+        $name = trim("{$intake?->child_first_name} {$intake?->child_last_name}");
+
+        return trim("{$intake?->id}_{$name}", '_');
     }
 
     public function startReview(Request $request, Complaint $complaint): RedirectResponse

@@ -251,7 +251,7 @@ class ClientController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'Client', $this->clientFolderName($client));
+        $uploaded = $drive->upload($request->file('file'), 'client', $this->clientFolderName($client));
 
         $client->documents()->create([
             'title' => $validated['name'] ?? $request->file('file')->getClientOriginalName(),
@@ -281,8 +281,9 @@ class ClientController extends Controller
     private function clientFolderName(Client $client): string
     {
         $intake = $client->originalIntake;
+        $name = trim("{$intake?->child_first_name} {$intake?->child_last_name}");
 
-        return trim("Client-{$client->id}-{$intake?->child_first_name}-{$intake?->child_last_name}", '-');
+        return trim("{$intake?->id}_{$name}", '_');
     }
 
     public function addNote(Request $request, Client $client): RedirectResponse

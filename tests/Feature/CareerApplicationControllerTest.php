@@ -77,9 +77,12 @@ test('a visitor can submit a career application with a resume upload', function 
     expect($application->skills)->toBe(['Communication', 'Patience']);
     expect($application->references)->toHaveCount(1);
     expect($application->resume)->not->toBeNull();
+    expect($application->resume_drive_file_id)->not->toBeNull();
 
     $resumePath = Str::after($application->resume, Storage::disk('public')->url(''));
     Storage::disk('public')->assertExists($resumePath);
+    expect($resumePath)->toBe($application->resume_drive_file_id);
+    expect($resumePath)->toContain("drive/CATS/applications/{$application->id}-jane-doe/");
 });
 
 test('the career application form requires the resume file and first reference details', function () {

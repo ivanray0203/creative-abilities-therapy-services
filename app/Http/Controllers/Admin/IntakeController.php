@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreIntakeRequest;
 use App\Http\Requests\Admin\UpdateIntakeRequest;
+use App\Mail\IntakeAssignedToTherapistMail;
 use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Intake;
@@ -14,7 +15,6 @@ use App\Models\IntakeTherapistApprovalHistory;
 use App\Models\ServiceOffering;
 use App\Models\TeamMember;
 use App\Models\User;
-use App\Mail\IntakeAssignedToTherapistMail;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\IntakeApprovalService;
@@ -447,7 +447,7 @@ class IntakeController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'IntakeDocuments', $this->intakeFolderName($intake));
+        $uploaded = $drive->upload($request->file('file'), 'client', $this->intakeFolderName($intake));
 
         $intake->documents()->create([
             'name' => $validated['name'] ?? $request->file('file')->getClientOriginalName(),
@@ -484,7 +484,7 @@ class IntakeController extends Controller
         $folderName = $this->intakeFolderName($intake);
 
         foreach ($validated['documents'] as $entry) {
-            $uploaded = $drive->upload($entry['file'], 'IntakeDocuments', $folderName);
+            $uploaded = $drive->upload($entry['file'], 'client', $folderName);
 
             $intake->documents()->create([
                 'name' => $entry['name'] ?? $entry['file']->getClientOriginalName(),
@@ -531,7 +531,7 @@ class IntakeController extends Controller
 
             $attributes = [
                 ...$attributes,
-                ...$drive->upload($request->file('file'), 'IntakeDocuments', $this->intakeFolderName($intake)),
+                ...$drive->upload($request->file('file'), 'client', $this->intakeFolderName($intake)),
                 'uploaded_at' => now(),
             ];
         }
@@ -563,7 +563,9 @@ class IntakeController extends Controller
 
     private function intakeFolderName(Intake $intake): string
     {
-        return "Intake-{$intake->id}-{$intake->child_first_name}-{$intake->child_last_name}";
+        $name = trim("{$intake->child_first_name} {$intake->child_last_name}");
+
+        return trim("{$intake->id}_{$name}", '_');
     }
 
     public function addNote(Request $request, Intake $intake): RedirectResponse

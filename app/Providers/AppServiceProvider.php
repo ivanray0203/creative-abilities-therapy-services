@@ -19,14 +19,16 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(DriveStorage::class, function (): DriveStorage {
-            $credentialsPath = config('services.google_drive.credentials_path');
-            $sharedDriveId = config('services.google_drive.shared_drive_id');
+            $clientId = config('services.google_drive.client_id');
+            $clientSecret = config('services.google_drive.client_secret');
+            $tokenPath = config('services.google_drive.token_path');
+            $rootFolderId = config('services.google_drive.shared_drive_id');
 
-            if (blank($credentialsPath) || ! is_file($credentialsPath) || blank($sharedDriveId)) {
-                return new LocalDriveStorage();
+            if (blank($clientId) || blank($clientSecret) || blank($rootFolderId) || ! is_file($tokenPath)) {
+                return new LocalDriveStorage;
             }
 
-            return new GoogleDriveService($credentialsPath, $sharedDriveId);
+            return new GoogleDriveService($clientId, $clientSecret, $tokenPath, $rootFolderId);
         });
     }
 

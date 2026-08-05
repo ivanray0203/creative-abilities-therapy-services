@@ -200,7 +200,7 @@ class TeamMemberController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'User', $this->teamMemberFolderName($teamMember));
+        $uploaded = $drive->upload($request->file('file'), 'therapists', $this->teamMemberFolderName($teamMember));
 
         ClientDocument::query()->create([
             'user_id' => $teamMember->user_id,
@@ -304,7 +304,7 @@ class TeamMemberController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'User', $this->teamMemberFolderName($teamMember));
+        $uploaded = $drive->upload($request->file('file'), 'therapists', $this->teamMemberFolderName($teamMember));
 
         ClientDocument::query()->create([
             'user_id' => $teamMember->user_id,
@@ -384,8 +384,9 @@ class TeamMemberController extends Controller
     private function teamMemberFolderName(TeamMember $teamMember): string
     {
         $user = $teamMember->user ?? User::query()->find($teamMember->user_id);
+        $name = trim("{$user?->first_name} {$user?->last_name}");
 
-        return trim("User-{$teamMember->user_id}-{$user?->first_name}-{$user?->last_name}", '-');
+        return trim("{$teamMember->id}_{$name}", '_');
     }
 
     private function syncUserActiveState(TeamMember $teamMember): void

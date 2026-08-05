@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\CalendarController;
 use App\Http\Controllers\Admin\CareerController as AdminCareerController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\GoogleDriveConnectionController;
 use App\Http\Controllers\Admin\IntakeController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
@@ -16,12 +17,12 @@ use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\ConsentAcceptanceController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Public\CareerApplicationController;
 use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Public\CheckEmailController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\IntakeApplicationController;
-use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Public\ServiceController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TherapistClientController;
@@ -71,6 +72,9 @@ Route::middleware(['auth', 'role:admin'])
     ->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
         Route::get('calendar', [CalendarController::class, 'index'])->name('admin.calendar');
+
+        Route::get('google-drive/connect', [GoogleDriveConnectionController::class, 'connect'])->name('admin.google-drive.connect');
+        Route::get('google-drive/callback', [GoogleDriveConnectionController::class, 'callback'])->name('admin.google-drive.callback');
 
         Route::get('intake', [IntakeController::class, 'index'])->name('admin.intake.index');
         Route::get('intake/create', [IntakeController::class, 'create'])->name('admin.intake.create');

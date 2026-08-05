@@ -264,7 +264,7 @@ class IntakeApplicationController extends Controller
         $filename = "Consents-{$intake->reference_number}-{$intake->child_first_name}-{$intake->child_last_name}.pdf";
         $file = new UploadedFile($tempPath, $filename, 'application/pdf', null, true);
 
-        $uploaded = $drive->upload($file, 'IntakeDocuments', "Intake-{$intake->id}-{$intake->child_first_name}-{$intake->child_last_name}");
+        $uploaded = $drive->upload($file, 'client', $this->intakeFolderName($intake));
 
         $intake->documents()->create([
             'name' => $filename,
@@ -272,6 +272,13 @@ class IntakeApplicationController extends Controller
             ...$uploaded,
             'uploaded_at' => now(),
         ]);
+    }
+
+    private function intakeFolderName(Intake $intake): string
+    {
+        $name = trim("{$intake->child_first_name} {$intake->child_last_name}");
+
+        return trim("{$intake->id}_{$name}", '_');
     }
 
     /**

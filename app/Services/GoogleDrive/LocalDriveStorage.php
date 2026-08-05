@@ -17,10 +17,9 @@ class LocalDriveStorage implements DriveStorage
     public function upload(UploadedFile $file, string $targetType, string $targetName): array
     {
         $folder = sprintf(
-            'drive/%s/%s - %s',
+            'drive/CATS/%s/%s',
             Str::slug($targetType),
             Str::slug($targetName),
-            now()->format('Y-m-d'),
         );
 
         $path = Storage::disk('public')->putFile($folder, $file);
