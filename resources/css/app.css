@@ -1,0 +1,193 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@custom-variant dark (&:is(.dark *));
+
+/**
+ * Tailwind v4's default `container` caps out at each breakpoint's
+ * min-width (1536px at 2xl), which leaves a huge empty gutter on wider
+ * screens. The reference site fills nearly the full viewport but still
+ * keeps a real, visible side gutter — so widen the cap AND give the
+ * container its own responsive padding here (single source of truth)
+ * instead of relying on a bare `px-4` wherever `container` is used.
+ */
+@utility container {
+    width: 100%;
+    margin-inline: auto;
+    max-width: 1920px;
+    padding-inline: 2rem;
+}
+
+@media (min-width: 640px) {
+    .container {
+        padding-inline: 2.5rem;
+    }
+}
+
+@media (min-width: 1024px) {
+    .container {
+        padding-inline: 4rem;
+    }
+}
+
+@media (min-width: 1280px) {
+    .container {
+        padding-inline: 6rem;
+    }
+}
+
+@theme {
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+
+    --color-border: hsl(var(--border));
+    --color-input: hsl(var(--input));
+    --color-ring: hsl(var(--ring));
+    --color-background: hsl(var(--background));
+    --color-foreground: hsl(var(--foreground));
+
+    --color-primary: hsl(var(--primary));
+    --color-primary-foreground: hsl(var(--primary-foreground));
+    --color-secondary: hsl(var(--secondary));
+    --color-secondary-foreground: hsl(var(--secondary-foreground));
+    --color-destructive: hsl(var(--destructive));
+    --color-destructive-foreground: hsl(var(--destructive-foreground));
+    --color-muted: hsl(var(--muted));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-accent: hsl(var(--accent));
+    --color-accent-foreground: hsl(var(--accent-foreground));
+    --color-popover: hsl(var(--popover));
+    --color-popover-foreground: hsl(var(--popover-foreground));
+    --color-card: hsl(var(--card));
+    --color-card-foreground: hsl(var(--card-foreground));
+
+    --color-sidebar: hsl(var(--sidebar-background));
+    --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+    --color-sidebar-primary: hsl(var(--sidebar-primary));
+    --color-sidebar-primary-foreground: hsl(var(--sidebar-primary-foreground));
+    --color-sidebar-accent: hsl(var(--sidebar-accent));
+    --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+    --color-sidebar-border: hsl(var(--sidebar-border));
+    --color-sidebar-ring: hsl(var(--sidebar-ring));
+
+    --color-primary-orange: hsl(24 60% 55%);
+    --color-secondary-orange: hsl(24 51% 47%);
+    --color-dark-orange: hsl(24 63% 28%);
+    --color-warm-white: hsl(24 100% 97%);
+    --color-peach-cream: hsl(24 52% 90%);
+    --color-charcoal-gray: hsl(0 0% 24%);
+
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+}
+
+/*
+Brand palette (from cats-frontend design system):
+#D37B43 - Primary buttons, headings, accents
+#B8693A - Hover states, borders
+#FFF5EE - Page backgrounds, cards
+#F5E6DB - Section backgrounds, highlights
+#3D3D3D - Body text, dark headings
+*/
+
+:root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 24 57% 54%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 174 48% 93%;
+    --secondary-foreground: 175 77% 21%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 0 0% 24%;
+    --accent-foreground: 0 0% 100%;
+
+    --warm-white: 27 100% 96%;
+    --peach-cream: 24 88% 91%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 220 13% 91%;
+    --ring: 174 87% 24%;
+
+    --radius: 1.25rem;
+
+    --gradient-bg: linear-gradient(135deg, hsl(174 48% 96%), hsl(0 0% 100%));
+    --shadow-card: 0 4px 20px hsla(0 0% 0% / 0.08);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+.dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 174 87% 24%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 175 77% 21%;
+    --secondary-foreground: 174 48% 93%;
+
+    --muted: 217 33% 18%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 175 77% 21%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 174 87% 24%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+@layer base {
+    * {
+        @apply border-border;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+}

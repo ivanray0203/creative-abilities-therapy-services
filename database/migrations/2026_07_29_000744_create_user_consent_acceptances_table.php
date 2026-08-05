@@ -1,0 +1,28 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('user_consent_acceptances', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('document_id')->constrained('consent_documents')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->timestamp('accepted_at')->useCurrent();
+            $table->timestamp('revoked_at')->nullable();
+            $table->boolean('is_revoked')->default(false);
+            $table->timestamps();
+
+            $table->unique(['document_id', 'user_id']);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('user_consent_acceptances');
+    }
+};
