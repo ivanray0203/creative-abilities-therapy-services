@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Invoice extends Model
 {
-    /** @use HasFactory<\Database\Factories\InvoiceFactory> */
+    /** @use HasFactory<InvoiceFactory> */
     use HasFactory;
 
     protected static function booted(): void

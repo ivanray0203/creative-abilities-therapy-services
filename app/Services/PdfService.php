@@ -28,7 +28,7 @@ class PdfService
 
     /**
      * @return string|null Raw PDF bytes, or null when the intake recorded
-     *                      no consent document IDs (nothing to render).
+     *                     no consent document IDs (nothing to render).
      *
      * `intake.consents` holds ConsentDocument IDs accepted at submission
      * time (the intake form runs before any account exists, so there's no

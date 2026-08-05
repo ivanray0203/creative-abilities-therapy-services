@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ConsentClauseFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['document_id', 'order', 'text_template'])]
 class ConsentClause extends Model
 {
-    /** @use HasFactory<\Database\Factories\ConsentClauseFactory> */
+    /** @use HasFactory<ConsentClauseFactory> */
     use HasFactory;
 
     protected function casts(): array

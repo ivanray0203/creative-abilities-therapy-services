@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\SystemLogFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['user_id', 'action', 'details', 'ip_address'])]
 class SystemLog extends Model
 {
-    /** @use HasFactory<\Database\Factories\SystemLogFactory> */
+    /** @use HasFactory<SystemLogFactory> */
     use HasFactory;
 
     protected function casts(): array

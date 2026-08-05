@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ClientDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 ])]
 class ClientDocument extends Model
 {
-    /** @use HasFactory<\Database\Factories\ClientDocumentFactory> */
+    /** @use HasFactory<ClientDocumentFactory> */
     use HasFactory;
 
     protected function casts(): array

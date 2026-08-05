@@ -40,7 +40,7 @@ class IntakeApprovalService
      * @param  Collection<int, User>  $therapists
      * @return array{client: Client, rawPassword: string|null}
      */
-    public function promote(Intake $intake, Collection $therapists = new Collection()): array
+    public function promote(Intake $intake, Collection $therapists = new Collection): array
     {
         $result = DB::transaction(function () use ($intake, $therapists): array {
             $primaryTherapist = $therapists->first();

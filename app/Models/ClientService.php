@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ClientServiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,7 +19,7 @@ use Illuminate\Support\Carbon;
 #[Fillable(['client_id', 'service_id', 'therapist_id', 'frequency', 'duration', 'start_date', 'funding_source', 'no_sessions', 'goals'])]
 class ClientService extends Model
 {
-    /** @use HasFactory<\Database\Factories\ClientServiceFactory> */
+    /** @use HasFactory<ClientServiceFactory> */
     use HasFactory;
 
     protected function casts(): array

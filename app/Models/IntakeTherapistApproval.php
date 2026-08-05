@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\IntakeTherapistApprovalFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['intake_id', 'therapist_id', 'service', 'status', 'notes', 'decided_at'])]
 class IntakeTherapistApproval extends Model
 {
-    /** @use HasFactory<\Database\Factories\IntakeTherapistApprovalFactory> */
+    /** @use HasFactory<IntakeTherapistApprovalFactory> */
     use HasFactory;
 
     protected function casts(): array

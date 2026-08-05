@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ScheduleSessionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,7 +27,7 @@ use Illuminate\Support\Carbon;
 ])]
 class ScheduleSession extends Model
 {
-    /** @use HasFactory<\Database\Factories\ScheduleSessionFactory> */
+    /** @use HasFactory<ScheduleSessionFactory> */
     use HasFactory;
 
     protected function casts(): array

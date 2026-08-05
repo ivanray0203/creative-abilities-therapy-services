@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ConsentDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,7 +15,7 @@ use Illuminate\Support\Carbon;
 #[Fillable(['title', 'is_active', 'purpose', 'version', 'effective_date'])]
 class ConsentDocument extends Model
 {
-    /** @use HasFactory<\Database\Factories\ConsentDocumentFactory> */
+    /** @use HasFactory<ConsentDocumentFactory> */
     use HasFactory;
 
     protected function casts(): array

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,7 +27,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 ])]
 class Client extends Model
 {
-    /** @use HasFactory<\Database\Factories\ClientFactory> */
+    /** @use HasFactory<ClientFactory> */
     use HasFactory;
 
     protected function casts(): array

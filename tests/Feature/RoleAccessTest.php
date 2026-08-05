@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -25,7 +26,7 @@ test('a role can access its own home but is redirected away from other roles hom
 
 test('shared inertia auth props expose user, team member, and client id', function () {
     $therapist = User::factory()->therapist()->create();
-    \App\Models\TeamMember::factory()->create(['user_id' => $therapist->id]);
+    TeamMember::factory()->create(['user_id' => $therapist->id]);
 
     $response = $this->actingAs($therapist)->get('/therapist');
 
