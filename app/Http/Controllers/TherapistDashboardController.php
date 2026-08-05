@@ -56,7 +56,7 @@ class TherapistDashboardController extends Controller
             ->where('status', 'completed')
             ->whereBetween('scheduled_start', [now()->startOfMonth(), now()->endOfMonth()])
             ->get(['scheduled_start', 'scheduled_end'])
-            ->sum(fn (ScheduleSession $session): int|float => $session->scheduled_start->diffInMinutes($session->scheduled_end)) / 60;
+            ->sum(fn (ScheduleSession $session): float => $session->scheduled_start->diffInMinutes($session->scheduled_end)) / 60;
 
         return Inertia::render('therapist/dashboard', [
             'stats' => [

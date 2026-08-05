@@ -77,7 +77,9 @@ class DashboardController extends Controller
      * New-record count this week vs. the prior week, as a signed delta and
      * percentage — used for the "Pending Intakes" trend line.
      *
-     * @param  Builder<Model>  $query
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @return array{delta: int, percent: int}
      */
     private function weekOverWeekTrend(Builder $query): array
@@ -97,7 +99,9 @@ class DashboardController extends Controller
      * Same idea as weekOverWeekTrend() but month-over-month — used for the
      * "Active Clients" trend line.
      *
-     * @param  Builder<Model>  $query
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @return array{delta: int, percent: int}
      */
     private function monthOverMonthTrend(Builder $query): array
