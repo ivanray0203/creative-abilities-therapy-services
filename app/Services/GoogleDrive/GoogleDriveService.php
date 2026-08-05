@@ -157,7 +157,13 @@ class GoogleDriveService implements DriveStorage
         $client->addScope(GoogleDrive::DRIVE);
         $client->setAccessType('offline');
 
-        $token = json_decode(file_get_contents($this->tokenPath), true);
+        $contents = file_get_contents($this->tokenPath);
+
+        if ($contents === false) {
+            throw new \RuntimeException("Unable to read the Google Drive token at [{$this->tokenPath}].");
+        }
+
+        $token = json_decode($contents, true);
         $client->setAccessToken($token);
 
         if ($client->isAccessTokenExpired()) {

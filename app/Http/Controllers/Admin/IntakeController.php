@@ -830,6 +830,7 @@ class IntakeController extends Controller
                 'first_name' => $therapist->first_name,
                 'last_name' => $therapist->last_name,
                 'email' => $therapist->email,
+                // @phpstan-ignore nullsafe.neverNull (a therapist User isn't guaranteed to have a TeamMember row; Larastan doesn't model that)
                 'specializations' => $therapist->teamMember?->specializations ?? [],
             ])
             ->values();
@@ -838,6 +839,8 @@ class IntakeController extends Controller
     /**
      * Resolves the badge the reference's client-side `getStatusBadge` renders
      * (intake status overlaid with any outstanding therapist review).
+     *
+     * @param  Collection<int, IntakeTherapistApproval>  $reviews
      */
     private function withStatusBadge(Intake $intake, Collection $reviews): Intake
     {
