@@ -98,7 +98,10 @@ export default function TherapistClientsIndex({
                         <TabsTrigger value="inactive">Inactive</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value={filters.status} className="mt-6 space-y-4">
+                    <TabsContent
+                        value={filters.status}
+                        className="mt-6 space-y-4"
+                    >
                         {clients.data.length === 0 ? (
                             <Card className="rounded-[10px] p-10 text-center text-muted-foreground">
                                 <Users className="mx-auto mb-2 h-6 w-6" />

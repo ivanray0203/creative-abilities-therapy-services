@@ -19,7 +19,7 @@ import {
     User,
     Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import ConsentModal from '@/components/consent-modal';
 import IntakePreviewModal from '@/components/intake-preview-modal';
@@ -226,14 +226,21 @@ export default function IntakeApplicationForm({
     const { data, setData, post, processing, errors, reset, transform } =
         useForm<IntakeFormData>(DEFAULT_VALUES);
 
-    const [progress, setProgress] = useState(0);
-    const [missingFields, setMissingFields] = useState<string[]>([]);
     const [lastSaved, setLastSaved] = useState<string | null>(null);
     const [consentGivenTerms, setConsentGivenTerms] = useState(false);
     const [consentGivenPrivacy, setConsentGivenPrivacy] = useState(false);
     const [consentGivenFSCD1, setConsentGivenFSCD1] = useState(false);
     const [consentGivenFSCD2, setConsentGivenFSCD2] = useState(false);
     const [consentGivenFSCD3, setConsentGivenFSCD3] = useState(false);
+    const { progress, missingFields } = useMemo(
+        () =>
+            computeIntakeProgress(data, [
+                consentGivenFSCD1,
+                consentGivenFSCD2,
+                consentGivenFSCD3,
+            ]),
+        [data, consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3],
+    );
     const [previewOpen, setPreviewOpen] = useState(false);
     const [submittedOpen, setSubmittedOpen] = useState(false);
     const [referenceNumber, setReferenceNumber] = useState<string | null>(null);
@@ -305,16 +312,6 @@ export default function IntakeApplicationForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.funding_source]);
 
-    // Progress bar / missing-fields tracking.
-    useEffect(() => {
-        const { progress: pct, missingFields: missing } = computeIntakeProgress(
-            data,
-            [consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3],
-        );
-        setProgress(pct);
-        setMissingFields(missing);
-    }, [data, consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3]);
-
     // Autosave a draft every minute (gated behind cookie consent).
     useEffect(() => {
         if (!cookieConsentAllowed()) {
@@ -342,6 +339,9 @@ export default function IntakeApplicationForm({
         }
 
         try {
+            // localStorage only exists client-side, so this can't be computed during render (SSR) —
+            // an effect is the correct place to read it.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSavedDraft(JSON.parse(draft));
             setShowLoadDraftModal(true);
         } catch {

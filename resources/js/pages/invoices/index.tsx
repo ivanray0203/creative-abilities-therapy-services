@@ -270,7 +270,8 @@ export default function InvoicesIndex({
                                                 />
                                             </div>
                                             <p className="mt-2 text-sm text-muted-foreground">
-                                                Due {formatDate(invoice.due_date)}
+                                                Due{' '}
+                                                {formatDate(invoice.due_date)}
                                             </p>
                                             <p className="mt-1 text-lg font-bold">
                                                 $

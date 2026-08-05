@@ -80,8 +80,8 @@ export default function DisputeSessionModal({
                                 Scheduled Time
                             </p>
                             <p className="font-medium">
-                                {formatScheduledTime(session.scheduled_start)}{' '}
-                                – {formatScheduledTime(session.scheduled_end)}
+                                {formatScheduledTime(session.scheduled_start)} –{' '}
+                                {formatScheduledTime(session.scheduled_end)}
                             </p>
                         </div>
                         <div className="flex justify-between border-b border-border pb-2">

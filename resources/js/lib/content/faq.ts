@@ -18,18 +18,15 @@ export const faqData: FaqCategory[] = [
         questions: [
             {
                 question: 'What services do you offer?',
-                answer:
-                    'We offer a comprehensive range of therapy and support services:\n\n• Speech and Language Therapy\n• Psychological Support\n• Counselling\n• Occupational Therapy\n• Physiotherapy\n• Behaviour Consulting\n• Behavioural Aide Services\n• Community Aide\n• Respite Aide\n\nEach service is tailored to meet the unique needs of children, youth, and families.',
+                answer: 'We offer a comprehensive range of therapy and support services:\n\n• Speech and Language Therapy\n• Psychological Support\n• Counselling\n• Occupational Therapy\n• Physiotherapy\n• Behaviour Consulting\n• Behavioural Aide Services\n• Community Aide\n• Respite Aide\n\nEach service is tailored to meet the unique needs of children, youth, and families.',
             },
             {
                 question: 'Do You Offer direct billing?',
-                answer:
-                    'Yes! We offer direct billing for clients with FSCD (Family Support for Children with Disabilities) contracts.\n\nDuring the intake process, you can upload your FSCD contract, and we will handle the billing directly with FSCD on your behalf.\n\nFor clients with insurance or private pay arrangements, we issue invoices at the end of the month. Receipts can be provided for you to submit to your insurance provider.',
+                answer: 'Yes! We offer direct billing for clients with FSCD (Family Support for Children with Disabilities) contracts.\n\nDuring the intake process, you can upload your FSCD contract, and we will handle the billing directly with FSCD on your behalf.\n\nFor clients with insurance or private pay arrangements, we issue invoices at the end of the month. Receipts can be provided for you to submit to your insurance provider.',
             },
             {
                 question: 'What are your rates',
-                answer:
-                    'We follow FSCD-approved rates for all services funded through Family Support for Children with Disabilities.\n\nFor private pay clients, rates vary depending on the type of service and the professional providing care. Please contact us directly for specific fee information and to discuss payment options.\n\nWe are committed to making our services accessible and will work with you to find the best funding and payment solution for your family.',
+                answer: 'We follow FSCD-approved rates for all services funded through Family Support for Children with Disabilities.\n\nFor private pay clients, rates vary depending on the type of service and the professional providing care. Please contact us directly for specific fee information and to discuss payment options.\n\nWe are committed to making our services accessible and will work with you to find the best funding and payment solution for your family.',
             },
             {
                 question: 'What age groups do you work with?',
@@ -38,7 +35,8 @@ export const faqData: FaqCategory[] = [
                 \n\nDuring the intake process, we'll discuss your situation to ensure we can provide appropriate support for your family's needs.`,
             },
             {
-                question: 'What if  i need to cancel or reschedule an appointment?',
+                question:
+                    'What if  i need to cancel or reschedule an appointment?',
                 answer: `We understand that schedules can change. We ask that you provide at least 24 hours' notice if you need to cancel or reschedule an appointment.
 
                 Cancellations made with less than 24 hours’ notice, or missed appointments with or without notice, may be subject to a cancellation fee.
@@ -49,8 +47,7 @@ export const faqData: FaqCategory[] = [
             },
             {
                 question: 'Where can services be provided?',
-                answer:
-                    "We offer flexible service delivery to meet your family's needs and preferences:\n\n\t**•In-Home Services:** We can provide therapy in the comfort and familiarity of your own home.\n\n\t**•Community Settings:** Services can also be provided in community locations that support your child's goals.\n\n\t**•Online/Telehealth:** We offer secure virtual sessions for families who prefer or require remote service delivery.\n\nService location depends on FSCD funding requirements, therapist availability, and what works best for your child's therapeutic goals. We'll discuss options during the intake process.",
+                answer: "We offer flexible service delivery to meet your family's needs and preferences:\n\n\t**•In-Home Services:** We can provide therapy in the comfort and familiarity of your own home.\n\n\t**•Community Settings:** Services can also be provided in community locations that support your child's goals.\n\n\t**•Online/Telehealth:** We offer secure virtual sessions for families who prefer or require remote service delivery.\n\nService location depends on FSCD funding requirements, therapist availability, and what works best for your child's therapeutic goals. We'll discuss options during the intake process.",
             },
             {
                 question: "How do you track my child's progress?",
@@ -65,8 +62,7 @@ You'll always be informed about your child's progress and involved in decision-m
             },
             {
                 question: 'How often will we have Therapy sessions?',
-                answer:
-                    "Session frequency is customized based on your child's needs, therapeutic goals, and funding availability.\n\nTypical schedules range from:\n\t**•Behavioural Aide Support:** We typically offer 2 to 5 sessions per week, depending on your available funding and your family’s availability.\n\t**•Therapy Support:** We typically offer 1 to 2 sessions per month, depending on your FSCD contract and your family’s availability.\n\t**•Insurance/Private Pay:** Depending on the family’s request.\n\nYour therapist will recommend an optimal schedule during the initial assessment and will adjust frequency as your child progresses toward their goals.",
+                answer: "Session frequency is customized based on your child's needs, therapeutic goals, and funding availability.\n\nTypical schedules range from:\n\t**•Behavioural Aide Support:** We typically offer 2 to 5 sessions per week, depending on your available funding and your family’s availability.\n\t**•Therapy Support:** We typically offer 1 to 2 sessions per month, depending on your FSCD contract and your family’s availability.\n\t**•Insurance/Private Pay:** Depending on the family’s request.\n\nYour therapist will recommend an optimal schedule during the initial assessment and will adjust frequency as your child progresses toward their goals.",
             },
         ],
     },
@@ -78,7 +74,7 @@ You'll always be informed about your child's progress and involved in decision-m
                 answer:
                     '**What us FSCD?**\n\nFSCD stands for Family Support for Children with Disabilities.\n\n' +
                     "It's a provincial program run by the Government of Alberta to help families caring for a child with a disability.\n\n" +
-                    "The goal is to provide support and services that help your child develop, participate at home and in the community, and help your family manage some of the extra costs.\n\n" +
+                    'The goal is to provide support and services that help your child develop, participate at home and in the community, and help your family manage some of the extra costs.\n\n' +
                     '**Who Qualifies for FSCD?**\n\n' +
                     'To be eligible:\n\n' +
                     '**Age & Residency**\n' +
@@ -127,7 +123,7 @@ There may be a short waitlist for certain services. We will keep you informed an
                 question: 'What happens during the intake process?',
                 answer:
                     'Our intake process is designed to be simple and supportive:\n\n' +
-                    " 1. **Complete the Intake Form:** Fill out our online form with information about your child, their needs, and your service preferences.\n\n" +
+                    ' 1. **Complete the Intake Form:** Fill out our online form with information about your child, their needs, and your service preferences.\n\n' +
                     " 2. **Initial Phone Call:** We'll schedule a brief phone call to discuss your child's needs, answer any questions, and assign you with the most appropriate therapist or service provider.\n\n" +
                     ' 3. **Sign Consent & Service Agreement:** Review and sign consent documents to allow us to provide services and communicate with relevant parties (schools, doctors, etc.) as needed.\n\n' +
                     " 4. **Begin Services:** Once assigned, we'll schedule your first session and begin working together toward your goals.\n\n" +

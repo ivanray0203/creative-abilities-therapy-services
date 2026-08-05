@@ -107,7 +107,9 @@ export function formatScheduledDate(value: string | null | undefined): string {
     return new Date(value).toLocaleDateString([], { timeZone: 'UTC' });
 }
 
-export function formatScheduledDateTime(value: string | null | undefined): string {
+export function formatScheduledDateTime(
+    value: string | null | undefined,
+): string {
     if (!value) {
         return '';
     }

@@ -76,8 +76,7 @@ export default function SessionCardModal({
                         <div className="flex items-center gap-3">
                             <Clock className="h-4 w-4 text-muted-foreground" />
                             <p>
-                                {formatScheduledTime(session.scheduled_start)}{' '}
-                                –{' '}
+                                {formatScheduledTime(session.scheduled_start)} –{' '}
                                 {formatScheduledTime(session.scheduled_end)}
                             </p>
                         </div>

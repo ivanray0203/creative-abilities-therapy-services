@@ -372,14 +372,13 @@ export default function About() {
                                 </p>
 
                                 <p className="text-lg leading-relaxed text-foreground md:text-xl">
-                                    Our founder brings expertise in
-                                    occupational therapy with specialized
-                                    training in sensory processing and feeding
-                                    therapy. With a deep commitment to
-                                    supporting families, especially newcomers
-                                    to Canada, we provide comprehensive,
-                                    compassionate care for every child and
-                                    family we serve.
+                                    Our founder brings expertise in occupational
+                                    therapy with specialized training in sensory
+                                    processing and feeding therapy. With a deep
+                                    commitment to supporting families,
+                                    especially newcomers to Canada, we provide
+                                    comprehensive, compassionate care for every
+                                    child and family we serve.
                                 </p>
                             </div>
 
@@ -418,8 +417,8 @@ export default function About() {
                                     Registered Occupational Therapist
                                 </p>
                                 <p className="pt-3">
-                                    Sensory Processing Therapy & Sequential
-                                    Oral Sensory Feeding
+                                    Sensory Processing Therapy & Sequential Oral
+                                    Sensory Feeding
                                 </p>
 
                                 {/* Description */}
@@ -427,42 +426,39 @@ export default function About() {
                                     Mary Ann (aka Ann) holds a Bachelor of
                                     Science in Occupational Therapy from St.
                                     Jude College in Manila, Philippines. Since
-                                    2016, she has been a Registered
-                                    Occupational Therapist in Alberta through
-                                    the Alberta College of Occupational
-                                    Therapists, and she is a member of the
-                                    Canadian Association of Occupational
-                                    Therapists.
+                                    2016, she has been a Registered Occupational
+                                    Therapist in Alberta through the Alberta
+                                    College of Occupational Therapists, and she
+                                    is a member of the Canadian Association of
+                                    Occupational Therapists.
                                 </p>
 
                                 <p className="pt-2 lg:pt-5">
-                                    Ann brings extensive professional
-                                    experience in providing pediatric support
-                                    to families of children with disabilities.
-                                    Her work spans elementary schools,
-                                    nonprofit agencies, and hospitals both in
-                                    Canada and internationally. She has
-                                    specialized training in Sensory Processing
-                                    Therapy and Sequential Oral Sensory
-                                    Feeding.
+                                    Ann brings extensive professional experience
+                                    in providing pediatric support to families
+                                    of children with disabilities. Her work
+                                    spans elementary schools, nonprofit
+                                    agencies, and hospitals both in Canada and
+                                    internationally. She has specialized
+                                    training in Sensory Processing Therapy and
+                                    Sequential Oral Sensory Feeding.
                                 </p>
 
                                 <p className="pt-2 lg:pt-5">
-                                    As an immigrant to Canada, Ann is
-                                    passionate about supporting immigrant
-                                    families with children with disabilities.
-                                    She was inspired by her community and her
-                                    family to open an agency that focuses on
-                                    holistic support for all. In her free
-                                    time, she enjoys travelling across North
-                                    America and hiking the Rocky Mountains
-                                    with her son and husband.
+                                    As an immigrant to Canada, Ann is passionate
+                                    about supporting immigrant families with
+                                    children with disabilities. She was inspired
+                                    by her community and her family to open an
+                                    agency that focuses on holistic support for
+                                    all. In her free time, she enjoys travelling
+                                    across North America and hiking the Rocky
+                                    Mountains with her son and husband.
                                 </p>
 
                                 {/* Credentials */}
                                 <p className="flex flex-row gap-2 pt-10">
-                                    <LucideIcons.GraduationCap /> Credentials
-                                    & Certifications
+                                    <LucideIcons.GraduationCap /> Credentials &
+                                    Certifications
                                 </p>
 
                                 <div className="mt-2 border-b pb-3">

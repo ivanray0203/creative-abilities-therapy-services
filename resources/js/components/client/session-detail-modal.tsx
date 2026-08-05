@@ -46,15 +46,13 @@ export default function SessionDetailModal({
                 <div className="grid grid-cols-2 gap-5 text-sm">
                     <div className="col-span-2 flex items-center gap-3">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <p>
-                            {formatScheduledDate(session.scheduled_start)}
-                        </p>
+                        <p>{formatScheduledDate(session.scheduled_start)}</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <p>
-                            {formatScheduledTime(session.scheduled_start)}{' '}
-                            – {formatScheduledTime(session.scheduled_end)}
+                            {formatScheduledTime(session.scheduled_start)} –{' '}
+                            {formatScheduledTime(session.scheduled_end)}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">

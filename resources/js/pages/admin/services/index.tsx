@@ -90,9 +90,7 @@ export default function AdminServicesIndex({
                             }`}
                         >
                             {tab.label}
-                            <Badge variant="secondary">
-                                {stats[tab.key]}
-                            </Badge>
+                            <Badge variant="secondary">{stats[tab.key]}</Badge>
                         </button>
                     ))}
                 </div>
@@ -197,8 +195,7 @@ export default function AdminServicesIndex({
                                     goToPage(services.current_page + 1)
                                 }
                                 disabled={
-                                    services.current_page >=
-                                    services.last_page
+                                    services.current_page >= services.last_page
                                 }
                             >
                                 Next

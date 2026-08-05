@@ -99,7 +99,10 @@ export default function DocumentsTab({
                                                     Delete
                                                 </Button>
                                                 <a
-                                                    href={document.drive_web_view ?? undefined}
+                                                    href={
+                                                        document.drive_web_view ??
+                                                        undefined
+                                                    }
                                                     download
                                                 >
                                                     <Button

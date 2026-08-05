@@ -70,9 +70,7 @@ function initialValues(
                   );
 
                   return {
-                      service_id: matched
-                          ? String(matched.id)
-                          : OTHER_SERVICE,
+                      service_id: matched ? String(matched.id) : OTHER_SERVICE,
                       name: line.name,
                       description: line.description ?? '',
                       numberOfSessions: String(line.numberOfSessions),
@@ -385,8 +383,7 @@ export default function InvoiceForm({
                                                 </SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        {line.service_id ===
-                                            OTHER_SERVICE && (
+                                        {line.service_id === OTHER_SERVICE && (
                                             <Input
                                                 value={line.name}
                                                 placeholder="Enter service name"

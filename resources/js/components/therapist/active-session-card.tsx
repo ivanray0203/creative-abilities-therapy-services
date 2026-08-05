@@ -48,6 +48,9 @@ export default function ActiveSessionCard({
             return;
         }
 
+        // Set immediately so the timer doesn't show a stale "00:00:00" for the first second;
+        // starting at that default (rather than computing it during render) keeps SSR hydration safe.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setElapsed(formatElapsed(activeSession.start_time));
         const timer = setInterval(() => {
             setElapsed(formatElapsed(activeSession.start_time as string));

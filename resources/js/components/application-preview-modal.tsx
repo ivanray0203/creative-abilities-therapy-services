@@ -1,8 +1,17 @@
 import { Calendar, Luggage, Plus, User, UserCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { EDUCATION_OPTIONS, LEAD_SOURCE_OPTIONS } from '@/lib/content/careers-config';
+import {
+    Dialog,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import {
+    EDUCATION_OPTIONS,
+    LEAD_SOURCE_OPTIONS,
+} from '@/lib/content/careers-config';
 
 export interface AvailabilityPreviewEntry {
     week_day: string;
@@ -61,7 +70,9 @@ function educationLabel(key: string): string {
 }
 
 function leadSourceLabel(key: string): string {
-    return LEAD_SOURCE_OPTIONS.find((option) => option.key === key)?.label ?? key;
+    return (
+        LEAD_SOURCE_OPTIONS.find((option) => option.key === key)?.label ?? key
+    );
 }
 
 /**
@@ -89,27 +100,45 @@ export default function ApplicationPreviewModal({
                     <div className="rounded-sm bg-secondary-orange/5 p-5">
                         <div className="flex items-center gap-3 text-primary">
                             <User />
-                            <p className="font-semibold">Applicant Information</p>
+                            <p className="font-semibold">
+                                Applicant Information
+                            </p>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Full Name</h3>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Full Name
+                                </h3>
                                 <p className="font-medium">
-                                    {[applicationData.first_name, applicationData.middle_name, applicationData.last_name]
+                                    {[
+                                        applicationData.first_name,
+                                        applicationData.middle_name,
+                                        applicationData.last_name,
+                                    ]
                                         .filter(Boolean)
                                         .join(' ') || '—'}
                                 </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Phone</h3>
-                                <p className="font-medium">{applicationData.phone || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Phone
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.phone || '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Email</h3>
-                                <p className="font-medium break-words">{applicationData.email || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Email
+                                </h3>
+                                <p className="font-medium break-words">
+                                    {applicationData.email || '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Location</h3>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Location
+                                </h3>
                                 <p className="font-medium break-words">
                                     {[
                                         applicationData.street_address,
@@ -133,12 +162,20 @@ export default function ApplicationPreviewModal({
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Position</h3>
-                                <p className="font-medium">{applicationData.position_applied || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Position
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.position_applied || '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Profession Status</h3>
-                                <p className="font-medium">{applicationData.profession_status || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Profession Status
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.profession_status || '—'}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -151,22 +188,42 @@ export default function ApplicationPreviewModal({
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Preferred Start Date</h3>
-                                <p className="font-medium">{applicationData.preferred_start_date || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Preferred Start Date
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.preferred_start_date ||
+                                        '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Working with Other Company?</h3>
-                                <p className="font-medium">{applicationData.is_working_with_other ? 'Yes' : 'No'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Working with Other Company?
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.is_working_with_other
+                                        ? 'Yes'
+                                        : 'No'}
+                                </p>
                             </div>
                             <div className="col-span-full">
-                                <h3 className="text-sm text-muted-foreground">Availability</h3>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Availability
+                                </h3>
                                 <div className="font-medium">
-                                    {applicationData.availability?.length > 0 ? (
+                                    {applicationData.availability?.length >
+                                    0 ? (
                                         applicationData.availability
-                                            .filter((slot) => slot.time_from || slot.time_to)
+                                            .filter(
+                                                (slot) =>
+                                                    slot.time_from ||
+                                                    slot.time_to,
+                                            )
                                             .map((slot) => (
                                                 <p key={slot.week_day}>
-                                                    {slot.week_day}: {slot.time_from || '—'} - {slot.time_to || '—'}
+                                                    {slot.week_day}:{' '}
+                                                    {slot.time_from || '—'} -{' '}
+                                                    {slot.time_to || '—'}
                                                 </p>
                                             ))
                                     ) : (
@@ -181,62 +238,108 @@ export default function ApplicationPreviewModal({
                     <div className="rounded-sm bg-secondary-orange/5 p-5">
                         <div className="flex items-center gap-3 text-primary">
                             <UserCheck />
-                            <p className="font-semibold">Personal Information</p>
+                            <p className="font-semibold">
+                                Personal Information
+                            </p>
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Education</h3>
-                                <p className="font-medium">{educationLabel(applicationData.education) || '—'}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm text-muted-foreground">Experience</h3>
-                                <p className="font-medium">{applicationData.experience || '—'}</p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm text-muted-foreground">Skills</h3>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Education
+                                </h3>
                                 <p className="font-medium">
-                                    {applicationData.skills?.length ? applicationData.skills.join(', ') : '—'}
+                                    {educationLabel(
+                                        applicationData.education,
+                                    ) || '—'}
                                 </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Resume</h3>
-                                <p className="font-medium">{applicationData.resume_file?.name || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Experience
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.experience || '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Cover Letter</h3>
-                                <p className="font-medium">{applicationData.cover_letter_file?.name || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Skills
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.skills?.length
+                                        ? applicationData.skills.join(', ')
+                                        : '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Drivers License</h3>
-                                <p className="font-medium">{applicationData.drivers_license ? 'Yes' : 'No'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Resume
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.resume_file?.name || '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Vehicle Access</h3>
-                                <p className="font-medium">{applicationData.has_vehicle ? 'Yes' : 'No'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Cover Letter
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.cover_letter_file?.name ||
+                                        '—'}
+                                </p>
+                            </div>
+                            <div>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Drivers License
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.drivers_license
+                                        ? 'Yes'
+                                        : 'No'}
+                                </p>
+                            </div>
+                            <div>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Vehicle Access
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.has_vehicle ? 'Yes' : 'No'}
+                                </p>
                             </div>
                             <div className="col-span-full">
-                                <h3 className="text-sm text-muted-foreground">References</h3>
+                                <h3 className="text-sm text-muted-foreground">
+                                    References
+                                </h3>
                                 {applicationData.references?.length > 0 ? (
                                     <div className="space-y-2 font-medium">
-                                        {applicationData.references.map((ref, idx) => (
-                                            <div key={idx}>
-                                                <p>
-                                                    <strong>Name:</strong> {ref.full_name || '—'}
-                                                </p>
-                                                <p>
-                                                    <strong>Position:</strong> {ref.position || '—'}
-                                                </p>
-                                                <p>
-                                                    <strong>Work:</strong> {ref.work || '—'}
-                                                </p>
-                                                <p>
-                                                    <strong>Email:</strong> {ref.email || '—'}
-                                                </p>
-                                                <p>
-                                                    <strong>Phone:</strong> {ref.phone || '—'}
-                                                </p>
-                                            </div>
-                                        ))}
+                                        {applicationData.references.map(
+                                            (ref, idx) => (
+                                                <div key={idx}>
+                                                    <p>
+                                                        <strong>Name:</strong>{' '}
+                                                        {ref.full_name || '—'}
+                                                    </p>
+                                                    <p>
+                                                        <strong>
+                                                            Position:
+                                                        </strong>{' '}
+                                                        {ref.position || '—'}
+                                                    </p>
+                                                    <p>
+                                                        <strong>Work:</strong>{' '}
+                                                        {ref.work || '—'}
+                                                    </p>
+                                                    <p>
+                                                        <strong>Email:</strong>{' '}
+                                                        {ref.email || '—'}
+                                                    </p>
+                                                    <p>
+                                                        <strong>Phone:</strong>{' '}
+                                                        {ref.phone || '—'}
+                                                    </p>
+                                                </div>
+                                            ),
+                                        )}
                                     </div>
                                 ) : (
                                     <p className="font-medium">—</p>
@@ -253,27 +356,49 @@ export default function ApplicationPreviewModal({
                         </div>
                         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Expected Salary</h3>
-                                <p className="font-medium">{applicationData.expected_salary || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Expected Salary
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.expected_salary || '—'}
+                                </p>
                             </div>
                             <div>
-                                <h3 className="text-sm text-muted-foreground">Source</h3>
-                                <p className="font-medium">{leadSourceLabel(applicationData.lead_source) || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Source
+                                </h3>
+                                <p className="font-medium">
+                                    {leadSourceLabel(
+                                        applicationData.lead_source,
+                                    ) || '—'}
+                                </p>
                             </div>
                             <div className="col-span-full">
-                                <h3 className="text-sm text-muted-foreground">Why Creative Abilities Therapy Services</h3>
-                                <p className="font-medium">{applicationData.reason_for_applying || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Why Creative Abilities Therapy Services
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.reason_for_applying || '—'}
+                                </p>
                             </div>
                             <div className="col-span-full">
-                                <h3 className="text-sm text-muted-foreground">Other Comments</h3>
-                                <p className="font-medium">{applicationData.other_notes || '—'}</p>
+                                <h3 className="text-sm text-muted-foreground">
+                                    Other Comments
+                                </h3>
+                                <p className="font-medium">
+                                    {applicationData.other_notes || '—'}
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <DialogFooter className="mt-4 flex gap-4">
-                    <Button variant="outline" className="flex-1" onClick={onClose}>
+                    <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={onClose}
+                    >
                         Close
                     </Button>
                     {!isPreview && (

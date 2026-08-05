@@ -66,8 +66,7 @@ export default function AdminCareersIndex({
                         Positions
                     </h1>
                     <p className="text-sm text-muted-foreground sm:text-base">
-                        Manage the job postings shown on the public Careers
-                        page
+                        Manage the job postings shown on the public Careers page
                     </p>
                 </div>
                 <Button className="rounded-[10px]" asChild>

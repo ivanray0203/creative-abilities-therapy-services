@@ -323,10 +323,7 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                             value={data.short_description}
                             className="mt-2 rounded-[10px]"
                             onChange={(event) =>
-                                setData(
-                                    'short_description',
-                                    event.target.value,
-                                )
+                                setData('short_description', event.target.value)
                             }
                         />
                         {errors.short_description && (
@@ -345,10 +342,7 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                             value={data.about_description}
                             className="mt-2 rounded-[10px]"
                             onChange={(event) =>
-                                setData(
-                                    'about_description',
-                                    event.target.value,
-                                )
+                                setData('about_description', event.target.value)
                             }
                         />
                         {errors.about_description && (
@@ -370,9 +364,7 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                         label="Responsibilities"
                         placeholder="Add a responsibility and press Enter"
                         values={data.responsibilities}
-                        onAdd={(value) =>
-                            addToList('responsibilities', value)
-                        }
+                        onAdd={(value) => addToList('responsibilities', value)}
                         onRemove={(value) =>
                             removeFromList('responsibilities', value)
                         }

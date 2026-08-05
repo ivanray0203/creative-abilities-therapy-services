@@ -67,14 +67,19 @@ export default function TherapistDashboard({
     }, []);
 
     const completedToday = todaysSessions.filter(
-        (session) => session.status !== 'scheduled' && session.status !== 'inprogress',
+        (session) =>
+            session.status !== 'scheduled' && session.status !== 'inprogress',
     ).length;
 
     const handleStart = (session: ScheduleSession) => {
         setStartingId(session.id);
-        router.post(`/therapist/sessions/${session.id}/start`, {}, {
-            onFinish: () => setStartingId(null),
-        });
+        router.post(
+            `/therapist/sessions/${session.id}/start`,
+            {},
+            {
+                onFinish: () => setStartingId(null),
+            },
+        );
     };
 
     return (
@@ -223,16 +228,14 @@ export default function TherapistDashboard({
                                             </p>
                                             {intake.diagnosis &&
                                             intake.diagnosis.length > 0 ? (
-                                                intake.diagnosis.map(
-                                                    (diag) => (
-                                                        <Badge
-                                                            key={diag}
-                                                            className="rounded-[5px] border border-gray-300 bg-white text-charcoal-gray"
-                                                        >
-                                                            {diag}
-                                                        </Badge>
-                                                    ),
-                                                )
+                                                intake.diagnosis.map((diag) => (
+                                                    <Badge
+                                                        key={diag}
+                                                        className="rounded-[5px] border border-gray-300 bg-white text-charcoal-gray"
+                                                    >
+                                                        {diag}
+                                                    </Badge>
+                                                ))
                                             ) : (
                                                 <p className="text-sm text-muted-foreground">
                                                     No diagnosis
@@ -245,8 +248,7 @@ export default function TherapistDashboard({
                                                 Availability
                                             </p>
                                             {intake.available_days &&
-                                            intake.available_days.length >
-                                                0 ? (
+                                            intake.available_days.length > 0 ? (
                                                 <p className="text-sm break-words text-muted-foreground">
                                                     {intake.available_days.join(
                                                         ', ',
@@ -280,12 +282,14 @@ export default function TherapistDashboard({
                                     </div>
 
                                     <div className="mt-3 flex justify-end gap-2">
-                                        <Button className="rounded-[5px]" asChild>
+                                        <Button
+                                            className="rounded-[5px]"
+                                            asChild
+                                        >
                                             <Link
                                                 href={`/therapist/intake/${intake.id}`}
                                             >
-                                                <CheckCircle /> Review &
-                                                Decide
+                                                <CheckCircle /> Review & Decide
                                             </Link>
                                         </Button>
                                     </div>

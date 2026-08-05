@@ -83,15 +83,34 @@ export const Benefits: BenefitGroup[] = [
     },
 ];
 
-export const WEEK_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+export const WEEK_DAYS = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+];
 
-export const RESIDENT_STATUS = ['Canadian Citizen', 'Permanent Resident', 'Work Permit', 'International Student'];
+export const RESIDENT_STATUS = [
+    'Canadian Citizen',
+    'Permanent Resident',
+    'Work Permit',
+    'International Student',
+];
 
 export const EDUCATION_OPTIONS = [
     { key: 'high_school_or_less', label: 'High school or less' },
-    { key: 'some_post_secondary', label: 'Some post-secondary (college, university, trades)' },
+    {
+        key: 'some_post_secondary',
+        label: 'Some post-secondary (college, university, trades)',
+    },
     { key: 'bachelors', label: "Bachelor's degree" },
-    { key: 'graduate_or_professional', label: 'Graduate or professional degree' },
+    {
+        key: 'graduate_or_professional',
+        label: 'Graduate or professional degree',
+    },
 ] as const;
 
 export const LEAD_SOURCE_OPTIONS = [
@@ -99,7 +118,10 @@ export const LEAD_SOURCE_OPTIONS = [
     { key: 'doctor_referral', label: 'Referral from doctor/physician' },
     { key: 'family_friend', label: 'Referral from family/friend' },
     { key: 'client_referral', label: 'Referral from another client' },
-    { key: 'calgary_counselling', label: 'Calgary Counselling Centre / Counselling Alberta' },
+    {
+        key: 'calgary_counselling',
+        label: 'Calgary Counselling Centre / Counselling Alberta',
+    },
     { key: 'website_ad', label: 'Website / online ad' },
     { key: 'flyer', label: 'Flyer / poster' },
     { key: 'walk_in', label: 'Walk-in / self-referral' },

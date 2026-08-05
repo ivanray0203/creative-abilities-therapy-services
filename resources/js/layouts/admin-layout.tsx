@@ -23,16 +23,23 @@ export default function AdminLayout({ children }: PropsWithChildren) {
                         <div className="flex items-center gap-4">
                             <SidebarTrigger />
                             <div>
-                                <h1 className="text-lg font-semibold text-primary">CATS Admin</h1>
-                                <p className="text-xs text-muted-foreground">Creative Abilities Therapy Services</p>
+                                <h1 className="text-lg font-semibold text-primary">
+                                    CATS Admin
+                                </h1>
+                                <p className="text-xs text-muted-foreground">
+                                    Creative Abilities Therapy Services
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
                             <div className="hidden items-center gap-1 border-l p-2 md:flex md:flex-col md:items-start">
                                 <span className="text-sm font-medium">
-                                    {user.first_name || user.email} {user.last_name}
+                                    {user.first_name || user.email}{' '}
+                                    {user.last_name}
                                 </span>
-                                <span className="text-xs text-muted-foreground capitalize">{user.role.toLowerCase()}</span>
+                                <span className="text-xs text-muted-foreground capitalize">
+                                    {user.role.toLowerCase()}
+                                </span>
                             </div>
                             <Button
                                 variant="outline"
@@ -44,7 +51,9 @@ export default function AdminLayout({ children }: PropsWithChildren) {
                             </Button>
                         </div>
                     </header>
-                    <main className="flex-1 bg-secondary-orange/5">{children}</main>
+                    <main className="flex-1 bg-secondary-orange/5">
+                        {children}
+                    </main>
                 </div>
             </div>
         </SidebarProvider>

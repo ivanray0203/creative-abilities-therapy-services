@@ -20,9 +20,7 @@ export default function IntakeDecisionCard({
     intakeId: number;
     service: string | null;
 }) {
-    const [decision, setDecision] = useState<'accept' | 'decline' | null>(
-        null,
-    );
+    const [decision, setDecision] = useState<'accept' | 'decline' | null>(null);
     const [reason, setReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
 

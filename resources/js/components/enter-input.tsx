@@ -15,7 +15,12 @@ interface EnterInputProps {
  * cats-frontend/src/components/EnterInput.tsx. Used by the career
  * application form's Skills field.
  */
-export function EnterInput({ inputs, setInputs, error, title }: EnterInputProps) {
+export function EnterInput({
+    inputs,
+    setInputs,
+    error,
+    title,
+}: EnterInputProps) {
     const [current, setCurrent] = useState('');
 
     const handleAdd = () => {
@@ -52,9 +57,16 @@ export function EnterInput({ inputs, setInputs, error, title }: EnterInputProps)
             />
             <div className="mt-2 flex flex-wrap gap-2">
                 {inputs.map((value) => (
-                    <div key={value} className="flex items-center rounded-[5px] bg-primary/20 px-2 py-1 text-primary">
+                    <div
+                        key={value}
+                        className="flex items-center rounded-[5px] bg-primary/20 px-2 py-1 text-primary"
+                    >
                         {value}
-                        <button type="button" className="ml-1 font-bold" onClick={() => handleRemove(value)}>
+                        <button
+                            type="button"
+                            className="ml-1 font-bold"
+                            onClick={() => handleRemove(value)}
+                        >
                             ×
                         </button>
                     </div>
