@@ -43,11 +43,18 @@ interface SessionFormData {
     notes: string;
 }
 
-function initialValues(session?: ScheduleSession | null): SessionFormData {
+function initialValues(
+    session?: ScheduleSession | null,
+    preselectedClientId?: number | null,
+): SessionFormData {
     const start = session ? new Date(session.scheduled_start) : null;
 
     return {
-        client_id: session ? String(session.client_id) : '',
+        client_id: session
+            ? String(session.client_id)
+            : preselectedClientId
+              ? String(preselectedClientId)
+              : '',
         therapist_id: session ? String(session.therapist_id) : '',
         linked_client_service_ids: (session?.client_services ?? []).map(
             (clientService) => clientService.id,
@@ -74,17 +81,20 @@ export default function SessionsForm({
     therapists,
     services,
     clients,
+    preselectedClientId = null,
 }: {
     session?: ScheduleSession | null;
     isAdmin: boolean;
     therapists: TherapistOption[];
     services: ServiceOffering[];
     clients: Client[];
+    /** Set when arriving from a client's "Create Session" action. */
+    preselectedClientId?: number | null;
 }) {
     const isEdit = session != null;
 
     const { data, setData, post, put, processing, errors, transform } =
-        useForm<SessionFormData>(initialValues(session));
+        useForm<SessionFormData>(initialValues(session, preselectedClientId));
 
     // A therapist's service always follows the client service they picked,
     // so the field they can't see is never posted stale.

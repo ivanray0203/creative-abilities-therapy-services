@@ -12,6 +12,7 @@ interface SessionsCreateProps {
     therapists: TherapistOption[];
     services: ServiceOffering[];
     clients: Client[];
+    preselectedClientId: number | null;
 }
 
 /** Shared "New Session" page — reference: cats-frontend/src/forms/SessionsForm.tsx (`/sessions/add`). */
@@ -20,6 +21,7 @@ export default function SessionsCreate({
     therapists,
     services,
     clients,
+    preselectedClientId,
 }: SessionsCreateProps) {
     return (
         <>
@@ -29,6 +31,7 @@ export default function SessionsCreate({
                 therapists={therapists}
                 services={services}
                 clients={clients}
+                preselectedClientId={preselectedClientId}
             />
         </>
     );

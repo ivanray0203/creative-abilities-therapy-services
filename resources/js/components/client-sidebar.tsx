@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { getInitials } from '@/lib/helpers';
+import { isActiveNavItem } from '@/lib/navigation';
 
 const menuItems = [
     { title: 'Calendar', icon: Calendar, url: '/client/calendar' },
@@ -64,9 +65,10 @@ export function ClientSidebar({ onLogout }: { onLogout: () => void }) {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {menuItems.map((item) => {
-                                const isSelected =
-                                    currentUrl === item.url ||
-                                    currentUrl.startsWith(item.url + '/');
+                                const isSelected = isActiveNavItem(
+                                    currentUrl,
+                                    item.url,
+                                );
 
                                 return (
                                     <SidebarMenuItem key={item.title}>

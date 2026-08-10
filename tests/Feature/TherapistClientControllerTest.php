@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\Client;
+use App\Models\ClientService;
 use App\Models\Intake;
+use App\Models\ScheduleSession;
 
 test('the client list scopes to primary, assigned, and care-team relationships', function () {
     $therapist = therapistUser();
@@ -43,4 +45,82 @@ test('the active/inactive status filter and search scope the client list', funct
 
     $noMatchResponse = $this->actingAs($therapist)->get('/therapist/clients?status=active&search=Nobody');
     $noMatchResponse->assertInertia(fn ($page) => $page->has('clients.data', 0));
+});
+
+test('the client list paginates and reports a total matching the rows returned', function () {
+    $therapist = therapistUser();
+
+    Client::factory()->count(17)->create([
+        'primary_therapist_id' => $therapist->id,
+        'status' => 'active',
+    ]);
+
+    // A client reachable through the care team as well as the primary
+    // assignment — the scope must not count them twice.
+    $shared = Client::factory()->create([
+        'primary_therapist_id' => $therapist->id,
+        'status' => 'active',
+    ]);
+    $shared->careTeam()->attach($therapist->id);
+
+    $this->actingAs($therapist)->get('/therapist/clients')
+        ->assertInertia(fn ($page) => $page
+            ->has('clients.data', 15)
+            ->where('clients.total', 18)
+            ->where('clients.per_page', 15)
+            ->where('clients.current_page', 1)
+            ->where('clients.last_page', 2)
+        );
+
+    $this->actingAs($therapist)->get('/therapist/clients?page=2')
+        ->assertInertia(fn ($page) => $page
+            ->has('clients.data', 3)
+            ->where('clients.current_page', 2)
+        );
+});
+
+test('the caseload flags which clients still have a service left to schedule', function () {
+    $therapist = therapistUser();
+
+    $bookable = Client::factory()->create(['primary_therapist_id' => $therapist->id, 'status' => 'active']);
+    ClientService::factory()->for($bookable)->create(['therapist_id' => $therapist->id]);
+
+    $fullyBooked = Client::factory()->create(['primary_therapist_id' => $therapist->id, 'status' => 'active']);
+    $booked = ClientService::factory()->for($fullyBooked)->create(['therapist_id' => $therapist->id]);
+    ScheduleSession::factory()->linkedTo($booked)->create([
+        'client_id' => $fullyBooked->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'scheduled',
+    ]);
+
+    // Someone else's service on this therapist's client is not theirs to book.
+    $otherTherapists = Client::factory()->create(['primary_therapist_id' => $therapist->id, 'status' => 'active']);
+    ClientService::factory()->for($otherTherapists)->create(['therapist_id' => therapistUser()->id]);
+
+    $this->actingAs($therapist)->get('/therapist/clients')
+        ->assertInertia(function ($page) use ($bookable, $fullyBooked, $otherTherapists) {
+            $flags = collect($page->toArray()['props']['clients']['data'])
+                ->pluck('has_bookable_service', 'id');
+
+            expect($flags[$bookable->id])->toBeTrue()
+                ->and($flags[$fullyBooked->id])->toBeFalse()
+                ->and($flags[$otherTherapists->id])->toBeFalse();
+
+            return true;
+        });
+});
+
+test('the session form preselects a client passed from the caseload, ignoring one it cannot offer', function () {
+    $therapist = therapistUser();
+
+    $bookable = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
+    ClientService::factory()->for($bookable)->create(['therapist_id' => $therapist->id]);
+
+    $this->actingAs($therapist)->get("/therapist/sessions/create?client_id={$bookable->id}")
+        ->assertInertia(fn ($page) => $page->where('preselectedClientId', $bookable->id));
+
+    $stranger = Client::factory()->create();
+
+    $this->actingAs($therapist)->get("/therapist/sessions/create?client_id={$stranger->id}")
+        ->assertInertia(fn ($page) => $page->where('preselectedClientId', null));
 });

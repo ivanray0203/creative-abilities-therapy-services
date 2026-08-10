@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 
 import { InvoiceStatusBadge } from '@/components/invoices/badges';
 import InvoicesTable from '@/components/invoices/invoices-table';
+import PaginationFooter from '@/components/pagination-footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -91,6 +92,14 @@ export default function InvoicesIndex({
         router.get(
             basePath,
             { ...filters, search, [key]: value },
+            { preserveState: true, replace: true },
+        );
+    };
+
+    const goToPage = (page: number) => {
+        router.get(
+            basePath,
+            { ...filters, search, page },
             { preserveState: true, replace: true },
         );
     };
@@ -330,6 +339,16 @@ export default function InvoicesIndex({
                             showDirection={role === 'admin'}
                         />
                     )}
+
+                    <PaginationFooter
+                        className="mt-4"
+                        currentPage={invoices.current_page}
+                        lastPage={invoices.last_page}
+                        perPage={invoices.per_page}
+                        total={invoices.total}
+                        countOnPage={invoices.data.length}
+                        onPageChange={goToPage}
+                    />
                 </Card>
             </div>
         </>

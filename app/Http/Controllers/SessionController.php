@@ -93,11 +93,24 @@ class SessionController extends Controller
 
     public function create(Request $request): Response
     {
+        $clients = $this->clientOptions($request->user());
+
+        /*
+         * The caseload page links here per client. Only honour the hint when
+         * that client is genuinely selectable — otherwise the form would open
+         * showing a name that isn't in its own dropdown.
+         */
+        $requestedClientId = $request->integer('client_id');
+        $preselectedClientId = $clients->contains('id', $requestedClientId)
+            ? $requestedClientId
+            : null;
+
         return Inertia::render('sessions/create', [
             'isAdmin' => $request->user()->isAdmin(),
             'therapists' => $request->user()->isAdmin() ? $this->therapists() : [],
             'services' => $this->services(),
-            'clients' => $this->clientOptions($request->user()),
+            'clients' => $clients,
+            'preselectedClientId' => $preselectedClientId,
         ]);
     }
 

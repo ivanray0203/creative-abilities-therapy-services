@@ -106,6 +106,11 @@ export interface Client {
     primary_therapist?: TherapistOption | null;
     care_team?: TherapistOption[];
     client_services?: ClientService[];
+    /**
+     * Therapist caseload only: whether this therapist still has an availed
+     * service of this client's left to book.
+     */
+    has_bookable_service?: boolean;
     documents?: ClientDocument[];
     invoices?: Invoice[];
 }

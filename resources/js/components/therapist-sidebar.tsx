@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { getInitials } from '@/lib/helpers';
+import { isActiveNavItem } from '@/lib/navigation';
 
 const menuItems = [
     { title: 'Dashboard', icon: LayoutDashboard, url: '/therapist' },
@@ -70,11 +71,11 @@ export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {menuItems.map((item) => {
-                                const isDashboard = item.url === '/therapist';
-                                const isSelected = isDashboard
-                                    ? currentUrl === item.url
-                                    : currentUrl === item.url ||
-                                      currentUrl.startsWith(item.url + '/');
+                                const isSelected = isActiveNavItem(
+                                    currentUrl,
+                                    item.url,
+                                    { exact: item.url === '/therapist' },
+                                );
 
                                 return (
                                     <SidebarMenuItem key={item.title}>

@@ -16,6 +16,7 @@ import {
     FundingBadge,
     IntakeStatusBadge,
 } from '@/components/admin/intake/badges';
+import PaginationFooter from '@/components/pagination-footer';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -371,37 +372,15 @@ export default function AdminIntakeIndex({
                                 </tbody>
                             </table>
 
-                            <div className="mt-4 flex justify-end gap-2">
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="rounded-[10px]"
-                                    onClick={() =>
-                                        goToPage(intakes.current_page - 1)
-                                    }
-                                    disabled={intakes.current_page <= 1}
-                                >
-                                    Previous
-                                </Button>
-                                <span className="flex items-center px-2">
-                                    Page {intakes.current_page} of{' '}
-                                    {intakes.last_page}
-                                </span>
-                                <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="rounded-[10px]"
-                                    onClick={() =>
-                                        goToPage(intakes.current_page + 1)
-                                    }
-                                    disabled={
-                                        intakes.current_page >=
-                                        intakes.last_page
-                                    }
-                                >
-                                    Next
-                                </Button>
-                            </div>
+                            <PaginationFooter
+                                className="mt-4"
+                                currentPage={intakes.current_page}
+                                lastPage={intakes.last_page}
+                                perPage={intakes.per_page}
+                                total={intakes.total}
+                                countOnPage={intakes.data.length}
+                                onPageChange={goToPage}
+                            />
                         </div>
                     )}
                 </Card>
