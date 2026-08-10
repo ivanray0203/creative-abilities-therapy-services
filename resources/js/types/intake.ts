@@ -155,3 +155,16 @@ export interface Paginated<T> {
     per_page: number;
     total: number;
 }
+
+/**
+ * A service a therapist refused. Surfaced on the admin client Overview so a
+ * refusal after promotion does not go unnoticed — the intake itself is off
+ * the admin list by then.
+ */
+export interface DeclinedService {
+    service: string;
+    therapist_id: number | null;
+    therapist: string | null;
+    notes: string | null;
+    decided_at: string | null;
+}

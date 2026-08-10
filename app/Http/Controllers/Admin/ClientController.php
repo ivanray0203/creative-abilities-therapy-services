@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\UpdateClientRequest;
 use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
+use App\Models\IntakeTherapistApproval;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -100,7 +101,7 @@ class ClientController extends Controller
     public function show(Client $client): Response
     {
         $client->load([
-            'originalIntake',
+            'originalIntake.therapistReviews.therapist',
             'assignedTherapist',
             'primaryTherapist',
             'careTeam',
@@ -112,12 +113,48 @@ class ClientController extends Controller
 
         return Inertia::render('admin/clients/show', [
             'client' => $client,
+            'declinedServices' => $this->declinedServices($client),
             'therapists' => $this->therapists(),
             'services' => ServiceOffering::query()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
         ]);
+    }
+
+    /**
+     * Services a therapist refused, so they can be picked up again.
+     *
+     * A refusal leaves no ClientService behind, and the intake drops off the
+     * admin list once the child is promoted — without this the service would
+     * sit in the Overview's "requested" list, indistinguishable from one that
+     * was never sent to anyone.
+     *
+     * @return array<int, array{service: string, therapist_id: int|null, therapist: string|null, notes: string|null, decided_at: string|null}>
+     */
+    private function declinedServices(Client $client): array
+    {
+        $intake = $client->originalIntake;
+
+        if ($intake === null) {
+            return [];
+        }
+
+        return $intake->therapistReviews
+            ->where('status', 'rejected')
+            ->filter(fn (IntakeTherapistApproval $review): bool => $review->service !== null)
+            ->map(fn (IntakeTherapistApproval $review): array => [
+                'service' => (string) $review->service,
+                // The id, not just the name: the reassign picker drops the
+                // therapist who declined, and matching on a display name
+                // breaks the moment two people share one.
+                'therapist_id' => $review->therapist_id,
+                'therapist' => $review->therapist?->full_name,
+                'notes' => $review->notes,
+                'decided_at' => $review->decided_at?->toDateString(),
+            ])
+            ->values()
+            ->all();
     }
 
     /**

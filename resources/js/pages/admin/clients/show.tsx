@@ -18,10 +18,11 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
 import type { Client, ServiceOffering } from '@/types/client';
-import type { TherapistOption } from '@/types/intake';
+import type { DeclinedService, TherapistOption } from '@/types/intake';
 
 interface ClientShowProps {
     client: Client;
+    declinedServices: DeclinedService[];
     therapists: TherapistOption[];
     services: ServiceOffering[];
 }
@@ -29,6 +30,7 @@ interface ClientShowProps {
 /** Admin client detail page, ported from cats-frontend/src/pages/admin/ClientDetailPage.tsx. */
 export default function AdminClientShow({
     client,
+    declinedServices,
     therapists,
     services,
 }: ClientShowProps) {
@@ -120,7 +122,11 @@ export default function AdminClientShow({
                     </TabsList>
 
                     <TabsContent value="overview">
-                        <OverviewTab client={client} />
+                        <OverviewTab
+                            client={client}
+                            declinedServices={declinedServices}
+                            therapists={therapists}
+                        />
                     </TabsContent>
                     <TabsContent value="sessions">
                         <SessionsTab client={client} />

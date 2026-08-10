@@ -710,3 +710,119 @@ test('the detail page exposes the intake, therapists and allowed status transiti
             ->where('statusTransitions', ['approved', 'waitlist', 'denied'])
         );
 });
+
+test('a promoted intake stays on the intake list while a declined service is unresolved', function () {
+    $therapist = therapistUser();
+
+    $settled = Intake::factory()->create(['approved_as_client' => true]);
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $settled->id,
+        'therapist_id' => $therapist->id,
+        'service' => 'Physiotherapy',
+        'status' => 'approved',
+    ]);
+
+    $declined = Intake::factory()->create(['approved_as_client' => true, 'status' => 'pending']);
+    $review = IntakeTherapistApproval::factory()->create([
+        'intake_id' => $declined->id,
+        'therapist_id' => $therapist->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->get('/admin/intake')
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $declined->id)
+            ->where('intakes.data.0.status_label', 'Service Declined — Needs Reassignment')
+            ->where('intakes.data.0.status_variant', 'therapist_rejected')
+            // Promoted rows are outstanding work, not part of the intake
+            // pipeline, so they must not inflate the pipeline counters.
+            ->where('stats.pending', 0)
+        );
+
+    // Once it is picked up again the row leaves the list.
+    $review->update(['status' => 'reassign']);
+
+    $this->actingAs(adminUser())->get('/admin/intake')
+        ->assertInertia(fn ($page) => $page->has('intakes.data', 0));
+
+    expect($settled->fresh()->approved_as_client)->toBeTrue();
+});
+
+test('the intake page carries what the already-a-client banner needs', function () {
+    $therapist = therapistUser();
+    $intake = Intake::factory()->create([
+        'approved_as_client' => true,
+        'services_needed' => ['Physiotherapy', 'Counselling'],
+    ]);
+    $client = Client::factory()->create(['original_intake_id' => $intake->id]);
+    $intake->forceFill(['linked_client_id' => $client->id])->save();
+
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $therapist->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->get("/admin/intake/{$intake->id}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/intake/show')
+            ->where('intake.approved_as_client', true)
+            ->where('intake.linked_client_id', (string) $client->id)
+            ->has('intake.therapist_reviews', 1)
+            ->where('intake.therapist_reviews.0.status', 'rejected')
+            ->where('intake.therapist_reviews.0.service', 'Counselling')
+        );
+});
+
+test('sending to a therapist without naming a service is refused when the intake lists services', function () {
+    $therapist = therapistUser();
+    $intake = Intake::factory()->create(['services_needed' => ['Physiotherapy', 'Counselling']]);
+
+    // A caller that forgot the field used to create a stray whole-intake
+    // review, leaving the service it meant to route still unassigned.
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'therapist_id' => $therapist->id,
+    ])->assertSessionHasErrors('service');
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'service' => 'Not On This Intake',
+        'therapist_id' => $therapist->id,
+    ])->assertSessionHasErrors('service');
+
+    expect(IntakeTherapistApproval::count())->toBe(0);
+
+    // An intake with no services listed still routes as a whole.
+    $wholeIntake = Intake::factory()->create(['services_needed' => []]);
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$wholeIntake->id}/send-to-therapist", [
+        'therapist_id' => $therapist->id,
+    ])->assertSessionHasNoErrors();
+
+    expect(IntakeTherapistApproval::query()->where('intake_id', $wholeIntake->id)->first()->service)->toBeNull();
+});
+
+test('reassigning a declined service reuses its review rather than adding another', function () {
+    $decliner = therapistUser();
+    $replacement = therapistUser();
+    $intake = Intake::factory()->create(['services_needed' => ['Speech and Language Therapy']]);
+
+    $review = IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Speech and Language Therapy',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'service' => 'Speech and Language Therapy',
+        'therapist_id' => $replacement->id,
+    ])->assertSessionHasNoErrors();
+
+    expect(IntakeTherapistApproval::query()->where('intake_id', $intake->id)->count())->toBe(1)
+        ->and($review->fresh()->status)->toBe('reassign')
+        ->and($review->fresh()->therapist_id)->toBe($replacement->id);
+});

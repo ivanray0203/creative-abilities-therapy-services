@@ -4,6 +4,7 @@ use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
 use App\Models\Intake;
+use App\Models\IntakeTherapistApproval;
 use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
 use App\Models\User;
@@ -259,4 +260,75 @@ test('a therapist cannot export a client profile', function () {
 
     $this->actingAs(therapistUser())->get("/admin/clients/{$client->id}/pdf")
         ->assertRedirect('/therapist');
+});
+
+test('the client page marks services a therapist declined', function () {
+    $decliner = User::factory()->therapist()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
+    $intake = Intake::factory()->create(['services_needed' => ['Physiotherapy', 'Counselling']]);
+    $client = Client::factory()->create(['original_intake_id' => $intake->id]);
+
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+        'notes' => 'Caseload is full.',
+        'decided_at' => now(),
+    ]);
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Physiotherapy',
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->has('declinedServices', 1)
+            ->where('declinedServices.0.service', 'Counselling')
+            ->where('declinedServices.0.therapist', 'Jane Doe')
+            // The picker drops the decliner by id, so it has to travel too.
+            ->where('declinedServices.0.therapist_id', $decliner->id)
+            ->where('declinedServices.0.notes', 'Caseload is full.')
+        );
+});
+
+test('reassigning a declined service sends it back out and adds it to the existing client on approval', function () {
+    $decliner = therapistUser();
+    $replacement = therapistUser();
+    $service = ServiceOffering::factory()->create(['name' => 'Counselling']);
+
+    $intake = Intake::factory()->create([
+        'services_needed' => ['Counselling'],
+        'approved_as_client' => true,
+    ]);
+    $client = Client::factory()->create(['original_intake_id' => $intake->id]);
+    $intake->forceFill(['linked_client_id' => $client->id])->save();
+
+    $review = IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'service' => 'Counselling',
+        'therapist_id' => $replacement->id,
+    ])->assertSessionHasNoErrors();
+
+    expect($review->fresh()->status)->toBe('reassign')
+        ->and($review->fresh()->therapist_id)->toBe($replacement->id);
+
+    $this->actingAs($replacement)->post("/therapist/intake/{$intake->id}/therapist-approve", [
+        'service' => 'Counselling',
+    ])->assertSessionHasNoErrors();
+
+    // Attached to the client that already exists — no second promotion.
+    expect(Client::count())->toBe(1)
+        ->and($client->fresh()->clientServices->pluck('service_id')->all())->toBe([$service->id])
+        ->and($client->fresh()->careTeam->pluck('id'))->toContain($replacement->id);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page->has('declinedServices', 0));
 });

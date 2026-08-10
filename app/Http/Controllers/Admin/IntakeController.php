@@ -66,6 +66,20 @@ class IntakeController extends Controller
     {
         $baseQuery = Intake::query()->where('approved_as_client', false);
 
+        /*
+         * A promoted intake normally leaves this list — the child is a client
+         * now. One a therapist refused a service on is the exception: the
+         * refusal is still outstanding work, and dropping the row would leave
+         * nowhere to pick it up from. The stats stay on the intake pipeline
+         * proper, so these don't inflate the pending counts.
+         */
+        $listQuery = Intake::query()->where(function (Builder $query): void {
+            $query->where('approved_as_client', false)
+                ->orWhereHas('therapistReviews', function (Builder $reviews): void {
+                    $reviews->where('status', 'rejected');
+                });
+        });
+
         $stats = [
             'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
             'under_review' => (clone $baseQuery)->where('status', 'under_review')->count(),
@@ -79,7 +93,7 @@ class IntakeController extends Controller
         $search = trim((string) $request->query('search', ''));
         $funding = (string) $request->query('funding', 'all');
 
-        $intakes = (clone $baseQuery)
+        $intakes = $listQuery
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $inner) use ($search): void {
                     $inner->where('child_first_name', 'like', "%{$search}%")
@@ -257,8 +271,18 @@ class IntakeController extends Controller
 
     public function sendToTherapist(Request $request, Intake $intake): RedirectResponse
     {
+        /*
+         * A null service means "the whole intake", which is only meaningful
+         * for an intake that lists none. Accepting it for the rest let a
+         * caller that forgot the field silently create a second, parallel
+         * review instead of routing the service it meant to.
+         */
+        $listedServices = $intake->services_needed ?? [];
+
         $validated = $request->validate([
-            'service' => ['nullable', 'string'],
+            'service' => $listedServices === []
+                ? ['nullable', 'string']
+                : ['required', 'string', Rule::in($listedServices)],
             'therapist_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
@@ -859,8 +883,20 @@ class IntakeController extends Controller
      */
     private function resolveStatusBadge(Intake $intake, Collection $reviews): array
     {
+        $hasRejection = $reviews->contains(
+            fn (IntakeTherapistApproval $review): bool => $review->status === 'rejected',
+        );
+
+        if ($intake->approved_as_client && $hasRejection) {
+            return [
+                'label' => 'Service Declined — Needs Reassignment',
+                'short_label' => 'Declined',
+                'variant' => 'therapist_rejected',
+            ];
+        }
+
         if (! $intake->approved_as_client && $reviews->isNotEmpty()) {
-            if ($reviews->contains(fn (IntakeTherapistApproval $review): bool => $review->status === 'rejected')) {
+            if ($hasRejection) {
                 return [
                     'label' => 'Rejected by Therapist',
                     'short_label' => 'Rejected',
