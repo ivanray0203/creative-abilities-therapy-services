@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import InvoicePdfViewModal from '@/components/invoices/invoice-pdf-view-modal';
 import InvoicePrintable from '@/components/invoices/invoice-printable';
+import LinkedInvoicePanel from '@/components/invoices/linked-invoice-panel';
 import MarkAsPaidModal from '@/components/invoices/mark-as-paid-modal';
 import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
@@ -109,6 +110,10 @@ export default function InvoiceShow({ invoice, role }: InvoiceShowProps) {
                         )}
                     </div>
                 </div>
+
+                {role === 'admin' && (
+                    <LinkedInvoicePanel invoice={invoice} basePath={basePath} />
+                )}
 
                 <InvoicePrintable invoice={invoice} />
             </div>

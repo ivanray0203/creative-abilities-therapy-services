@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Admin\ServiceOfferingController;
 use App\Http\Controllers\Admin\TeamMemberController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Client\IntakeController as ClientIntakeController;
 use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientProfileController;
 use App\Http\Controllers\ComplaintController;
@@ -51,7 +52,11 @@ Route::post('contacts', [ContactController::class, 'store'])->name('public.conta
 
 Route::get('intake/apply', [IntakeApplicationController::class, 'create'])->name('public.intake.create');
 Route::post('intake/apply', [IntakeApplicationController::class, 'store'])->name('public.intake.store');
-Route::get('check-email', CheckEmailController::class)->name('public.check-email');
+// Throttled: this endpoint confirms whether an address is registered, so an
+// unlimited version would let anyone enumerate clients and applicants.
+Route::get('check-email', CheckEmailController::class)
+    ->middleware('throttle:10,1')
+    ->name('public.check-email');
 
 Route::get('therapists', TherapistListController::class)->middleware('auth')->name('therapists.index');
 
@@ -98,6 +103,7 @@ Route::middleware(['auth', 'role:admin'])
 
         Route::get('clients', [ClientController::class, 'index'])->name('admin.client.index');
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('admin.client.show');
+        Route::get('clients/{client}/pdf', [ClientController::class, 'exportPdf'])->name('admin.client.export-pdf');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('admin.client.edit');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('admin.client.update');
         Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('admin.client.destroy');
@@ -157,6 +163,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('team/add', [TeamMemberController::class, 'create'])->name('admin.team.create');
         Route::post('team', [TeamMemberController::class, 'store'])->name('admin.team.store');
         Route::get('team/edit/{teamMember}', [TeamMemberController::class, 'edit'])->name('admin.team.edit');
+        Route::get('team/{teamMember}/pdf', [TeamMemberController::class, 'exportPdf'])->name('admin.team.export-pdf');
         Route::get('team/{teamMember}', [TeamMemberController::class, 'show'])->name('admin.team.show');
         Route::put('team/{teamMember}', [TeamMemberController::class, 'update'])->name('admin.team.update');
         Route::delete('team/{teamMember}', [TeamMemberController::class, 'destroy'])->name('admin.team.destroy');
@@ -188,10 +195,10 @@ Route::middleware(['auth', 'role:therapist'])
     ->prefix('therapist')
     ->group(function () {
         Route::get('/', [TherapistDashboardController::class, 'index'])->name('therapist.home');
-        Route::inertia('reports', 'therapist/reports')->name('therapist.reports');
 
         Route::get('clients', [TherapistClientController::class, 'index'])->name('therapist.clients.index');
 
+        Route::get('intake', [TherapistIntakeController::class, 'index'])->name('therapist.intake.index');
         Route::get('intake/{intake}', [TherapistIntakeController::class, 'show'])->name('therapist.intake.show');
         Route::post('intake/{intake}/therapist-approve', [IntakeController::class, 'therapistApprove'])->name('therapist.intake.therapist-approve');
         Route::post('intake/{intake}/therapist-reject', [IntakeController::class, 'therapistReject'])->name('therapist.intake.therapist-reject');
@@ -234,8 +241,12 @@ Route::middleware(['auth', 'role:client'])
     ->prefix('client')
     ->group(function () {
         Route::get('/calendar', [ClientDashboardController::class, 'calendar'])->name('client.home');
-        Route::inertia('dashboard', 'client/dashboard')->name('client.dashboard');
-        Route::inertia('reports', 'client/reports')->name('client.reports');
+
+        Route::post('select-child', [ClientDashboardController::class, 'selectChild'])->name('client.select-child');
+
+        Route::get('intake', [ClientIntakeController::class, 'index'])->name('client.intake.index');
+        Route::get('intake/create', [ClientIntakeController::class, 'create'])->name('client.intake.create');
+        Route::post('intake', [ClientIntakeController::class, 'store'])->name('client.intake.store');
 
         Route::get('invoices', [InvoiceController::class, 'index'])->name('client.invoices.index');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('client.invoices.show');

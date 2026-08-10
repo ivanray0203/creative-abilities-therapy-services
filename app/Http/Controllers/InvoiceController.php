@@ -6,11 +6,13 @@ use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\UpdateInvoiceRequest;
 use App\Mail\InvoiceResendMail;
 use App\Models\Client;
+use App\Models\ClientService;
 use App\Models\Invoice;
 use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ClientContext;
 use App\Services\ReferenceNumberGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -32,6 +34,16 @@ use Inertia\Response;
  */
 class InvoiceController extends Controller
 {
+    /**
+     * Session statuses that mean the visit has actually been delivered, and
+     * so can be billed for.
+     *
+     * @var array<int, string>
+     */
+    private const DELIVERED_SESSION_STATUSES = ['pending', 'confirmed', 'completed'];
+
+    public function __construct(private ClientContext $clientContext) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -40,12 +52,16 @@ class InvoiceController extends Controller
         $quick = (string) $request->query('quick', 'all');
         $search = trim((string) $request->query('search', ''));
         $status = (string) $request->query('status', 'all');
+        // Which side of the two-hop ledger to show. Only the admin sees both,
+        // so the filter is ignored for everyone else.
+        $direction = $user->isAdmin() ? (string) $request->query('direction', 'all') : 'all';
 
         $filtered = (clone $baseQuery)
             ->when($quick === 'paid', fn (Builder $query) => $query->where('status', 'paid'))
             ->when($quick === 'unpaid', fn (Builder $query) => $query->whereIn('status', ['sent', 'unpaid']))
             ->when($quick === 'overdue', fn (Builder $query) => $query->where('status', 'overdue'))
             ->when($status !== 'all', fn (Builder $query) => $query->where('status', $status))
+            ->when($direction !== 'all', fn (Builder $query) => $query->where('billed_by', $direction))
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->whereHas('client.originalIntake', function (Builder $inner) use ($search): void {
                     $inner->where('child_first_name', 'like', "%{$search}%")
@@ -67,12 +83,17 @@ class InvoiceController extends Controller
             'pending' => (clone $baseQuery)->whereIn('status', ['sent', 'unpaid', 'draft'])->count(),
             'overdue' => (clone $baseQuery)->where('status', 'overdue')->count(),
             'total_revenue' => (clone $baseQuery)->where('status', 'paid')->sum('total'),
+            // What the clinic still owes its therapists. Only the admin sits
+            // on that side of the ledger, so nobody else is shown a figure.
+            'owed_to_therapists' => $user->isAdmin()
+                ? Invoice::query()->where('billed_by', 'therapist')->whereNot('status', 'paid')->sum('total')
+                : null,
         ];
 
         return Inertia::render('invoices/index', [
             'invoices' => $invoices,
             'stats' => $stats,
-            'filters' => ['quick' => $quick, 'search' => $search, 'status' => $status],
+            'filters' => ['quick' => $quick, 'search' => $search, 'status' => $status, 'direction' => $direction],
             'role' => $user->role,
         ]);
     }
@@ -81,7 +102,10 @@ class InvoiceController extends Controller
     {
         $this->assertCanView($invoice, $request->user());
 
-        $invoice->load(['client.originalIntake', 'therapist', 'session', 'linkedTherapistInvoice', 'linkedAdminInvoices']);
+        $invoice->load([
+            'client.originalIntake', 'therapist', 'session',
+            'linkedTherapistInvoice.therapist', 'linkedAdminInvoices.client.originalIntake',
+        ]);
 
         return Inertia::render('invoices/show', [
             'invoice' => $invoice,
@@ -93,8 +117,9 @@ class InvoiceController extends Controller
     {
         return Inertia::render('invoices/create', [
             'role' => $request->user()->role,
-            'clients' => $this->clientOptions(),
+            'clients' => $this->clientOptions($request->user()),
             'services' => $this->serviceOptions(),
+            'therapistInvoices' => $this->recoverableTherapistInvoices($request->user()),
         ]);
     }
 
@@ -118,7 +143,7 @@ class InvoiceController extends Controller
         ]);
 
         $invoice->calculateTotals();
-        $invoice->linked_therapist_invoice_id = $this->linkedTherapistInvoiceId($validated['session_id'] ?? null, $billedBy);
+        $invoice->linked_therapist_invoice_id = $this->recoveredTherapistInvoiceId($validated, $billedBy);
         $invoice->save();
 
         if ($invoice->status === 'sent') {
@@ -137,8 +162,9 @@ class InvoiceController extends Controller
         return Inertia::render('invoices/edit', [
             'invoice' => $invoice,
             'role' => $request->user()->role,
-            'clients' => $this->clientOptions(),
+            'clients' => $this->clientOptions($request->user(), $invoice),
             'services' => $this->serviceOptions(),
+            'therapistInvoices' => $this->recoverableTherapistInvoices($request->user(), $invoice),
         ]);
     }
 
@@ -155,6 +181,10 @@ class InvoiceController extends Controller
         }
 
         $invoice->calculateTotals();
+        $invoice->linked_therapist_invoice_id = $this->recoveredTherapistInvoiceId(
+            $validated,
+            (string) $invoice->billed_by,
+        );
         $invoice->timeline = [
             ...($invoice->timeline ?? []),
             $this->timelineEntry('Invoice updated'),
@@ -170,8 +200,10 @@ class InvoiceController extends Controller
         return to_route($this->routeName($request, 'invoices.show'), $invoice)->with('success', 'Invoice updated successfully.');
     }
 
-    public function destroy(Invoice $invoice): RedirectResponse
+    public function destroy(Request $request, Invoice $invoice): RedirectResponse
     {
+        abort_unless($request->user()->can('delete', $invoice), 404);
+
         $invoice->delete();
 
         AuditLogger::log('Deleted invoice', 'Invoices', "Deleted invoice {$invoice->invoice_id}", 'warning');
@@ -185,7 +217,7 @@ class InvoiceController extends Controller
             'session_id' => ['required', 'integer', 'exists:schedule_sessions,id'],
         ]);
 
-        $session = ScheduleSession::query()->with(['client', 'service', 'linkedClientService.service'])->findOrFail((int) $validated['session_id']);
+        $session = ScheduleSession::query()->with(['client', 'service', 'clientServices.service'])->findOrFail((int) $validated['session_id']);
 
         if ($session->status !== 'completed') {
             throw ValidationException::withMessages([
@@ -197,9 +229,15 @@ class InvoiceController extends Controller
         $billedBy = $user->isAdmin() ? 'admin' : 'therapist';
         $client = $session->client;
 
-        $linkedService = optional(optional($session->linkedClientService)->service)->base_price;
+        // A visit can deliver several availed services, so the line item is
+        // priced at their combined rate.
+        $linkedServices = $session->clientServices
+            ->map(fn (ClientService $clientService): ?float => $clientService->service?->base_price)
+            ->filter();
         $directService = optional($session->service);
-        $rate = (float) ($linkedService ?? $directService->base_price ?? 0);
+        $rate = $linkedServices->isNotEmpty()
+            ? (float) $linkedServices->sum()
+            : (float) ($directService->base_price ?? 0);
         $serviceName = $directService->name ?? $session->service_name ?? 'Session';
 
         $invoice = new Invoice([
@@ -223,7 +261,10 @@ class InvoiceController extends Controller
 
         $invoice->invoice_id = app(ReferenceNumberGenerator::class)->invoice();
         $invoice->calculateTotals();
-        $invoice->linked_therapist_invoice_id = $this->linkedTherapistInvoiceId($session->id, $billedBy);
+        $invoice->linked_therapist_invoice_id = $this->recoveredTherapistInvoiceId(
+            ['session_id' => $session->id],
+            $billedBy,
+        );
         $invoice->save();
 
         AuditLogger::log('Generated invoice from session', 'Invoices', "Generated invoice {$invoice->invoice_id} from session #{$session->id}");
@@ -231,8 +272,10 @@ class InvoiceController extends Controller
         return to_route($this->routeName($request, 'invoices.show'), $invoice)->with('success', 'Invoice generated from session.');
     }
 
-    public function markPaid(Invoice $invoice): RedirectResponse
+    public function markPaid(Request $request, Invoice $invoice): RedirectResponse
     {
+        abort_unless($request->user()->can('markPaid', $invoice), 404);
+
         $invoice->update([
             'status' => 'paid',
             'paid_at' => now(),
@@ -279,14 +322,36 @@ class InvoiceController extends Controller
      * if one exists, otherwise the primary parent email on the originating
      * intake. Silently does nothing if neither is available.
      */
+    /**
+     * Money moves in two hops — the client pays the clinic, the clinic pays
+     * the therapist — so an invoice goes to whoever owes it. A therapist's
+     * bill is addressed to the admins; only the clinic's own bill reaches the
+     * parent.
+     */
     private function emailInvoice(Invoice $invoice): void
     {
+        foreach ($this->invoiceRecipients($invoice) as $recipientEmail) {
+            Mail::to($recipientEmail)->send(new InvoiceResendMail($invoice));
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function invoiceRecipients(Invoice $invoice): array
+    {
+        if ($invoice->billed_by === 'therapist') {
+            return User::query()
+                ->where('role', 'admin')
+                ->where('is_active', true)
+                ->pluck('email')
+                ->all();
+        }
+
         $client = optional($invoice->client);
         $recipientEmail = optional($client->user)->email ?? optional($client->originalIntake)->primary_parent_email;
 
-        if ($recipientEmail !== null) {
-            Mail::to($recipientEmail)->send(new InvoiceResendMail($invoice));
-        }
+        return $recipientEmail !== null ? [$recipientEmail] : [];
     }
 
     public function byTherapist(User $user): JsonResponse
@@ -313,36 +378,31 @@ class InvoiceController extends Controller
         }
 
         if ($user->isTherapist()) {
-            return Invoice::query()->where('therapist_id', $user->id);
+            return Invoice::query()
+                ->where('therapist_id', $user->id)
+                ->where('billed_by', 'therapist');
         }
 
-        $clientId = $user->clientProfile !== null ? $user->clientProfile->id : 0;
-
-        return Invoice::query()->where('client_id', $clientId);
+        // The list follows the portal switcher — one child at a time.
+        return Invoice::query()
+            ->where('client_id', $this->clientContext->currentId($user) ?? 0)
+            ->where('billed_by', 'admin');
     }
+
+    /*
+     * The rules live in InvoicePolicy (Phase 18). These wrappers keep call
+     * sites unchanged and keep denials as 404 rather than the 403
+     * `authorize()` would raise.
+     */
 
     private function assertCanView(Invoice $invoice, User $user): void
     {
-        if ($user->isAdmin()) {
-            return;
-        }
-
-        if ($user->isTherapist() && $invoice->therapist_id === $user->id) {
-            return;
-        }
-
-        if ($user->isClient() && $invoice->client_id === $user->clientProfile?->id) {
-            return;
-        }
-
-        abort(404);
+        abort_unless($user->can('view', $invoice), 404);
     }
 
     private function assertOwnsOrAdmin(Invoice $invoice, User $user): void
     {
-        if (! $user->isAdmin() && $invoice->therapist_id !== $user->id) {
-            abort(404);
-        }
+        abort_unless($user->can('update', $invoice), 404);
     }
 
     /**
@@ -393,16 +453,67 @@ class InvoiceController extends Controller
      *
      * @return int<0, max>|null
      */
-    private function linkedTherapistInvoiceId(?int $sessionId, string $billedBy): ?int
+    /**
+     * The therapist bill this clinic invoice recovers, so the admin can see
+     * what the family owes them and what they owe the therapist side by side.
+     *
+     * The admin's explicit choice wins; failing that, a therapist invoice for
+     * the same session is matched automatically, which is the common case
+     * when both sides bill from one visit. Therapist invoices never link —
+     * they are the far end of the chain.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return int<0, max>|null
+     */
+    private function recoveredTherapistInvoiceId(array $validated, string $billedBy): ?int
     {
-        if ($billedBy !== 'admin' || ! $sessionId) {
+        if ($billedBy !== 'admin') {
             return null;
         }
 
-        return Invoice::query()
+        if (array_key_exists('linked_therapist_invoice_id', $validated)) {
+            return $validated['linked_therapist_invoice_id'] !== null
+                ? max(0, (int) $validated['linked_therapist_invoice_id'])
+                : null;
+        }
+
+        $sessionId = $validated['session_id'] ?? null;
+
+        if (! $sessionId) {
+            return null;
+        }
+
+        $matched = Invoice::query()
             ->where('session_id', $sessionId)
             ->where('billed_by', 'therapist')
             ->value('id');
+
+        return $matched !== null ? max(0, (int) $matched) : null;
+    }
+
+    /**
+     * Therapist bills the clinic has not settled yet, offered on the admin
+     * invoice form so a client invoice can be pointed at the cost behind it.
+     *
+     * @return Collection<int, Invoice>
+     */
+    private function recoverableTherapistInvoices(User $user, ?Invoice $invoice = null): Collection
+    {
+        if (! $user->isAdmin()) {
+            return new Collection;
+        }
+
+        return Invoice::query()
+            ->where('billed_by', 'therapist')
+            ->where(function (Builder $selectable) use ($invoice): void {
+                $selectable->whereNot('status', 'paid');
+
+                if ($invoice?->linked_therapist_invoice_id !== null) {
+                    $selectable->orWhere('id', $invoice->linked_therapist_invoice_id);
+                }
+            })
+            ->with('therapist:id,first_name,last_name')
+            ->get(['id', 'invoice_id', 'client_id', 'therapist_id', 'total', 'amount_due', 'status', 'invoice_date']);
     }
 
     private function routeName(Request $request, string $suffix): string
@@ -425,11 +536,30 @@ class InvoiceController extends Controller
     }
 
     /**
+     * Clients billable from the invoice form: those with at least one session
+     * already delivered. A visit counts as delivered once the therapist has
+     * clocked out of it — `pending` (awaiting the client's sign-off),
+     * `confirmed` (signed off) and `completed` (paid for). Anything merely
+     * booked, cancelled or missed has nothing to bill for yet.
+     *
+     * A therapist only sees clients they themselves have delivered a session
+     * to; admins bill for anyone. The invoice being edited keeps its own
+     * client selectable so reopening it never renders an empty field.
+     *
      * @return Collection<int, Client>
      */
-    private function clientOptions(): Collection
+    private function clientOptions(User $user, ?Invoice $invoice = null): Collection
     {
         return Client::query()
+            ->where(function (Builder $selectable) use ($user, $invoice): void {
+                $selectable->whereHas('sessions', fn (Builder $sessions) => $sessions
+                    ->whereIn('status', self::DELIVERED_SESSION_STATUSES)
+                    ->when(! $user->isAdmin(), fn (Builder $own) => $own->where('therapist_id', $user->id)));
+
+                if ($invoice?->client_id !== null) {
+                    $selectable->orWhere('clients.id', $invoice->client_id);
+                }
+            })
             ->with('originalIntake:id,child_first_name,child_last_name')
             ->get(['id', 'original_intake_id']);
     }

@@ -11,6 +11,7 @@ use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
+use App\Services\PdfService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin client pipeline (reference: cats-frontend/src/pages/admin/ClientsPage.tsx
@@ -116,6 +118,24 @@ class ClientController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
         ]);
+    }
+
+    /**
+     * The client page as a PDF — Overview, Sessions, Funding, Notes and
+     * Therapist in one document, for case files and referrals.
+     */
+    public function exportPdf(Client $client, PdfService $pdfService): StreamedResponse
+    {
+        $pdf = $pdfService->clientProfile($client);
+        $name = Str::slug($client->displayName());
+
+        AuditLogger::log('Exported client profile', 'Clients', "Exported client #{$client->id} as PDF");
+
+        return response()->streamDownload(
+            fn () => print ($pdf),
+            "{$name}-profile.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     public function edit(Client $client): Response

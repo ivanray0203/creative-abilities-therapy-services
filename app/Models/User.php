@@ -81,10 +81,16 @@ class User extends Authenticatable
         return $this->hasOne(TeamMember::class);
     }
 
-    /** @return HasOne<Client, $this> */
-    public function clientProfile(): HasOne
+    /**
+     * A parent may have several children in care, each its own Client record
+     * (Phase 17). Use ClientContext to resolve which one the portal is
+     * currently scoped to.
+     *
+     * @return HasMany<Client, $this>
+     */
+    public function clientProfiles(): HasMany
     {
-        return $this->hasOne(Client::class);
+        return $this->hasMany(Client::class);
     }
 
     /** @return HasMany<Intake, $this> */

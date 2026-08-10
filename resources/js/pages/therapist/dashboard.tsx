@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { SessionServiceTags } from '@/components/sessions/badges';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -374,11 +375,10 @@ export default function TherapistDashboard({
                                                     ? `${intake.child_first_name} ${intake.child_last_name}`
                                                     : 'Client'}
                                             </p>
-                                            <p className="text-sm text-muted-foreground">
-                                                {session.service?.name ||
-                                                    session.service_name ||
-                                                    'Service'}
-                                            </p>
+                                            <SessionServiceTags
+                                                session={session}
+                                                className="mt-1"
+                                            />
                                         </div>
                                     </div>
 

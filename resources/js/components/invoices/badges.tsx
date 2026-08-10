@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import type { InvoiceStatus } from '@/types/invoice';
+import type { BilledBy, InvoiceStatus } from '@/types/invoice';
 
 /** Invoice status badge, mirrors admin/intake/badges.tsx conventions. */
 
@@ -27,6 +27,40 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
             className={`rounded-[5px] text-xs md:text-sm ${STATUS_CLASSES[status]}`}
         >
             {STATUS_LABELS[status]}
+        </Badge>
+    );
+}
+
+/**
+ * Which way a bill points, from the clinic's seat in the middle of the two
+ * hops: a therapist bills the clinic, and the clinic bills the family. Both
+ * kinds name a child, so without this the admin list cannot tell money going
+ * out from money coming in.
+ */
+const DIRECTION_LABELS: Record<BilledBy, string> = {
+    therapist: 'From Therapist',
+    admin: 'To Client',
+};
+
+const DIRECTION_CLASSES: Record<BilledBy, string> = {
+    therapist: 'bg-amber-100 text-amber-800 border border-amber-400',
+    admin: 'bg-sky-100 text-sky-800 border border-sky-400',
+};
+
+export function InvoiceDirectionBadge({
+    billedBy,
+}: {
+    billedBy: BilledBy | null;
+}) {
+    if (!billedBy) {
+        return <span className="text-muted-foreground">-</span>;
+    }
+
+    return (
+        <Badge
+            className={`rounded-[5px] text-xs md:text-sm ${DIRECTION_CLASSES[billedBy]}`}
+        >
+            {DIRECTION_LABELS[billedBy]}
         </Badge>
     );
 }

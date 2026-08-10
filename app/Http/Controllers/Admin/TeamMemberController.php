@@ -13,6 +13,7 @@ use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
+use App\Services\PdfService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin team-member management (reference: cats-frontend/src/pages/admin/TeamPage.tsx
@@ -147,6 +149,24 @@ class TeamMemberController extends Controller
         return Inertia::render('admin/team/edit', [
             'teamMember' => $teamMember->load('user'),
         ]);
+    }
+
+    /**
+     * The edit screen's whole record as a PDF, for personnel files and
+     * anything that has to leave the system on paper.
+     */
+    public function exportPdf(TeamMember $teamMember, PdfService $pdfService): StreamedResponse
+    {
+        $pdf = $pdfService->teamMemberProfile($teamMember);
+        $name = Str::slug($teamMember->user?->full_name ?: "team-member-{$teamMember->id}");
+
+        AuditLogger::log('Exported team member profile', 'Users', "Exported team member #{$teamMember->id} as PDF");
+
+        return response()->streamDownload(
+            fn () => print ($pdf),
+            "{$name}-profile.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     public function update(UpdateTeamMemberRequest $request, TeamMember $teamMember): RedirectResponse

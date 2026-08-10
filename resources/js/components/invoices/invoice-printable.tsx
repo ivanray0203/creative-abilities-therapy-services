@@ -15,6 +15,17 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
         ? `${invoice.client.original_intake.child_first_name} ${invoice.client.original_intake.child_last_name}`
         : invoice.bill_to_name;
 
+    /*
+     * Billing runs in two hops. A therapist bills the clinic for the work
+     * they delivered; the clinic bills the family. The document has to be
+     * addressed accordingly, or a therapist's invoice reads as though the
+     * parent owes them directly.
+     */
+    const isTherapistBill = invoice.billed_by === 'therapist';
+    const therapistName = invoice.therapist
+        ? `${invoice.therapist.first_name} ${invoice.therapist.last_name}`
+        : 'Therapist';
+
     return (
         <div className="grid grid-cols-1 gap-5">
             <Card className="rounded-[10px]">
@@ -22,19 +33,26 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
                     <div className="flex flex-col justify-between gap-4 sm:flex-row">
                         <div>
                             <p className="text-lg font-bold text-primary">
-                                {organization.name}
+                                {isTherapistBill
+                                    ? therapistName
+                                    : organization.name}
                             </p>
-                            {organization.address && (
+                            {isTherapistBill && invoice.therapist?.email && (
+                                <p className="text-sm text-muted-foreground">
+                                    {invoice.therapist.email}
+                                </p>
+                            )}
+                            {!isTherapistBill && organization.address && (
                                 <p className="text-sm text-muted-foreground">
                                     {organization.address}
                                 </p>
                             )}
-                            {organization.phone && (
+                            {!isTherapistBill && organization.phone && (
                                 <p className="text-sm text-muted-foreground">
                                     {organization.phone}
                                 </p>
                             )}
-                            {organization.email && (
+                            {!isTherapistBill && organization.email && (
                                 <p className="text-sm text-muted-foreground">
                                     {organization.email}
                                 </p>
@@ -59,17 +77,40 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
             <Card className="rounded-[10px]">
                 <CardContent className="p-5">
                     <p className="font-bold text-primary">Bill To</p>
-                    <p>{invoice.bill_to_name ?? childName ?? '-'}</p>
-                    <p className="text-sm text-muted-foreground">
-                        {invoice.bill_to_email ??
-                            invoice.client?.original_intake
-                                ?.primary_parent_email}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                        {invoice.bill_to_phone ??
-                            invoice.client?.original_intake
-                                ?.primary_parent_phone}
-                    </p>
+                    {isTherapistBill ? (
+                        <>
+                            <p>{organization.name}</p>
+                            {organization.email && (
+                                <p className="text-sm text-muted-foreground">
+                                    {organization.email}
+                                </p>
+                            )}
+                            {organization.phone && (
+                                <p className="text-sm text-muted-foreground">
+                                    {organization.phone}
+                                </p>
+                            )}
+                            {childName && (
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    For services delivered to {childName}
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <p>{invoice.bill_to_name ?? childName ?? '-'}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {invoice.bill_to_email ??
+                                    invoice.client?.original_intake
+                                        ?.primary_parent_email}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {invoice.bill_to_phone ??
+                                    invoice.client?.original_intake
+                                        ?.primary_parent_phone}
+                            </p>
+                        </>
+                    )}
                 </CardContent>
             </Card>
 

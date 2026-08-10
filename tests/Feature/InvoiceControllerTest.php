@@ -239,3 +239,291 @@ test('only an admin can delete an invoice', function () {
 
     expect(Invoice::find($invoice->id))->toBeNull();
 });
+
+test('the invoice form only offers clients with a session already delivered', function () {
+    $therapist = therapistUser();
+
+    $delivered = Client::factory()->create();
+    ScheduleSession::factory()->create([
+        'client_id' => $delivered->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'pending',
+    ]);
+
+    $bookedOnly = Client::factory()->create();
+    ScheduleSession::factory()->create([
+        'client_id' => $bookedOnly->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'scheduled',
+    ]);
+
+    Client::factory()->create(); // no sessions at all
+
+    foreach (['/admin/invoices/create' => adminUser(), '/therapist/invoices/create' => $therapist] as $url => $user) {
+        $this->actingAs($user)->get($url)
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('clients', 1)
+                ->where('clients.0.id', $delivered->id)
+            );
+    }
+});
+
+test('a therapist only sees clients they themselves have delivered a session to', function () {
+    $therapist = therapistUser();
+    $otherTherapist = therapistUser();
+
+    $mine = Client::factory()->create();
+    ScheduleSession::factory()->create([
+        'client_id' => $mine->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+    ]);
+
+    $theirs = Client::factory()->create();
+    ScheduleSession::factory()->create([
+        'client_id' => $theirs->id,
+        'therapist_id' => $otherTherapist->id,
+        'status' => 'completed',
+    ]);
+
+    $this->actingAs($therapist)->get('/therapist/invoices/create')
+        ->assertInertia(fn ($page) => $page
+            ->has('clients', 1)
+            ->where('clients.0.id', $mine->id)
+        );
+
+    $this->actingAs(adminUser())->get('/admin/invoices/create')
+        ->assertInertia(fn ($page) => $page->has('clients', 2));
+});
+
+test('editing an invoice keeps its own client selectable even with no delivered session', function () {
+    $client = Client::factory()->create();
+    $invoice = Invoice::factory()->create(['client_id' => $client->id, 'billed_by' => 'admin']);
+
+    $this->actingAs(adminUser())->get("/admin/invoices/{$invoice->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('clients', 1)
+            ->where('clients.0.id', $client->id)
+        );
+});
+
+test('a therapist invoice is billed to the clinic and never reaches the family', function () {
+    $therapist = therapistUser();
+    $client = clientWithUser();
+
+    $therapistInvoice = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+    ]);
+    $clientInvoice = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'admin',
+    ]);
+
+    // The parent sees only what the clinic billed them.
+    $this->actingAs($client->user)->get('/client/invoices')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 1)
+            ->where('invoices.data.0.id', $clientInvoice->id)
+        );
+    $this->actingAs($client->user)->get("/client/invoices/{$therapistInvoice->id}")->assertNotFound();
+    $this->actingAs($client->user)->get("/client/invoices/{$clientInvoice->id}")->assertOk();
+
+    // The therapist sees only their own bill to the clinic.
+    $this->actingAs($therapist)->get('/therapist/invoices')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 1)
+            ->where('invoices.data.0.id', $therapistInvoice->id)
+        );
+    $this->actingAs($therapist)->get("/therapist/invoices/{$clientInvoice->id}")->assertNotFound();
+
+    // The admin sits in the middle and sees both.
+    $this->actingAs(adminUser())->get('/admin/invoices')
+        ->assertInertia(fn ($page) => $page->has('invoices.data', 2));
+});
+
+test('a therapist cannot edit or resend the clinic\'s invoice to the family', function () {
+    $therapist = therapistUser();
+    $client = clientWithUser();
+
+    $clientInvoice = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'admin',
+    ]);
+
+    $this->actingAs($therapist)->get("/therapist/invoices/{$clientInvoice->id}/edit")->assertNotFound();
+    $this->actingAs($therapist)->post("/therapist/invoices/{$clientInvoice->id}/resend")->assertNotFound();
+});
+
+test('sending a therapist invoice emails the admins, not the parent', function () {
+    Mail::fake();
+
+    $admin = adminUser();
+    $therapist = therapistUser();
+    $client = clientWithUser();
+    ScheduleSession::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+    ]);
+
+    $this->actingAs($therapist)->post('/therapist/invoices', [
+        'client_id' => $client->id,
+        'invoice_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+        'action' => 'send',
+        'services' => [[
+            'name' => 'Speech Therapy',
+            'numberOfSessions' => 1,
+            'rate_numeric' => 120,
+        ]],
+    ])->assertSessionHasNoErrors();
+
+    Mail::assertQueued(InvoiceResendMail::class, fn ($mail) => $mail->hasTo($admin->email));
+    Mail::assertNotQueued(InvoiceResendMail::class, fn ($mail) => $mail->hasTo($client->user->email));
+});
+
+test('an admin invoice can be linked to the therapist bill it recovers', function () {
+    $therapist = therapistUser();
+    $client = clientWithUser();
+    ScheduleSession::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+    ]);
+
+    $therapistInvoice = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+        'status' => 'sent',
+    ]);
+
+    $this->actingAs(adminUser())->post('/admin/invoices', [
+        'client_id' => $client->id,
+        'linked_therapist_invoice_id' => $therapistInvoice->id,
+        'invoice_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+        'action' => 'draft',
+        'services' => [[
+            'name' => 'Speech Therapy',
+            'numberOfSessions' => 1,
+            'rate_numeric' => 150,
+        ]],
+    ])->assertSessionHasNoErrors();
+
+    $adminInvoice = Invoice::query()->where('billed_by', 'admin')->firstOrFail();
+    expect($adminInvoice->linked_therapist_invoice_id)->toBe($therapistInvoice->id);
+    expect($therapistInvoice->fresh()->linkedAdminInvoices->pluck('id')->all())->toBe([$adminInvoice->id]);
+});
+
+test('an admin invoice cannot recover another client\'s therapist bill', function () {
+    $therapist = therapistUser();
+    $client = clientWithUser();
+    $otherClient = Client::factory()->create();
+    ScheduleSession::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+    ]);
+
+    $foreignInvoice = Invoice::factory()->create([
+        'client_id' => $otherClient->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+    ]);
+
+    $this->actingAs(adminUser())->post('/admin/invoices', [
+        'client_id' => $client->id,
+        'linked_therapist_invoice_id' => $foreignInvoice->id,
+        'invoice_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+        'action' => 'draft',
+        'services' => [['name' => 'Speech Therapy', 'numberOfSessions' => 1, 'rate_numeric' => 150]],
+    ])->assertSessionHasErrors('linked_therapist_invoice_id');
+});
+
+test('the invoice form offers only unsettled therapist bills, and the admin list totals what is owed', function () {
+    $therapist = therapistUser();
+    $client = clientWithUser();
+    ScheduleSession::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+    ]);
+
+    $unpaid = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+        'status' => 'sent',
+        'total' => 120,
+    ]);
+    Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+        'status' => 'paid',
+        'total' => 300,
+    ]);
+
+    $this->actingAs(adminUser())->get('/admin/invoices/create')
+        ->assertInertia(fn ($page) => $page
+            ->has('therapistInvoices', 1)
+            ->where('therapistInvoices.0.id', $unpaid->id)
+        );
+
+    $this->actingAs(adminUser())->get('/admin/invoices')
+        ->assertInertia(fn ($page) => $page->where('stats.owed_to_therapists', 120));
+
+    $this->actingAs($therapist)->get('/therapist/invoices')
+        ->assertInertia(fn ($page) => $page->where('stats.owed_to_therapists', null));
+});
+
+test('the admin invoice list can be filtered to one side of the ledger', function () {
+    $therapist = therapistUser();
+    $client = clientWithUser();
+
+    $fromTherapist = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+    ]);
+    $toClient = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'billed_by' => 'admin',
+    ]);
+
+    $admin = adminUser();
+
+    $this->actingAs($admin)->get('/admin/invoices')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 2)
+            ->where('filters.direction', 'all')
+        );
+
+    $this->actingAs($admin)->get('/admin/invoices?direction=therapist')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 1)
+            ->where('invoices.data.0.id', $fromTherapist->id)
+        );
+
+    $this->actingAs($admin)->get('/admin/invoices?direction=admin')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 1)
+            ->where('invoices.data.0.id', $toClient->id)
+        );
+
+    // A therapist only ever sees their own side, so a hand-typed direction
+    // must not widen what they get back.
+    $this->actingAs($therapist)->get('/therapist/invoices?direction=admin')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 1)
+            ->where('invoices.data.0.id', $fromTherapist->id)
+        );
+});

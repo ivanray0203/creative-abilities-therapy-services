@@ -2,6 +2,7 @@
 
 use App\Models\ConsentDocument;
 use App\Models\Intake;
+use App\Models\User;
 use App\Models\UserConsentAcceptance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -119,4 +120,241 @@ test('mismatched primary parent emails fail validation', function () {
     $response->assertSessionHasErrors(['primary_parent_email_confirm']);
 
     expect(Intake::count())->toBe(0);
+});
+
+/**
+ * Phase 17 — a parent who already has an account must register additional
+ * children from inside the portal, so every child stays under one login.
+ *
+ * @see tasks/17-multi-child-client-model.md
+ */
+test('a parent who already has a client account cannot submit the public intake form', function () {
+    User::factory()->client()->create(['email' => 'jane@example.com']);
+
+    $this->post('/intake/apply', validIntakePayload())
+        ->assertSessionHasErrors('primary_parent_email');
+
+    expect(Intake::count())->toBe(0);
+});
+
+test('a pending intake alone does not block a later public submission', function () {
+    // No account exists yet — the first intake is still under review, so the
+    // parent has nowhere to log in and must be able to submit again.
+    Intake::factory()->create(['primary_parent_email' => 'jane@example.com']);
+
+    $this->post('/intake/apply', validIntakePayload())
+        ->assertSessionHasNoErrors();
+
+    expect(Intake::where('primary_parent_email', 'jane@example.com')->count())->toBe(2);
+});
+
+test('a therapist account does not block a public intake submission', function () {
+    User::factory()->therapist()->create(['email' => 'jane@example.com']);
+
+    $this->post('/intake/apply', validIntakePayload())
+        ->assertSessionHasNoErrors();
+
+    expect(Intake::count())->toBe(1);
+});
+
+test('a signed-in parent can register another child from the portal', function () {
+    $client = clientWithUser();
+    $parent = $client->user;
+
+    $payload = validIntakePayload([
+        'child_first_name' => 'Maria',
+        'primary_parent_email' => $parent->email,
+        'primary_parent_email_confirm' => $parent->email,
+    ]);
+
+    $this->actingAs($parent)->post('/client/intake', $payload)
+        ->assertSessionHasNoErrors();
+
+    $intake = Intake::where('child_first_name', 'Maria')->first();
+    expect($intake)->not->toBeNull();
+    expect($intake->submitted_by_id)->toBe($parent->id);
+    expect($intake->status)->toBe('pending');
+});
+
+test('a portal intake must use the email on the parent\'s own account', function () {
+    $parent = clientWithUser()->user;
+
+    $payload = validIntakePayload([
+        'primary_parent_email' => 'someone-else@example.com',
+        'primary_parent_email_confirm' => 'someone-else@example.com',
+    ]);
+
+    $this->actingAs($parent)->post('/client/intake', $payload)
+        ->assertSessionHasErrors('primary_parent_email');
+
+    expect(Intake::where('primary_parent_email', 'someone-else@example.com')->count())->toBe(0);
+});
+
+test('the portal intake form prefills the parent details already on file', function () {
+    $client = clientWithUser();
+
+    $this->actingAs($client->user)->get('/client/intake/create')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('client/intake/create')
+            ->where('prefill.primary_parent_email', $client->user->email)
+            ->where('prefill.city', $client->originalIntake->city)
+        );
+});
+
+test('the portal intake form locks the parent and emergency fields it prefilled', function () {
+    $client = clientWithUser();
+    $client->originalIntake->update([
+        'primary_parent_name' => 'Maria Reyes',
+        'primary_parent_phone' => '5874338780',
+        'primary_relationship_to_child' => 'mother',
+        'primary_contact_method' => 'email',
+        'emergency_contact_name' => 'Jose Reyes',
+        'emergency_contact_phone' => '5874338781',
+        'emergency_contact_relationship' => 'father',
+    ]);
+
+    $this->actingAs($client->user)->get('/client/intake/create')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('prefill.primary_parent_name', 'Maria Reyes')
+            ->where('prefill.primary_parent_phone', '5874338780')
+            ->where('prefill.primary_relationship_to_child', 'mother')
+            ->where('prefill.primary_contact_method', 'email')
+            ->where('prefill.emergency_contact_name', 'Jose Reyes')
+            ->where('prefill.emergency_contact_phone', '5874338781')
+            ->where('prefill.emergency_contact_relationship', 'father')
+        );
+});
+
+test('a parent field with nothing on file is left blank so it stays editable', function () {
+    // The page only locks fields that arrive pre-filled — a null here keeps
+    // the required field editable rather than leaving the form unsubmittable.
+    $client = clientWithUser();
+    $client->user->update(['phone' => null]);
+    $client->originalIntake->update([
+        'primary_relationship_to_child' => null,
+        'primary_parent_phone' => null,
+        'emergency_contact_name' => null,
+    ]);
+
+    $this->actingAs($client->user)->get('/client/intake/create')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('prefill.primary_relationship_to_child', null)
+            ->where('prefill.primary_parent_phone', null)
+            ->where('prefill.emergency_contact_name', null)
+            ->where('prefill.primary_parent_email', $client->user->email)
+        );
+});
+
+test('the intakes list shows every intake the parent has submitted', function () {
+    $client = clientWithUser();
+    $parent = $client->user;
+
+    // Their first child's intake came in through the public form, before the
+    // account existed — so it has no submitted_by_id.
+    $firstBorn = $client->originalIntake;
+    $firstBorn->update(['primary_parent_email' => $parent->email, 'submitted_by_id' => null]);
+
+    $secondBorn = Intake::factory()->create([
+        'primary_parent_email' => $parent->email,
+        'submitted_by_id' => $parent->id,
+    ]);
+
+    Intake::factory()->create(['primary_parent_email' => 'someone-else@example.com']);
+
+    $this->actingAs($parent)->get('/client/intake')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('client/intake/index')
+            ->has('intakes.data', 2)
+            ->where('intakes.data.0.id', $secondBorn->id)
+            ->where('intakes.data.1.id', $firstBorn->id)
+        );
+});
+
+test('the intakes list can be searched by child name and reference number', function () {
+    $client = clientWithUser();
+    $parent = $client->user;
+    $client->originalIntake->update(['primary_parent_email' => $parent->email]);
+
+    $match = Intake::factory()->create([
+        'primary_parent_email' => $parent->email,
+        'child_first_name' => 'Zephyr',
+        'reference_number' => 'INT-2026-999',
+    ]);
+
+    $this->actingAs($parent)->get('/client/intake?search=Zephyr')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $match->id)
+            ->where('filters.search', 'Zephyr')
+        );
+
+    $this->actingAs($parent)->get('/client/intake?search=INT-2026-999')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $match->id)
+        );
+});
+
+test('a parent cannot see another family\'s intakes in the list', function () {
+    $parent = clientWithUser()->user;
+    $stranger = Intake::factory()->create(['primary_parent_email' => 'stranger@example.com']);
+
+    $this->actingAs($parent)->get('/client/intake')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where(
+            'intakes.data',
+            fn ($rows) => collect($rows)->doesntContain('id', $stranger->id),
+        ));
+});
+
+/**
+ * The confirmation modal reads `flash.reference_number` off the Inertia page
+ * props. It was flashed to the session but never shared, so the reference
+ * number silently never rendered.
+ */
+test('the reference number reaches the page props after a portal submission', function () {
+    $client = clientWithUser();
+    $parent = $client->user;
+
+    $payload = validIntakePayload([
+        'child_first_name' => 'Maria',
+        'primary_parent_email' => $parent->email,
+        'primary_parent_email_confirm' => $parent->email,
+    ]);
+
+    $this->actingAs($parent)->post('/client/intake', $payload);
+
+    $reference = Intake::where('child_first_name', 'Maria')->value('reference_number');
+    expect($reference)->not->toBeNull();
+
+    $this->actingAs($parent)->get('/client/intake/create')
+        ->assertInertia(fn ($page) => $page->where('flash.reference_number', $reference));
+});
+
+test('the reference number reaches the page props after a public submission', function () {
+    $this->post('/intake/apply', validIntakePayload());
+
+    $reference = Intake::first()->reference_number;
+
+    $this->get('/intake/apply')
+        ->assertInertia(fn ($page) => $page->where('flash.reference_number', $reference));
+});
+
+test('validation messages name their field in plain language', function () {
+    $payload = validIntakePayload(['funding_source' => 'BDS-FSCD']);
+
+    $this->post('/intake/apply', $payload)->assertSessionHasErrors([
+        'fscd_info.FSCD_approval_start_date' => 'The FSCD approval start date field is required.',
+    ]);
+
+    $this->post('/intake/apply', validIntakePayload(['child_first_name' => '']))
+        ->assertSessionHasErrors([
+            'child_first_name' => "The child's first name field is required.",
+        ]);
 });

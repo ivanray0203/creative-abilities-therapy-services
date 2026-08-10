@@ -144,7 +144,7 @@ export default function UpdateStatusModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && closeAndReset()}>
-            <DialogContent className="w-full overflow-y-auto p-6">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold">
                         Change Status to{' '}

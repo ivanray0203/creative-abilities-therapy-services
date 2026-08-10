@@ -2,7 +2,10 @@ import { router } from '@inertiajs/react';
 import { Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { SessionStatusBadge } from '@/components/sessions/badges';
+import {
+    SessionServiceTags,
+    SessionStatusBadge,
+} from '@/components/sessions/badges';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -63,8 +66,6 @@ export default function ActiveSessionCard({
     const clientName = intake
         ? `${intake.child_first_name} ${intake.child_last_name}`
         : 'Client';
-    const serviceName =
-        activeSession.service?.name || activeSession.service_name || 'Service';
 
     const handleEnd = () => {
         setEnding(true);
@@ -84,8 +85,12 @@ export default function ActiveSessionCard({
                         <p className="font-semibold">Active Session</p>
                     </div>
                     <p className="text-muted-foreground">
-                        Client: {clientName} — Service: {serviceName}
+                        Client: {clientName}
                     </p>
+                    <SessionServiceTags
+                        session={activeSession}
+                        className="mt-1"
+                    />
                 </div>
                 <SessionStatusBadge status={activeSession.status} />
             </div>

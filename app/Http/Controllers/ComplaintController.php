@@ -8,6 +8,7 @@ use App\Models\Complaint;
 use App\Models\ScheduleSession;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ClientContext;
 use App\Services\GoogleDrive\DriveStorage;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +33,8 @@ class ComplaintController extends Controller
         'client' => 'I understand this complaint will be reviewed by CATS administration and may be shared with the relevant therapist as part of the review process.',
         'therapist' => 'I understand this complaint will be reviewed by CATS administration and handled in accordance with organizational policy.',
     ];
+
+    public function __construct(private ClientContext $clientContext) {}
 
     public function index(Request $request): Response
     {
@@ -76,7 +79,7 @@ class ComplaintController extends Controller
     {
         $user = $request->user();
         $prefix = $user->isTherapist() ? 'therapist' : 'client';
-        $sessionUserId = $user->isTherapist() ? $user->id : $user->clientProfile?->id;
+        $sessionUserId = $user->isTherapist() ? $user->id : $this->clientContext->currentId($user);
 
         return Inertia::render('complaints/create', [
             'role' => $user->role,
@@ -107,12 +110,21 @@ class ComplaintController extends Controller
 
         $session = ScheduleSession::query()->find((int) $validated['session_id']);
 
+        // StoreComplaintRequest only checks that the session exists, so
+        // ownership is enforced here — otherwise either role could file
+        // against a session they had nothing to do with.
         if ($complainedBy === 'client') {
-            $attributes['client_id'] = $user->clientProfile?->id;
-            $attributes['therapist_id'] = $session?->therapist_id;
+            abort_unless($this->clientContext->owns($user, $session?->client_id), 404);
+
+            // Attribute the complaint to the child the session was actually
+            // for, not whichever child the switcher happens to have selected.
+            $attributes['client_id'] = $session->client_id;
+            $attributes['therapist_id'] = $session->therapist_id;
         } else {
+            abort_unless($session?->therapist_id === $user->id, 404);
+
             $attributes['therapist_id'] = $user->id;
-            $attributes['client_id'] = $session?->client_id;
+            $attributes['client_id'] = $session->client_id;
         }
 
         if ($request->hasFile('file')) {
@@ -141,6 +153,8 @@ class ComplaintController extends Controller
 
     public function startReview(Request $request, Complaint $complaint): RedirectResponse
     {
+        abort_unless($request->user()->can('review', $complaint), 404);
+
         $complaint->update([
             'status' => 'under_review',
             'reviewed_at' => now(),
@@ -154,6 +168,8 @@ class ComplaintController extends Controller
 
     public function resolve(Request $request, Complaint $complaint): RedirectResponse
     {
+        abort_unless($request->user()->can('review', $complaint), 404);
+
         $validated = $request->validate([
             'admin_response' => ['required', 'string'],
         ]);
@@ -185,10 +201,9 @@ class ComplaintController extends Controller
                 ->where('complained_by', 'therapist');
         }
 
-        $clientId = $user->clientProfile !== null ? $user->clientProfile->id : 0;
-
+        // The list follows the portal switcher — one child at a time.
         return Complaint::query()
-            ->where('client_id', $clientId)
+            ->where('client_id', $this->clientContext->currentId($user) ?? 0)
             ->where('complained_by', 'client');
     }
 

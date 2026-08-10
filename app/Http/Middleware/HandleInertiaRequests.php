@@ -2,12 +2,16 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Client;
 use App\Models\ScheduleSession;
+use App\Services\ClientContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private ClientContext $clientContext) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -38,6 +42,16 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $request->user();
 
+        // Only parents have children to resolve — skip the queries entirely
+        // for guests, admins, and therapists.
+        $children = $user?->isClient() === true
+            ? $this->clientContext->children($user)
+            : collect();
+
+        $currentChild = $user?->isClient() === true
+            ? $this->clientContext->current($user)
+            : null;
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
@@ -45,7 +59,11 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'team_member' => $user?->teamMember,
-                'client_id' => $user?->clientProfile?->id,
+                'client_id' => $currentChild?->id,
+                'children' => $children->map(fn (Client $child): array => [
+                    'id' => $child->id,
+                    'name' => $child->displayName(),
+                ])->values(),
             ],
             'activeSession' => $user?->isTherapist()
                 ? ScheduleSession::query()
@@ -57,6 +75,10 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                // Intake submissions flash this for the confirmation modal;
+                // without it here the modal's "Reference Number" line could
+                // never render.
+                'reference_number' => fn () => $request->session()->get('reference_number'),
             ],
         ];
     }

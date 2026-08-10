@@ -1,4 +1,4 @@
-import { Calendar, Mail, MapPin, Phone } from 'lucide-react';
+import { AlertTriangle, Calendar, Mail, MapPin, Phone } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -17,8 +17,26 @@ export function ClientCard({
 }) {
     const intake = client.original_intake;
 
+    // `clients.original_intake_id` is nullOnDelete, so deleting an intake
+    // orphans its client. Surface that rather than dropping the card, which
+    // would silently shrink the therapist's caseload with no explanation.
     if (!intake) {
-        return null;
+        return (
+            <Card className="border-amber-200 bg-amber-50/50 p-6 dark:border-amber-900/50 dark:bg-amber-950/20">
+                <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                    <div>
+                        <h3 className="font-semibold">
+                            Client #{client.id} — intake record missing
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                            This client has no linked intake, so their details
+                            can't be shown. Please contact an administrator.
+                        </p>
+                    </div>
+                </div>
+            </Card>
+        );
     }
 
     const fullAddress = [

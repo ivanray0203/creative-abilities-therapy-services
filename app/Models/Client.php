@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,6 +46,25 @@ class Client extends Model
             'consents' => 'array',
             'service_availed' => 'array',
         ];
+    }
+
+    /**
+     * Constrain to the clients a therapist is responsible for — primary
+     * therapist, assigned therapist, or a member of the care team.
+     *
+     * The conditions are wrapped in a nested `where` so this composes safely
+     * with any surrounding `orWhere` on the calling query.
+     *
+     * @param  Builder<Client>  $query
+     */
+    #[Scope]
+    protected function forTherapist(Builder $query, int $therapistId): void
+    {
+        $query->where(function (Builder $inner) use ($therapistId): void {
+            $inner->where('primary_therapist_id', $therapistId)
+                ->orWhere('assigned_therapist_id', $therapistId)
+                ->orWhereHas('careTeam', fn (Builder $team) => $team->where('users.id', $therapistId));
+        });
     }
 
     /** @return BelongsTo<Intake, $this> */
@@ -110,6 +131,26 @@ class Client extends Model
     public function complaints(): HasMany
     {
         return $this->hasMany(Complaint::class);
+    }
+
+    /**
+     * The child's name, for switchers and pickers that list clients.
+     *
+     * `original_intake_id` is nullOnDelete, so a client can outlive the
+     * intake carrying its child's name — fall back to the record id rather
+     * than rendering an empty label.
+     */
+    public function displayName(): string
+    {
+        $intake = $this->originalIntake;
+
+        if ($intake === null) {
+            return "Client #{$this->id}";
+        }
+
+        $name = trim("{$intake->child_first_name} {$intake->child_last_name}");
+
+        return $name !== '' ? $name : "Client #{$this->id}";
     }
 
     public function assignTherapist(User $therapist): void

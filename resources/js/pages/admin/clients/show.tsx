@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Edit, Plus, Trash, UserCog } from 'lucide-react';
+import { Edit, Plus, Printer, Trash, UserCog } from 'lucide-react';
 import { useState } from 'react';
 
 import AddClientServiceModal from '@/components/admin/add-client-service-modal';
@@ -82,6 +82,20 @@ export default function AdminClientShow({
                             <Link href={`/admin/clients/${client.id}/edit`}>
                                 <Edit /> Edit
                             </Link>
+                        </Button>
+                        {/*
+                         * A file download, so a plain anchor rather than an
+                         * Inertia <Link> — a router visit would try to parse
+                         * the PDF as a page response.
+                         */}
+                        <Button
+                            variant="outline"
+                            className="rounded-[10px]"
+                            asChild
+                        >
+                            <a href={`/admin/clients/${client.id}/pdf`}>
+                                <Printer /> Export PDF
+                            </a>
                         </Button>
                         <Button
                             variant="destructive"

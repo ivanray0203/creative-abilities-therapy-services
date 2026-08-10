@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 
+import { ChildSwitcher } from '@/components/client/child-switcher';
 import { ClientSidebar } from '@/components/client-sidebar';
 import FlashToaster from '@/components/flash-toaster';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,7 @@ export default function ClientLayout({ children }: PropsWithChildren) {
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
+                            <ChildSwitcher />
                             <div className="hidden items-center gap-1 border-l p-2 md:flex md:flex-col md:items-start">
                                 <span className="text-sm font-medium">
                                     {user.first_name || user.email}{' '}

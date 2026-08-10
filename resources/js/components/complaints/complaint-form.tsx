@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatScheduledDateTime } from '@/lib/helpers';
+import { sessionServiceLabel } from '@/lib/sessions';
 import type { ComplaintCategory } from '@/types/complaint';
 import type { ScheduleSession } from '@/types/session';
 
@@ -104,7 +105,11 @@ export default function ComplaintForm({
                                         {formatScheduledDateTime(
                                             session.scheduled_start,
                                         )}{' '}
-                                        — {session.service_name ?? 'Session'}
+                                        —{' '}
+                                        {sessionServiceLabel(
+                                            session,
+                                            'Session',
+                                        )}
                                     </SelectItem>
                                 ))}
                             </SelectContent>

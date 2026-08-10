@@ -1,8 +1,8 @@
 import { Head } from '@inertiajs/react';
 import * as LucideIcons from 'lucide-react';
-import { Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
 
+import FamilyHeartHand from '@/components/icons/family-heart-hand';
 import PublicLayout from '@/layouts/public-layout';
 import { Funding, Journey, Regulated, Why } from '@/lib/content/services';
 import type { Service } from '@/types/service';
@@ -73,7 +73,7 @@ export default function Services({ services }: { services: Service[] }) {
                 <div className="flex flex-col items-center justify-center px-4 py-20 md:px-0 md:py-40">
                     <div className="rounded-full border border-secondary-orange/20 bg-white px-6 py-3 shadow-sm">
                         <p className="flex flex-row items-center gap-3 text-center">
-                            <Sparkles className="h-5 w-5 text-primary" />
+                            <FamilyHeartHand className="h-7 w-7 shrink-0" />
                             <span className="text-base text-primary md:text-lg">
                                 Our Therapy Services
                             </span>

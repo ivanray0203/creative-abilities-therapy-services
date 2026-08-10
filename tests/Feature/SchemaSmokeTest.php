@@ -54,11 +54,10 @@ test('client services, sessions, and invoices link together', function () {
         'therapist_id' => $therapist->id,
     ]);
 
-    $session = ScheduleSession::factory()->create([
+    $session = ScheduleSession::factory()->linkedTo($clientService)->create([
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
         'service_id' => $service->id,
-        'linked_client_service_id' => $clientService->id,
     ]);
 
     $invoice = Invoice::factory()->create([

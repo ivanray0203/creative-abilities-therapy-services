@@ -4,7 +4,9 @@ use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
 use App\Models\Intake;
+use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -212,4 +214,49 @@ test('an admin can add and delete clinical notes', function () {
         ->assertSessionHasNoErrors();
 
     expect($client->refresh()->clinical_notes)->toBe([]);
+});
+
+test('an admin can export a client profile as a PDF covering every tab', function () {
+    $therapist = User::factory()->therapist()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
+    $intake = Intake::factory()->create([
+        'child_first_name' => 'Angel',
+        'child_last_name' => 'Diano',
+        'funding_source' => 'BDS-FSCD',
+        'funding_source_info' => ['FSCD_case_worker_name' => 'Casey Worker'],
+        'services_needed' => ['Physiotherapy', 'Counselling'],
+    ]);
+    $client = Client::factory()->create([
+        'original_intake_id' => $intake->id,
+        'primary_therapist_id' => $therapist->id,
+        'assigned_therapist_id' => $therapist->id,
+        'clinical_notes' => [
+            ['id' => 'note-1', 'user' => 'Demo Admin', 'date' => '2026-08-01', 'time' => '9:00 AM', 'note' => 'Settled in well.'],
+        ],
+    ]);
+    $client->careTeam()->attach($therapist->id);
+
+    $service = ServiceOffering::factory()->create(['name' => 'Physiotherapy']);
+    $clientService = ClientService::factory()->for($client)->create([
+        'service_id' => $service->id,
+        'therapist_id' => $therapist->id,
+    ]);
+    ScheduleSession::factory()->linkedTo($clientService)->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'completed',
+    ]);
+
+    $response = $this->actingAs(adminUser())->get("/admin/clients/{$client->id}/pdf");
+
+    $response->assertOk();
+    $response->assertHeader('content-type', 'application/pdf');
+    $response->assertDownload('angel-diano-profile.pdf');
+    expect($response->streamedContent())->toStartWith('%PDF');
+});
+
+test('a therapist cannot export a client profile', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs(therapistUser())->get("/admin/clients/{$client->id}/pdf")
+        ->assertRedirect('/therapist');
 });

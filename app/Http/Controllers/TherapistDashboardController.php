@@ -25,7 +25,7 @@ class TherapistDashboardController extends Controller
         $todaysSessions = ScheduleSession::query()
             ->where('therapist_id', $therapistId)
             ->whereDate('scheduled_start', now()->toDateString())
-            ->with(['client.originalIntake', 'service'])
+            ->with(['client.originalIntake', 'service', 'clientServices.service'])
             ->orderBy('scheduled_start')
             ->get();
 
@@ -79,7 +79,7 @@ class TherapistDashboardController extends Controller
     {
         $sessions = ScheduleSession::query()
             ->where('therapist_id', $request->user()->id)
-            ->with(['client.originalIntake', 'service'])
+            ->with(['client.originalIntake', 'service', 'clientServices.service'])
             ->orderBy('scheduled_start')
             ->get();
 

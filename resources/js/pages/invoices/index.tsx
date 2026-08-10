@@ -129,7 +129,7 @@ export default function InvoicesIndex({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
                     <Card className="p-4">
                         <p className="text-xs text-muted-foreground">
                             Paid This Month
@@ -154,6 +154,16 @@ export default function InvoicesIndex({
                             ${Number(stats.total_revenue).toFixed(2)}
                         </p>
                     </Card>
+                    {stats.owed_to_therapists !== null && (
+                        <Card className="p-4">
+                            <p className="text-xs text-muted-foreground">
+                                Owed to Therapists
+                            </p>
+                            <p className="text-2xl font-bold">
+                                ${Number(stats.owed_to_therapists).toFixed(2)}
+                            </p>
+                        </Card>
+                    )}
                 </div>
 
                 <Card className="rounded-[10px] p-4">
@@ -218,6 +228,30 @@ export default function InvoicesIndex({
                                 </SelectItem>
                             </SelectContent>
                         </Select>
+
+                        {role === 'admin' && (
+                            <Select
+                                value={filters.direction}
+                                onValueChange={(value) =>
+                                    applyFilter('direction', value)
+                                }
+                            >
+                                <SelectTrigger className="rounded-[10px] sm:w-48">
+                                    <SelectValue placeholder="Direction" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        Both Directions
+                                    </SelectItem>
+                                    <SelectItem value="therapist">
+                                        From Therapist
+                                    </SelectItem>
+                                    <SelectItem value="admin">
+                                        To Client
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
 
                         {role === 'client' && (
                             <div className="flex gap-2">
@@ -293,6 +327,7 @@ export default function InvoicesIndex({
                         <InvoicesTable
                             invoices={invoices.data}
                             basePath={basePath}
+                            showDirection={role === 'admin'}
                         />
                     )}
                 </Card>

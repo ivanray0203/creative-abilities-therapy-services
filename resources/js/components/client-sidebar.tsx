@@ -1,5 +1,12 @@
 import { Link, usePage } from '@inertiajs/react';
-import { AlertCircle, Calendar, DollarSign, LogOut, User } from 'lucide-react';
+import {
+    AlertCircle,
+    Calendar,
+    DollarSign,
+    FileText,
+    LogOut,
+    User,
+} from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -19,6 +26,7 @@ const menuItems = [
     { title: 'Calendar', icon: Calendar, url: '/client/calendar' },
     { title: 'Invoices', icon: DollarSign, url: '/client/invoices' },
     { title: 'Complaints', icon: AlertCircle, url: '/client/complaints' },
+    { title: 'Intakes', icon: FileText, url: '/client/intake' },
     { title: 'Profile', icon: User, url: '/client/profile' },
 ];
 

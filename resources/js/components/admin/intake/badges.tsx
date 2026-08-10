@@ -1,5 +1,6 @@
 import { UserCheck } from 'lucide-react';
 
+import { INTAKE_STATUS_CLASSES } from '@/components/intake/status-badge';
 import { Badge } from '@/components/ui/badge';
 import type { Intake, IntakeStatusVariant } from '@/types/intake';
 
@@ -8,14 +9,14 @@ import type { Intake, IntakeStatusVariant } from '@/types/intake';
  * cats-frontend/src/lib/helpers.tsx (`getStatusBadge` / `getFundingBadge`).
  * The status/therapist-review merge that the reference performed client-side
  * is resolved server-side, so this only maps the resolved variant to classes.
+ *
+ * The five plain intake statuses come from the shared map so admin, therapist
+ * and client views can't drift; only the two therapist-review variants are
+ * specific to this pipeline.
  */
 
 const STATUS_VARIANT_CLASSES: Record<IntakeStatusVariant, string> = {
-    approved: 'bg-green-100 text-green-700 border border-green-400',
-    under_review: 'bg-blue-100 text-blue-700 border border-blue-400',
-    waitlist: 'bg-purple-100 text-purple-700 border border-purple-400',
-    denied: 'bg-red-100 text-red-700 border border-red-400',
-    pending: 'bg-yellow-100 text-yellow-800 border border-yellow-400',
+    ...INTAKE_STATUS_CLASSES,
     therapist_pending: 'bg-cyan-50 text-cyan-800 border border-cyan-600',
     therapist_rejected: 'bg-red-100 text-red-700 border border-red-600',
 };

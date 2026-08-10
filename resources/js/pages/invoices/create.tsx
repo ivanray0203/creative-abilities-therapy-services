@@ -5,11 +5,13 @@ import InvoiceForm from '@/components/invoices/invoice-form';
 import AdminLayout from '@/layouts/admin-layout';
 import TherapistLayout from '@/layouts/therapist-layout';
 import type { Client, ServiceOffering } from '@/types/client';
+import type { Invoice } from '@/types/invoice';
 
 interface InvoicesCreateProps {
     role: 'admin' | 'therapist';
     clients: Client[];
     services: ServiceOffering[];
+    therapistInvoices: Invoice[];
 }
 
 const BASE_PATHS: Record<InvoicesCreateProps['role'], string> = {
@@ -22,6 +24,7 @@ export default function InvoicesCreate({
     role,
     clients,
     services,
+    therapistInvoices,
 }: InvoicesCreateProps) {
     return (
         <>
@@ -30,6 +33,7 @@ export default function InvoicesCreate({
                 basePath={BASE_PATHS[role]}
                 clients={clients}
                 services={services}
+                therapistInvoices={therapistInvoices}
             />
         </>
     );

@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\WelcomeClientAccountMail;
 use App\Models\BillingAccount;
 use App\Models\Client;
 use App\Models\ClientService;
@@ -12,6 +13,7 @@ use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -375,7 +377,9 @@ test('an admin direct approve promotes the intake to a fully linked client', fun
     expect($client->user_id)->toBe($parent->id);
 });
 
-test('approving a second intake for the same parent email reuses the existing client instead of erroring', function () {
+test('approving a second intake for the same parent email creates a second client under the same login', function () {
+    Mail::fake();
+
     $firstIntake = Intake::factory()->create(['primary_parent_email' => 'parent@example.com', 'primary_parent_name' => 'Maria Dela Cruz']);
     $firstTherapist = therapistUser();
     $this->actingAs(adminUser())
@@ -389,15 +393,30 @@ test('approving a second intake for the same parent email reuses the existing cl
         ->post("/admin/intake/{$secondIntake->id}/approve", ['therapist_id' => $secondTherapist->id])
         ->assertSessionHasNoErrors();
 
-    expect(Client::count())->toBe(1);
+    // Each child gets its own client record...
+    expect(Client::count())->toBe(2);
 
-    $client = Client::first();
-    expect($client->original_intake_id)->toBe($firstIntake->id);
-    expect($client->primary_therapist_id)->toBe($firstTherapist->id);
-    expect((int) $secondIntake->refresh()->linked_client_id)->toBe($client->id);
+    $firstClient = Client::where('original_intake_id', $firstIntake->id)->first();
+    $secondClient = Client::where('original_intake_id', $secondIntake->id)->first();
+
+    expect($firstClient->primary_therapist_id)->toBe($firstTherapist->id);
+    expect($secondClient->primary_therapist_id)->toBe($secondTherapist->id);
+    expect((int) $secondIntake->refresh()->linked_client_id)->toBe($secondClient->id);
     expect($secondIntake->approved_as_client)->toBeTrue();
-    expect($client->careTeam()->pluck('users.id')->sort()->values()->all())
-        ->toBe(collect([$firstTherapist->id, $secondTherapist->id])->sort()->values()->all());
+
+    // ...with its own care team, rather than one merged pool.
+    expect($firstClient->careTeam()->pluck('users.id')->all())->toBe([$firstTherapist->id]);
+    expect($secondClient->careTeam()->pluck('users.id')->all())->toBe([$secondTherapist->id]);
+
+    // ...and its own billing account.
+    expect(BillingAccount::where('client_id', $firstClient->id)->count())->toBe(1);
+    expect(BillingAccount::where('client_id', $secondClient->id)->count())->toBe(1);
+
+    // But the parent keeps a single login, and is only welcomed once —
+    // the mailable is ShouldQueue, hence assertQueued rather than assertSent.
+    expect(User::where('email', 'parent@example.com')->count())->toBe(1);
+    expect($secondClient->user_id)->toBe($firstClient->user_id);
+    Mail::assertQueued(WelcomeClientAccountMail::class, 1);
 });
 
 test('an already promoted intake cannot be approved twice', function () {

@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatScheduledDate } from '@/lib/helpers';
+import { sessionServiceLabel } from '@/lib/sessions';
 import type { Client, ServiceOffering } from '@/types/client';
 import type { Invoice } from '@/types/invoice';
 import type { ScheduleSession } from '@/types/session';
@@ -32,6 +33,7 @@ interface LineItemForm {
 interface InvoiceFormData {
     client_id: string;
     session_id: string;
+    linked_therapist_invoice_id: string;
     invoice_date: string;
     due_date: string;
     tax_percentage: string;
@@ -54,6 +56,9 @@ function initialValues(
     return {
         client_id: invoice ? String(invoice.client_id) : '',
         session_id: invoice?.session_id ? String(invoice.session_id) : '',
+        linked_therapist_invoice_id: invoice?.linked_therapist_invoice_id
+            ? String(invoice.linked_therapist_invoice_id)
+            : '',
         invoice_date:
             invoice?.invoice_date ?? new Date().toISOString().slice(0, 10),
         due_date:
@@ -92,11 +97,14 @@ export default function InvoiceForm({
     basePath,
     clients,
     services,
+    therapistInvoices = [],
 }: {
     invoice?: Invoice | null;
     basePath: string;
     clients: Client[];
     services: ServiceOffering[];
+    /** Admins only — the therapist bills this invoice can recover. */
+    therapistInvoices?: Invoice[];
 }) {
     const isEdit = invoice != null;
 
@@ -123,6 +131,20 @@ export default function InvoiceForm({
             .catch(() => setClientSessions([]));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.client_id]);
+
+    /*
+     * The clinic bills the family for work a therapist already billed the
+     * clinic for. Pointing one at the other is what lets the admin read what
+     * they are owed and what they owe as a pair.
+     */
+    const recoverableInvoices = useMemo(
+        () =>
+            therapistInvoices.filter(
+                (therapistInvoice) =>
+                    String(therapistInvoice.client_id) === data.client_id,
+            ),
+        [therapistInvoices, data.client_id],
+    );
 
     const totals = useMemo(() => {
         const subTotal = data.services.reduce((sum, line) => {
@@ -276,9 +298,10 @@ export default function InvoiceForm({
                                                 session.scheduled_start,
                                             )}{' '}
                                             —{' '}
-                                            {session.service?.name ??
-                                                session.service_name ??
-                                                'Session'}{' '}
+                                            {sessionServiceLabel(
+                                                session,
+                                                'Session',
+                                            )}{' '}
                                             ({session.status})
                                         </SelectItem>
                                     ))}
@@ -294,6 +317,67 @@ export default function InvoiceForm({
                                 </p>
                             )}
                         </div>
+
+                        {therapistInvoices.length > 0 && (
+                            <div>
+                                <Label htmlFor="invoice-recovers">
+                                    Recovers Therapist Invoice (Optional)
+                                </Label>
+                                <Select
+                                    value={data.linked_therapist_invoice_id}
+                                    onValueChange={(value) =>
+                                        setData(
+                                            'linked_therapist_invoice_id',
+                                            value,
+                                        )
+                                    }
+                                    disabled={
+                                        !data.client_id ||
+                                        recoverableInvoices.length === 0
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="invoice-recovers"
+                                        className="mt-2 rounded-[10px]"
+                                    >
+                                        <SelectValue placeholder="Link the therapist's bill" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {recoverableInvoices.map(
+                                            (therapistInvoice) => (
+                                                <SelectItem
+                                                    key={therapistInvoice.id}
+                                                    value={String(
+                                                        therapistInvoice.id,
+                                                    )}
+                                                >
+                                                    {therapistInvoice.invoice_id ??
+                                                        `#${therapistInvoice.id}`}{' '}
+                                                    —{' '}
+                                                    {therapistInvoice.therapist
+                                                        ? `${therapistInvoice.therapist.first_name} ${therapistInvoice.therapist.last_name}`
+                                                        : 'Therapist'}{' '}
+                                                    — $
+                                                    {Number(
+                                                        therapistInvoice.total,
+                                                    ).toFixed(2)}{' '}
+                                                    ({therapistInvoice.status})
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    What the clinic owes the therapist for this
+                                    work, shown alongside this invoice.
+                                </p>
+                                {errors.linked_therapist_invoice_id && (
+                                    <p className="mt-1 text-sm text-destructive">
+                                        {errors.linked_therapist_invoice_id}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         <div>
                             <Label htmlFor="invoice-date">Invoice Date *</Label>

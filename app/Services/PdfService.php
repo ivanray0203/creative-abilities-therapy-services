@@ -3,8 +3,10 @@
 namespace App\Services;
 
 use App\Models\Application;
+use App\Models\Client;
 use App\Models\ConsentDocument;
 use App\Models\Intake;
+use App\Models\TeamMember;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 
@@ -23,6 +25,93 @@ class PdfService
             'application' => $application,
             'deadline' => $deadline,
             'issuedDate' => now(),
+        ])->output();
+    }
+
+    /**
+     * The admin client page as one document — the Overview, Sessions,
+     * Funding, Notes and Therapist tabs in the order they appear on screen.
+     */
+    public function clientProfile(Client $client): string
+    {
+        $client->loadMissing([
+            'originalIntake',
+            'assignedTherapist',
+            'careTeam',
+            'clientServices.service',
+            'clientServices.therapist',
+            'sessions.therapist',
+            'sessions.clientServices.service',
+        ]);
+
+        $intake = $client->originalIntake;
+        $services = $client->clientServices;
+
+        // Only what the funding source in play actually uses — an FSCD client
+        // has no policy number, and printing empty insurance rows for them
+        // reads as missing data rather than data that never applied.
+        $funding = $intake !== null ? ($intake->funding_source_info ?? []) : [];
+        $fundingDetails = match ($intake?->funding_source) {
+            'Insurance' => [
+                'Insurance Provider' => $funding['insurance_provider'] ?? null,
+                'Policy Number' => $funding['policy_number'] ?? null,
+                'Certificate Number' => $funding['certificate_number'] ?? null,
+                'Policy Holder' => $funding['policy_holder_name'] ?? null,
+            ],
+            'private', null => [],
+            default => [
+                'FSCD Case Worker' => $funding['FSCD_case_worker_name'] ?? null,
+                'FSCD Case Worker Email' => $funding['FSCD_case_worker_email'] ?? null,
+                'FSCD Approval Start' => $funding['FSCD_approval_start_date'] ?? null,
+                'FSCD Approval End' => $funding['FSCD_approval_end_date'] ?? null,
+            ],
+        };
+
+        $availedNames = $services->map(fn ($service) => $service->service?->name)->filter();
+
+        return Pdf::loadView('pdf.client', [
+            'client' => $client,
+            'intake' => $intake,
+            'childName' => $client->displayName(),
+            'services' => $services,
+            'requestedServices' => collect($intake !== null ? ($intake->services_needed ?? []) : [])->reject(
+                fn (string $service): bool => $availedNames->contains($service),
+            )->values(),
+            'sessions' => $client->sessions->sortByDesc('scheduled_start')->values(),
+            'fundingDetails' => $fundingDetails,
+            'notes' => collect($client->clinical_notes ?? []),
+            'careTeam' => $client->careTeam,
+            'generatedAt' => now(),
+        ])->output();
+    }
+
+    /**
+     * The whole team-member record as one printable sheet — everything the
+     * admin edit screen holds, minus the SIN, which is stored one-way hashed
+     * and cannot (and should not) be reproduced.
+     */
+    public function teamMemberProfile(TeamMember $teamMember): string
+    {
+        $teamMember->loadMissing('user');
+
+        $address = collect([
+            $teamMember->street_address,
+            $teamMember->address_line_2,
+            $teamMember->city,
+            $teamMember->province,
+            $teamMember->zip_code,
+        ])->filter()->implode(', ');
+
+        return Pdf::loadView('pdf.team-member', [
+            'teamMember' => $teamMember,
+            'fullName' => trim((string) $teamMember->user?->full_name) ?: "Team Member #{$teamMember->id}",
+            'address' => $address,
+            // Only rows an admin actually filled in are worth printing.
+            'availability' => collect($teamMember->availability ?? [])
+                ->filter(fn (array $slot): bool => filled($slot['time_from'] ?? null) || filled($slot['time_to'] ?? null))
+                ->values(),
+            'documents' => collect($teamMember->documents ?? []),
+            'generatedAt' => now(),
         ])->output();
     }
 

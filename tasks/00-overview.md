@@ -46,6 +46,8 @@ Every page, tab, modal, form, field, endpoint, and business rule in those two re
 14. `14-client-portal.md` — Client Calendar (verify/dispute), Invoices, Complaints, Profile
 15. `15-integrations.md` — Document storage (Drive or alternative), email sending, Mailcow, PDF generation, consent PDF assembly
 16. `16-cross-cutting-and-hardening.md` — System-log audit trail on every mutation, notification preferences, scheduler jobs, tests, deployment prep
+17. `17-multi-child-client-model.md` — Post-port refactor: one parent with many children, each as its own client record (not part of the parity port)
+18. `18-scheduling-conflicts-review-queue-authorization.md` — Post-port hardening: double-booking prevention, therapist review index, policy-based authorization (not part of the parity port)
 
 ## Ground rules for every phase
 

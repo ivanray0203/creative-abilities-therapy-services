@@ -2,7 +2,10 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { Calendar, Clock, MapPin, Play, User, UserCog, X } from 'lucide-react';
 import { useState } from 'react';
 
-import { SessionStatusBadge } from '@/components/sessions/badges';
+import {
+    SessionServiceTags,
+    SessionStatusBadge,
+} from '@/components/sessions/badges';
 import CancelConfirmationModal from '@/components/sessions/cancel-confirmation-modal';
 import { Button } from '@/components/ui/button';
 import {
@@ -94,11 +97,7 @@ export default function SessionCardModal({
                         </div>
                         <div className="flex items-center gap-3">
                             <User className="h-4 w-4 text-muted-foreground" />
-                            <p>
-                                {session.service?.name ||
-                                    session.service_name ||
-                                    '-'}
-                            </p>
+                            <SessionServiceTags session={session} />
                         </div>
 
                         {session.notes && (

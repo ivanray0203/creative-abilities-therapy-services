@@ -12,6 +12,7 @@ interface InvoicesEditProps {
     role: 'admin' | 'therapist';
     clients: Client[];
     services: ServiceOffering[];
+    therapistInvoices: Invoice[];
 }
 
 const BASE_PATHS: Record<InvoicesEditProps['role'], string> = {
@@ -25,6 +26,7 @@ export default function InvoicesEdit({
     role,
     clients,
     services,
+    therapistInvoices,
 }: InvoicesEditProps) {
     return (
         <>
@@ -34,6 +36,7 @@ export default function InvoicesEdit({
                 basePath={BASE_PATHS[role]}
                 clients={clients}
                 services={services}
+                therapistInvoices={therapistInvoices}
             />
         </>
     );

@@ -2,6 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     Calendar,
     ClipboardIcon,
+    ClipboardList,
     DollarSign,
     FileText,
     LayoutDashboard,
@@ -29,6 +30,7 @@ const menuItems = [
     { title: 'Calendar', icon: Calendar, url: '/therapist/calendar' },
     { title: 'Sessions', icon: ClipboardIcon, url: '/therapist/sessions' },
     { title: 'Clients', icon: Users, url: '/therapist/clients' },
+    { title: 'Reviews', icon: ClipboardList, url: '/therapist/intake' },
     { title: 'Invoices', icon: DollarSign, url: '/therapist/invoices' },
     { title: 'Complaints', icon: FileText, url: '/therapist/complaints' },
     { title: 'Profile', icon: User, url: '/therapist/profile' },

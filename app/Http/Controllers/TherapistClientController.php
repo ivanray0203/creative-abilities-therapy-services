@@ -22,11 +22,7 @@ class TherapistClientController extends Controller
         $status = (string) $request->query('status', 'active');
 
         $clients = Client::query()
-            ->where(function (Builder $query) use ($therapistId): void {
-                $query->where('primary_therapist_id', $therapistId)
-                    ->orWhere('assigned_therapist_id', $therapistId)
-                    ->orWhereHas('careTeam', fn (Builder $inner) => $inner->where('users.id', $therapistId));
-            })
+            ->forTherapist($therapistId)
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->whereHas('originalIntake', function (Builder $inner) use ($search): void {
                     $inner->where('child_first_name', 'like', "%{$search}%")

@@ -20,8 +20,10 @@ import {
     Users,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 import ConsentModal from '@/components/consent-modal';
+import FormErrorSummary from '@/components/forms/form-error-summary';
 import IntakePreviewModal from '@/components/intake-preview-modal';
 import IntakeSubmittedModal from '@/components/intake-submitted-modal';
 import MissingFieldsModal from '@/components/missing-fields-modal';
@@ -209,6 +211,27 @@ function toggleArrayValue(list: string[], value: string): string[] {
 
 interface IntakeApplicationFormProps {
     requiredConsents: ConsentDocument[];
+    /** Where the completed form posts. Defaults to the public endpoint. */
+    submitUrl?: string;
+    /**
+     * Values carried over from a child already in care, used when a
+     * signed-in parent registers another child (Phase 17).
+     */
+    prefill?: Partial<IntakeFormData>;
+    /**
+     * Namespaces the autosaved draft so a portal draft and a public draft
+     * can't overwrite each other in localStorage.
+     */
+    draftKey?: string;
+    /**
+     * Fields to render read-only, used by the portal's "Register Another
+     * Child" form to lock the parent's own details to their account.
+     *
+     * Callers must only lock fields they actually pre-filled — a locked
+     * required field left empty can never be completed. Values still post,
+     * since useForm submits from state rather than serializing the DOM.
+     */
+    lockedFields?: readonly (keyof IntakeFormData)[];
 }
 
 /**
@@ -222,9 +245,16 @@ interface IntakeApplicationFormProps {
  */
 export default function IntakeApplicationForm({
     requiredConsents,
+    submitUrl = '/intake/apply',
+    prefill,
+    draftKey = DRAFT_STORAGE_KEY,
+    lockedFields = [],
 }: IntakeApplicationFormProps) {
     const { data, setData, post, processing, errors, reset, transform } =
-        useForm<IntakeFormData>(DEFAULT_VALUES);
+        useForm<IntakeFormData>({ ...DEFAULT_VALUES, ...prefill });
+
+    const isLocked = (field: keyof IntakeFormData) =>
+        lockedFields.includes(field);
 
     const [lastSaved, setLastSaved] = useState<string | null>(null);
     const [consentGivenTerms, setConsentGivenTerms] = useState(false);
@@ -319,12 +349,12 @@ export default function IntakeApplicationForm({
         }
 
         const interval = setInterval(() => {
-            localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
+            localStorage.setItem(draftKey, JSON.stringify(data));
             setLastSaved(new Date().toLocaleTimeString());
         }, 60 * 1000);
 
         return () => clearInterval(interval);
-    }, [data]);
+    }, [data, draftKey]);
 
     // Offer to restore a saved draft on mount.
     useEffect(() => {
@@ -332,7 +362,7 @@ export default function IntakeApplicationForm({
             return;
         }
 
-        const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        const draft = localStorage.getItem(draftKey);
 
         if (!draft) {
             return;
@@ -345,8 +375,11 @@ export default function IntakeApplicationForm({
             setSavedDraft(JSON.parse(draft));
             setShowLoadDraftModal(true);
         } catch {
-            localStorage.removeItem(DRAFT_STORAGE_KEY);
+            localStorage.removeItem(draftKey);
         }
+        // Restore is a one-shot prompt on mount; `draftKey` is fixed for the
+        // life of the form, so re-running on it would only re-open the modal.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleLoadDraft = () => {
@@ -354,17 +387,25 @@ export default function IntakeApplicationForm({
             return;
         }
 
-        setData((current) => ({ ...current, ...savedDraft }));
+        setData((current) => ({
+            ...current,
+            ...savedDraft,
+            // Locked fields come from the account, never the draft. A stale
+            // draft value would be both un-editable and rejected on submit.
+            ...(Object.fromEntries(
+                lockedFields.map((field) => [field, current[field]]),
+            ) as Partial<IntakeFormData>),
+        }));
         setShowLoadDraftModal(false);
     };
 
     const handleDiscardDraft = () => {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        localStorage.removeItem(draftKey);
         setShowLoadDraftModal(false);
     };
 
     const saveProgress = () => {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(draftKey, JSON.stringify(data));
         setLastSaved(new Date().toLocaleTimeString());
     };
 
@@ -413,14 +454,14 @@ export default function IntakeApplicationForm({
             consent_ids: consentIds,
         }));
 
-        post('/intake/apply', {
+        post(submitUrl, {
             preserveScroll: true,
             onSuccess: (page) => {
                 const flash = (
                     page.props as { flash?: { reference_number?: string } }
                 ).flash;
                 setReferenceNumber(flash?.reference_number ?? null);
-                localStorage.removeItem(DRAFT_STORAGE_KEY);
+                localStorage.removeItem(draftKey);
                 setPreviewOpen(false);
                 setSubmittedOpen(true);
                 reset();
@@ -430,6 +471,32 @@ export default function IntakeApplicationForm({
                 setConsentGivenFSCD1(false);
                 setConsentGivenFSCD2(false);
                 setConsentGivenFSCD3(false);
+            },
+            /*
+             * Submission happens from the preview modal, so a rejected
+             * application used to fail silently: the modal stayed open over a
+             * field error the applicant never saw. Close it and take them to
+             * the field that needs fixing.
+             */
+            onError: (validationErrors) => {
+                setPreviewOpen(false);
+
+                const [firstField] = Object.keys(validationErrors);
+
+                if (!firstField) {
+                    return;
+                }
+
+                toast.error(validationErrors[firstField]);
+
+                requestAnimationFrame(() => {
+                    document
+                        .getElementById('intake-error-summary')
+                        ?.scrollIntoView({
+                            block: 'center',
+                            behavior: 'smooth',
+                        });
+                });
             },
         });
     };
@@ -483,6 +550,10 @@ export default function IntakeApplicationForm({
                         {lastSaved}
                     </p>
                 )}
+            </div>
+
+            <div id="intake-error-summary" className="my-6">
+                <FormErrorSummary errors={errors} />
             </div>
 
             <div className="mb-6 rounded-2xl border border-primary-orange/40 bg-secondary-orange/5 p-4 sm:p-5">
@@ -848,6 +919,13 @@ export default function IntakeApplicationForm({
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-5">
+                        {isLocked('primary_parent_email') && (
+                            <p className="mb-5 rounded-[10px] bg-secondary-orange/10 p-3 text-sm text-muted-foreground">
+                                These details are taken from your account. To
+                                change them, update your profile.
+                            </p>
+                        )}
+
                         <div className="flex flex-col">
                             <Label htmlFor="primaryFullName">
                                 Full Name{' '}
@@ -864,6 +942,7 @@ export default function IntakeApplicationForm({
                                 }
                                 placeholder="Full Name"
                                 className="mt-2 rounded-[10px]"
+                                disabled={isLocked('primary_parent_name')}
                             />
                             {errors.primary_parent_name && (
                                 <p className="text-sm text-red-600">
@@ -893,6 +972,7 @@ export default function IntakeApplicationForm({
                                     placeholder="Phone Number"
                                     className="mt-2 rounded-[10px]"
                                     maxLength={12}
+                                    disabled={isLocked('primary_parent_phone')}
                                 />
                                 {errors.primary_parent_phone && (
                                     <p className="text-sm text-red-600">
@@ -917,6 +997,7 @@ export default function IntakeApplicationForm({
                                     }
                                     placeholder="Email"
                                     className="mt-2 rounded-[10px]"
+                                    disabled={isLocked('primary_parent_email')}
                                 />
                                 {errors.primary_parent_email && (
                                     <p className="text-sm text-red-600">
@@ -942,6 +1023,9 @@ export default function IntakeApplicationForm({
                                 }
                                 placeholder="Confirm your email"
                                 className="mt-2 rounded-[10px]"
+                                disabled={isLocked(
+                                    'primary_parent_email_confirm',
+                                )}
                             />
                             {primaryEmailMismatch && (
                                 <p className="text-sm text-red-600">
@@ -969,6 +1053,9 @@ export default function IntakeApplicationForm({
                                             value,
                                         )
                                     }
+                                    disabled={isLocked(
+                                        'primary_relationship_to_child',
+                                    )}
                                 >
                                     <SelectTrigger className="mt-2 rounded-[10px]">
                                         <SelectValue placeholder="Select Relationship" />
@@ -1005,6 +1092,9 @@ export default function IntakeApplicationForm({
                                     onValueChange={(value) =>
                                         setData('primary_contact_method', value)
                                     }
+                                    disabled={isLocked(
+                                        'primary_contact_method',
+                                    )}
                                 >
                                     <SelectTrigger className="mt-2 rounded-[10px]">
                                         <SelectValue placeholder="Select Contact Method" />
@@ -1218,21 +1308,36 @@ export default function IntakeApplicationForm({
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-5">
+                        {isLocked('emergency_contact_name') && (
+                            <p className="mb-5 rounded-[10px] bg-secondary-orange/10 p-3 text-sm text-muted-foreground">
+                                These details are taken from your account. To
+                                change them, update your profile.
+                            </p>
+                        )}
+
                         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
                                 Person to contact in case of emergency (can be
                                 same as primary contact)
                             </p>
-                            <div className="flex justify-start sm:justify-end">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="flex items-center gap-2 rounded-[10px] border border-primary text-primary"
-                                    onClick={populateContact}
-                                >
-                                    <Copy /> Copy Primary Contact
-                                </Button>
-                            </div>
+                            {/*
+                                Hidden while locked — populateContact() writes
+                                these fields programmatically, which `disabled`
+                                inputs don't prevent, so the button would be a
+                                way around the lock.
+                            */}
+                            {!isLocked('emergency_contact_name') && (
+                                <div className="flex justify-start sm:justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="flex items-center gap-2 rounded-[10px] border border-primary text-primary"
+                                        onClick={populateContact}
+                                    >
+                                        <Copy /> Copy Primary Contact
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col">
@@ -1242,6 +1347,7 @@ export default function IntakeApplicationForm({
                             </Label>
                             <Input
                                 id="emergencyFullName"
+                                disabled={isLocked('emergency_contact_name')}
                                 value={data.emergency_contact_name}
                                 onChange={(e) =>
                                     setData(
@@ -1267,6 +1373,9 @@ export default function IntakeApplicationForm({
                                 </Label>
                                 <Input
                                     id="emergencyPhone"
+                                    disabled={isLocked(
+                                        'emergency_contact_phone',
+                                    )}
                                     value={data.emergency_contact_phone}
                                     onChange={(e) =>
                                         setData(
@@ -1301,6 +1410,9 @@ export default function IntakeApplicationForm({
                                             value,
                                         )
                                     }
+                                    disabled={isLocked(
+                                        'emergency_contact_relationship',
+                                    )}
                                 >
                                     <SelectTrigger className="mt-2 rounded-[10px]">
                                         <SelectValue placeholder="Select Relationship" />

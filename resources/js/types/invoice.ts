@@ -73,12 +73,16 @@ export interface InvoiceStats {
     pending: number;
     overdue: number;
     total_revenue: number;
+    /** Outstanding therapist bills. Admin-only — null for everyone else. */
+    owed_to_therapists: number | null;
 }
 
 export interface InvoiceFilters {
     quick: QuickInvoiceFilter;
     search: string;
     status: string;
+    /** `all`, or a `billed_by` value. Admin-only; always `all` otherwise. */
+    direction: string;
 }
 
 export type { Paginated } from '@/types/intake';

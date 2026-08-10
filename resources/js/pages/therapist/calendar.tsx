@@ -2,7 +2,10 @@ import { Head, Link, router } from '@inertiajs/react';
 import { CalendarIcon, PlusIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { SessionStatusBadge } from '@/components/sessions/badges';
+import {
+    SessionServiceTags,
+    SessionStatusBadge,
+} from '@/components/sessions/badges';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Card } from '@/components/ui/card';
@@ -35,8 +38,6 @@ function SessionRow({
     const clientName = intake
         ? `${intake.child_first_name} ${intake.child_last_name}`
         : 'Client';
-    const serviceName =
-        session.service?.name || session.service_name || 'Service';
 
     const handleStart = () => {
         setStarting(true);
@@ -59,9 +60,7 @@ function SessionRow({
                 <div className="h-10 w-px bg-border" />
                 <div>
                     <p className="font-semibold">{clientName}</p>
-                    <p className="text-sm text-muted-foreground">
-                        {serviceName}
-                    </p>
+                    <SessionServiceTags session={session} className="mt-1" />
                 </div>
             </div>
 

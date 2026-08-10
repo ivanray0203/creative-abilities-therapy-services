@@ -1,14 +1,8 @@
 import { Head } from '@inertiajs/react';
-import {
-    HandCoinsIcon,
-    Heart,
-    Sparkle,
-    Star,
-    Target,
-    Users,
-} from 'lucide-react';
+import { HandCoinsIcon, Heart, Sparkle, Target, Users } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
+import CaringHandsHeart from '@/components/icons/caring-hands-heart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import PublicLayout from '@/layouts/public-layout';
@@ -29,7 +23,7 @@ export default function About() {
                         {/* Title Badge */}
                         <div className="rounded-sm bg-secondary-orange/5 p-3 shadow-lg">
                             <p className="flex flex-row items-center gap-3 text-center md:text-left">
-                                <Star className="h-5 w-5 text-white" />
+                                <CaringHandsHeart className="h-7 w-7 shrink-0" />
                                 <span className="text-base text-primary md:text-lg lg:text-xl">
                                     Welcome to Creative Abilities Therapy
                                     Services
