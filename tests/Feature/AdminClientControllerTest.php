@@ -332,3 +332,84 @@ test('reassigning a declined service sends it back out and adds it to the existi
     $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
         ->assertInertia(fn ($page) => $page->has('declinedServices', 0));
 });
+
+test('the progress tab counts delivery per service without double-counting shared visits', function () {
+    $therapist = User::factory()->therapist()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
+    $client = Client::factory()->create();
+
+    $speech = ClientService::factory()->for($client)->create([
+        'service_id' => ServiceOffering::factory()->create(['name' => 'Speech'])->id,
+        'therapist_id' => $therapist->id,
+        'no_sessions' => 4,
+        'goals' => 'Two-word phrases.',
+        'frequency' => 'Weekly',
+    ]);
+    $physio = ClientService::factory()->for($client)->create([
+        'service_id' => ServiceOffering::factory()->create(['name' => 'Physio'])->id,
+        'therapist_id' => $therapist->id,
+        'no_sessions' => 0,
+    ]);
+
+    // One visit covering both services: counts once for each, once overall.
+    $shared = ScheduleSession::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'completed',
+        'elapsed_time' => '01:30:00',
+        'scheduled_start' => now(),
+    ]);
+    $shared->clientServices()->sync([$speech->id, $physio->id]);
+
+    // Speech only, an hour, in a past month.
+    $speechOnly = ScheduleSession::factory()->linkedTo($speech)->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+        'elapsed_time' => '01:00:00',
+        'scheduled_start' => now()->subMonths(2),
+    ]);
+
+    // Neither delivered: one missed, one cancelled, one still booked.
+    ScheduleSession::factory()->create(['client_id' => $client->id, 'status' => 'no_show']);
+    ScheduleSession::factory()->create(['client_id' => $client->id, 'status' => 'cancelled']);
+    ScheduleSession::factory()->create(['client_id' => $client->id, 'status' => 'scheduled']);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->has('progress.services', 2)
+            // Speech: 2 of 4 delivered, 2.5 hours, goals carried through.
+            ->where('progress.services.0.name', 'Speech')
+            ->where('progress.services.0.delivered', 2)
+            ->where('progress.services.0.authorised', 4)
+            ->where('progress.services.0.remaining', 2)
+            ->where('progress.services.0.percent', 50)
+            ->where('progress.services.0.hours', 2.5)
+            ->where('progress.services.0.therapist', 'Jane Doe')
+            ->where('progress.services.0.goals', 'Two-word phrases.')
+            // Physio authorised nothing, so there is no bar to draw.
+            ->where('progress.services.1.delivered', 1)
+            ->where('progress.services.1.authorised', null)
+            ->where('progress.services.1.percent', null)
+            // The shared visit is one visit, not two, in the totals.
+            ->where('progress.hours.total', 2.5)
+            ->where('progress.hours.this_month', 1.5)
+            ->where('progress.attendance.attended', 2)
+            ->where('progress.attendance.cancelled', 1)
+            ->where('progress.attendance.no_show', 1)
+            // 2 attended of 3 kept-or-missed; the cancellation is excluded.
+            ->where('progress.attendance.rate', 67)
+        );
+
+    expect($speechOnly->fresh()->status)->toBe('confirmed');
+});
+
+test('the progress tab reports nothing to show for a client with no services or sessions', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->where('progress.has_data', false)
+            ->where('progress.attendance.rate', null)
+            ->where('progress.hours.total', 0)
+        );
+});

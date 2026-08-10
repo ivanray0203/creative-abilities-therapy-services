@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\PdfService;
+use App\Support\ClientProgress;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -114,6 +115,7 @@ class ClientController extends Controller
         return Inertia::render('admin/clients/show', [
             'client' => $client,
             'declinedServices' => $this->declinedServices($client),
+            'progress' => ClientProgress::for($client),
             'therapists' => $this->therapists(),
             'services' => ServiceOffering::query()
                 ->where('is_active', true)

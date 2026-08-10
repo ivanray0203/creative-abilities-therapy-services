@@ -126,3 +126,31 @@ export interface ClientStats {
 }
 
 export type { Paginated } from '@/types/intake';
+
+/** Per-availed-service delivery, for the client Progress tab. */
+export interface ClientServiceProgress {
+    id: number;
+    name: string;
+    therapist: string | null;
+    frequency: string | null;
+    goals: string | null;
+    /** Sessions authorised. Null when none was recorded on the service. */
+    authorised: number | null;
+    delivered: number;
+    remaining: number | null;
+    percent: number | null;
+    hours: number;
+}
+
+export interface ClientProgress {
+    services: ClientServiceProgress[];
+    attendance: {
+        attended: number;
+        cancelled: number;
+        no_show: number;
+        /** Null until there is an attended or missed session to measure. */
+        rate: number | null;
+    };
+    hours: { total: number; this_month: number };
+    has_data: boolean;
+}

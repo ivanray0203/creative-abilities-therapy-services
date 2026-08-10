@@ -17,12 +17,13 @@ import DeleteClientModal from '@/components/admin/delete-client-modal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
-import type { Client, ServiceOffering } from '@/types/client';
+import type { Client, ClientProgress, ServiceOffering } from '@/types/client';
 import type { DeclinedService, TherapistOption } from '@/types/intake';
 
 interface ClientShowProps {
     client: Client;
     declinedServices: DeclinedService[];
+    progress: ClientProgress;
     therapists: TherapistOption[];
     services: ServiceOffering[];
 }
@@ -31,6 +32,7 @@ interface ClientShowProps {
 export default function AdminClientShow({
     client,
     declinedServices,
+    progress,
     therapists,
     services,
 }: ClientShowProps) {
@@ -144,7 +146,7 @@ export default function AdminClientShow({
                         <NotesTab client={client} />
                     </TabsContent>
                     <TabsContent value="progress">
-                        <ProgressTab />
+                        <ProgressTab progress={progress} />
                     </TabsContent>
                     <TabsContent value="therapist">
                         <TherapistTab client={client} therapists={therapists} />

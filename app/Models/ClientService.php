@@ -70,6 +70,15 @@ class ClientService extends Model
         return $this->belongsTo(User::class, 'therapist_id');
     }
 
+    /**
+     * The offering's name, or a neutral label when the offering was deleted
+     * out from under the availed service.
+     */
+    public function serviceName(): string
+    {
+        return $this->service !== null ? $this->service->name : 'Service';
+    }
+
     /** @return BelongsToMany<ScheduleSession, $this> */
     public function sessions(): BelongsToMany
     {
