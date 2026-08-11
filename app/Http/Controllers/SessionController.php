@@ -11,6 +11,7 @@ use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ClientContext;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -299,11 +300,20 @@ class SessionController extends Controller
             'role' => ['required', 'in:client,therapist'],
         ]);
 
-        $column = $validated['role'] === 'client' ? 'client_id' : 'therapist_id';
+        $user = $request->user();
+        $subjectId = (int) $validated['user_id'];
+
+        if ($validated['role'] === 'client') {
+            $this->assertCanReadClientDiary($user, $subjectId);
+            $column = 'client_id';
+        } else {
+            $this->assertCanReadTherapistDiary($user, $subjectId);
+            $column = 'therapist_id';
+        }
 
         return response()->json(
             ScheduleSession::query()
-                ->where($column, $validated['user_id'])
+                ->where($column, $subjectId)
                 // The complaint and invoice session pickers label each option
                 // with every service the visit covers.
                 ->with(['service', 'clientServices.service'])
@@ -319,6 +329,8 @@ class SessionController extends Controller
             'service_id' => ['required', 'integer'],
         ]);
 
+        $this->assertCanReadClientDiary($request->user(), (int) $validated['user_id']);
+
         return response()->json(
             ScheduleSession::query()
                 ->where('client_id', $validated['user_id'])
@@ -328,8 +340,10 @@ class SessionController extends Controller
         );
     }
 
-    public function byClientService(ClientService $clientService): JsonResponse
+    public function byClientService(Request $request, ClientService $clientService): JsonResponse
     {
+        $this->assertCanReadClientDiary($request->user(), (int) $clientService->client_id);
+
         return response()->json(
             $clientService->sessions()
                 ->orderBy('scheduled_start')
@@ -377,6 +391,39 @@ class SessionController extends Controller
      * returning 404 rather than the 403 `authorize()` would raise — this app
      * deliberately doesn't confirm that someone else's record exists.
      */
+
+    /**
+     * These lookup endpoints take an id straight from the query string, so
+     * the role guard alone would let any therapist read another's caseload —
+     * and any parent read another family's diary. Ownership has to be
+     * checked against the caller, not just their role.
+     */
+    private function assertCanReadClientDiary(User $user, int $clientId): void
+    {
+        if ($user->isAdmin()) {
+            return;
+        }
+
+        if ($user->isTherapist()) {
+            abort_unless(
+                Client::query()->whereKey($clientId)->forTherapist($user->id)->exists(),
+                404,
+            );
+
+            return;
+        }
+
+        abort_unless(app(ClientContext::class)->owns($user, $clientId), 404);
+    }
+
+    private function assertCanReadTherapistDiary(User $user, int $therapistId): void
+    {
+        // A therapist may only read their own diary; a parent, none at all.
+        abort_unless(
+            $user->isAdmin() || ($user->isTherapist() && $user->id === $therapistId),
+            404,
+        );
+    }
 
     private function assertOwnsOrAdmin(ScheduleSession $session, User $user): void
     {

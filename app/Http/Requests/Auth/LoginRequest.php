@@ -58,6 +58,24 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        // Deactivated accounts hold valid credentials — the check has to
+        // happen after the attempt, and the session must not survive it.
+        if ($this->user()?->is_active === false) {
+            Auth::guard('web')->logout();
+
+            AuditLogger::log(
+                'Deactivated account login blocked',
+                'Authentication',
+                "Blocked login for deactivated account {$this->string('email')}",
+                'warning',
+                $this->string('email')->toString(),
+            );
+
+            throw ValidationException::withMessages([
+                'email' => 'This account has been deactivated. Please contact an administrator.',
+            ]);
+        }
     }
 
     /**
