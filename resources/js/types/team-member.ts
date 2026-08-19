@@ -5,8 +5,8 @@
 
 import type { AvailabilityEntry } from '@/types/application';
 import type { Client } from '@/types/client';
-import type { InvoiceService, InvoiceServiceRate } from '@/types/invoice';
 import type { Paginated } from '@/types/intake';
+import type { InvoiceService, InvoiceServiceRate } from '@/types/invoice';
 import type { ScheduleSession } from '@/types/session';
 
 export type Department =
