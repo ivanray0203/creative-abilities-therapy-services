@@ -78,13 +78,28 @@ class DemoAccountsSeeder extends Seeder
         $client = Client::query()->where('user_id', $clientUser->id)->first();
 
         if (! $client) {
-            $intake = Intake::factory()->create([
-                'child_first_name' => 'Demo',
-                'child_last_name' => 'Child',
-                'primary_parent_name' => 'Demo Client',
-                'primary_parent_email' => $clientUser->email,
-                'status' => 'approved',
-            ]);
+            $dateOfBirth = now()->subYears(8)->startOfDay();
+
+            $intake = Intake::query()->updateOrCreate(
+                ['reference_number' => 'INT-'.now()->year.'-001'],
+                [
+                    'child_first_name' => 'Demo',
+                    'child_last_name' => 'Child',
+                    'date_of_birth' => $dateOfBirth->toDateString(),
+                    'age' => 8,
+                    'gender' => 'other',
+                    'status' => 'approved',
+                    'street_address' => '100 Demo Street',
+                    'city' => 'Calgary',
+                    'state_province' => 'AB',
+                    'postal_code' => 'T2P 1A1',
+                    'primary_parent_name' => 'Demo Client',
+                    'primary_parent_phone' => '555-0101',
+                    'primary_parent_email' => $clientUser->email,
+                    'primary_relationship_to_child' => 'Parent',
+                    'primary_contact_method' => 'email',
+                ],
+            );
 
             $client = Client::query()->create([
                 'original_intake_id' => $intake->id,
