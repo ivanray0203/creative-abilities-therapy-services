@@ -40,9 +40,11 @@ class StoreInvoiceRequest extends FormRequest
             'notes' => ['nullable', 'string'],
             'action' => ['required', Rule::in(['draft', 'send'])],
             'services' => ['required', 'array', 'min:1'],
+            'services.*.invoice_service_id' => ['nullable', 'integer', 'exists:invoice_services,id'],
             'services.*.name' => ['required', 'string', 'max:255'],
             'services.*.description' => ['nullable', 'string', 'max:255'],
-            'services.*.numberOfSessions' => ['required', 'integer', 'min:1'],
+            // Billable hours, so fractional: 0.75 and 1.5 are real quantities.
+            'services.*.numberOfSessions' => ['required', 'numeric', 'min:0.01'],
             'services.*.rate_numeric' => ['required', 'numeric', 'min:0'],
         ];
     }

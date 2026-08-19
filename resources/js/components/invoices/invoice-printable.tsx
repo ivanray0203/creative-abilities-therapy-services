@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 
 import { InvoiceStatusBadge } from '@/components/invoices/badges';
+import MonthlyInvoicePrintable from '@/components/invoices/monthly-invoice-printable';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Invoice } from '@/types/invoice';
 
@@ -11,6 +12,13 @@ import type { Invoice } from '@/types/invoice';
  */
 export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
     const { organization } = usePage().props;
+
+    // The therapist's month-end statement bills the clinic across every
+    // client they saw, so it uses the clinic's own monthly sheet format.
+    if (invoice.is_monthly) {
+        return <MonthlyInvoicePrintable invoice={invoice} />;
+    }
+
     const childName = invoice.client?.original_intake
         ? `${invoice.client.original_intake.child_first_name} ${invoice.client.original_intake.child_last_name}`
         : invoice.bill_to_name;

@@ -7,6 +7,7 @@ import { EmploymentStatusBadge } from '@/components/admin/team-member/badges';
 import ClientsTab from '@/components/admin/team-member/clients-tab';
 import DocumentsTab from '@/components/admin/team-member/documents-tab';
 import OverviewTab from '@/components/admin/team-member/overview-tab';
+import RatesTab from '@/components/admin/team-member/rates-tab';
 import ScheduleTab from '@/components/admin/team-member/schedule-tab';
 import SessionsTab from '@/components/admin/team-member/sessions-tab';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -25,6 +26,8 @@ export default function AdminTeamShow({
     recentSessions,
     documents,
     missingDocuments,
+    invoiceServices,
+    invoiceServiceRates,
 }: TeamMemberShowProps) {
     const [accessModalOpen, setAccessModalOpen] = useState(false);
 
@@ -130,6 +133,7 @@ export default function AdminTeamShow({
                             Documents ({documents.length})
                         </TabsTrigger>
                         <TabsTrigger value="schedule">Schedule</TabsTrigger>
+                        <TabsTrigger value="rates">Rates</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="overview">
@@ -150,6 +154,13 @@ export default function AdminTeamShow({
                     </TabsContent>
                     <TabsContent value="schedule">
                         <ScheduleTab teamMember={teamMember} />
+                    </TabsContent>
+                    <TabsContent value="rates">
+                        <RatesTab
+                            teamMember={teamMember}
+                            invoiceServices={invoiceServices}
+                            invoiceServiceRates={invoiceServiceRates}
+                        />
                     </TabsContent>
                 </Tabs>
             </div>

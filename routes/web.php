@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GoogleDriveConnectionController;
 use App\Http\Controllers\Admin\IntakeController;
+use App\Http\Controllers\Admin\InvoiceServiceController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ProgramController as AdminProgramController;
 use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
@@ -141,7 +142,8 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('sessions/{session}/cancel', [SessionController::class, 'cancel'])->name('admin.sessions.cancel');
         Route::post('sessions/{session}/dispute', [SessionController::class, 'dispute'])->name('admin.sessions.dispute');
 
-        Route::get('services', [ServiceOfferingController::class, 'index'])->name('admin.services.index');
+        Route::get('services', [InvoiceServiceController::class, 'index'])->name('admin.services.index');
+        Route::patch('services/{invoiceService}/rates', [InvoiceServiceController::class, 'updateRates'])->name('admin.services.update-rates');
         Route::get('services/add', [ServiceOfferingController::class, 'create'])->name('admin.services.create');
         Route::post('services', [ServiceOfferingController::class, 'store'])->name('admin.services.store');
         Route::get('services/edit/{service}', [ServiceOfferingController::class, 'edit'])->name('admin.services.edit');
@@ -178,6 +180,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::put('team/{teamMember}', [TeamMemberController::class, 'update'])->name('admin.team.update');
         Route::delete('team/{teamMember}', [TeamMemberController::class, 'destroy'])->name('admin.team.destroy');
         Route::patch('team/{teamMember}/access', [TeamMemberController::class, 'updateAccess'])->name('admin.team.update-access');
+        Route::patch('team/{teamMember}/rates', [TeamMemberController::class, 'updateRates'])->name('admin.team.update-rates');
         Route::post('team/{teamMember}/documents', [TeamMemberController::class, 'uploadDocument'])->name('admin.team.documents.store');
         Route::delete('team/documents/{document}', [TeamMemberController::class, 'deleteDocument'])->name('admin.team.documents.destroy');
 

@@ -10,8 +10,9 @@ use App\Mail\InvoiceSignedAdminNotification;
 use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Invoice;
+use App\Models\InvoiceService;
 use App\Models\ScheduleSession;
-use App\Models\ServiceOffering;
+use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ClientContext;
@@ -93,7 +94,7 @@ class InvoiceController extends Controller
             // What the clinic still owes its therapists. Only the admin sits
             // on that side of the ledger, so nobody else is shown a figure.
             'owed_to_therapists' => $user->isAdmin()
-                ? Invoice::query()->where('billed_by', 'therapist')->whereNot('status', 'paid')->sum('total')
+                ? Invoice::query()->where('billed_by', 'therapist')->where('is_monthly', true)->whereNot('status', 'paid')->sum('total')
                 : null,
         ];
 
@@ -125,7 +126,7 @@ class InvoiceController extends Controller
         return Inertia::render('invoices/create', [
             'role' => $request->user()->role,
             'clients' => $this->clientOptions($request->user()),
-            'services' => $this->serviceOptions(),
+            'services' => $this->serviceOptions($request->user()),
             'therapistInvoices' => $this->recoverableTherapistInvoices($request->user()),
         ]);
     }
@@ -145,7 +146,10 @@ class InvoiceController extends Controller
             'billed_by' => $billedBy,
             'tax_percentage' => 0,
             'invoice_id' => $referenceNumberGenerator->invoice(),
-            'status' => $validated['action'] === 'send' ? 'sent' : 'draft',
+            // A therapist bills the clinic once a month, so their per-client
+            // bill is only ever a draft: the monthly statement is what gets
+            // sent. An admin's invoice to a family still sends on the spot.
+            'status' => $user->isAdmin() && $validated['action'] === 'send' ? 'sent' : 'draft',
             'issued_by_id' => $user->id,
             'timeline' => [$this->timelineEntry('Invoice created')],
         ]);
@@ -272,7 +276,7 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'role' => $request->user()->role,
             'clients' => $this->clientOptions($request->user(), $invoice),
-            'services' => $this->serviceOptions(),
+            'services' => $this->serviceOptions($request->user()),
             'therapistInvoices' => $this->recoverableTherapistInvoices($request->user(), $invoice),
         ]);
     }
@@ -487,7 +491,11 @@ class InvoiceController extends Controller
     private function scopedQuery(User $user): Builder
     {
         if ($user->isAdmin()) {
-            return Invoice::query();
+            // A therapist's per-client bill never reaches the admin. Only the
+            // monthly statement that rolls those bills up does.
+            return Invoice::query()->where(
+                fn (Builder $visible) => $visible->where('billed_by', 'admin')->orWhere('is_monthly', true),
+            );
         }
 
         if ($user->isTherapist()) {
@@ -527,9 +535,10 @@ class InvoiceController extends Controller
         $services = collect((array) $validated['services'])
             ->map(fn (array $line): array => $this->serviceLineItem(
                 $line['name'],
-                (int) $line['numberOfSessions'],
+                (float) $line['numberOfSessions'],
                 (float) $line['rate_numeric'],
                 $line['description'] ?? null,
+                isset($line['invoice_service_id']) ? (int) $line['invoice_service_id'] : null,
             ))
             ->all();
 
@@ -546,11 +555,12 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return array{name: string, description: ?string, period: string, numberOfSessions: int, rate: string, rate_numeric: float}
+     * @return array{invoice_service_id: ?int, name: string, description: ?string, period: string, numberOfSessions: float, rate: string, rate_numeric: float}
      */
-    private function serviceLineItem(string $name, int $numberOfSessions, float $rate, ?string $description = null): array
+    private function serviceLineItem(string $name, float $numberOfSessions, float $rate, ?string $description = null, ?int $invoiceServiceId = null): array
     {
         return [
+            'invoice_service_id' => $invoiceServiceId,
             'name' => $name,
             'description' => $description,
             'period' => now()->format('F Y'),
@@ -619,6 +629,10 @@ class InvoiceController extends Controller
 
         return Invoice::query()
             ->where('billed_by', 'therapist')
+            // Only a month-end statement is a bill the clinic has actually
+            // received; the per-client bills behind it are not the admin's
+            // to see, let alone to recover against a family invoice.
+            ->where('is_monthly', true)
             ->where(function (Builder $selectable) use ($invoice): void {
                 $selectable->whereNot('status', 'paid');
 
@@ -639,14 +653,29 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return Collection<int, ServiceOffering>
+     * The invoice rate card, priced for whoever is raising the invoice.
+     *
+     * @return Collection<int, array{id: int, name: string, code: string, discipline: string, rate_fscd: ?string, rate_private: ?string}>
      */
-    private function serviceOptions(): Collection
+    private function serviceOptions(User $user): Collection
     {
-        return ServiceOffering::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'base_price']);
+        $services = InvoiceService::query()->active()->orderBy('sort_order')->get();
+
+        // The clinic bills the family at its published rates. A therapist
+        // billing the clinic bills at their own, which falls back to the
+        // published rate wherever they have no override.
+        $teamMember = $user->isAdmin()
+            ? null
+            : TeamMember::query()->where('user_id', $user->id)->with('invoiceServiceRates')->first();
+
+        return $services->map(fn (InvoiceService $service): array => [
+            'id' => $service->id,
+            'name' => $service->name,
+            'code' => $service->code,
+            'discipline' => $service->discipline,
+            'rate_fscd' => $teamMember?->rateFor($service, 'fscd') ?? $service->rate_fscd,
+            'rate_private' => $teamMember?->rateFor($service, 'private') ?? $service->rate_private,
+        ]);
     }
 
     /**
@@ -674,7 +703,7 @@ class InvoiceController extends Controller
                     $selectable->orWhere('clients.id', $invoice->client_id);
                 }
             })
-            ->with('originalIntake:id,child_first_name,child_last_name')
+            ->with('originalIntake:id,child_first_name,child_last_name,funding_source')
             ->get(['id', 'original_intake_id']);
     }
 

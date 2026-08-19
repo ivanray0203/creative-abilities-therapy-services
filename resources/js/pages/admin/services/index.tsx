@@ -1,43 +1,90 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { Edit, Layers, Plus } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { Edit, Layers, Search } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
+import InvoiceServiceRatesModal from '@/components/admin/invoice-service-rates-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import AdminLayout from '@/layouts/admin-layout';
-import type { ServiceOffering } from '@/types/client';
 import type { Paginated } from '@/types/intake';
+import type { InvoiceService } from '@/types/invoice';
 
-type ServiceType =
-    'general_service' | 'specific_service' | 'non_direct_service';
+/** Sheet disciplines, labelled as the rate card groups them. */
+const DISCIPLINE_LABELS: Record<string, string> = {
+    slp: 'Speech-Language Pathology',
+    psych: 'Psychology',
+    ot: 'Occupational Therapy',
+    pt: 'Physiotherapy',
+    bc: 'Behavioural Consulting',
+    aide: 'Aide Services',
+    other: 'Other',
+};
 
-const TABS: { key: ServiceType; label: string }[] = [
-    { key: 'general_service', label: 'General Services' },
-    { key: 'specific_service', label: 'Specific Services' },
-    { key: 'non_direct_service', label: 'Non-Direct Services' },
-];
+/** A null rate is a blank column on the sheet: not billable under that stream. */
+const formatRate = (rate: string | null): string =>
+    rate === null ? '—' : `$${rate}`;
 
 interface AdminServicesIndexProps {
-    services: Paginated<ServiceOffering>;
-    stats: Record<ServiceType, number>;
-    filters: { type: ServiceType };
+    services: Paginated<InvoiceService>;
+    filters: { search: string; discipline: string };
+    disciplines: string[];
 }
 
 /**
- * Admin "Service Offerings" catalog — reference: cats-frontend/src/pages/admin/Services.tsx.
- * Manages the internal ServiceOffering catalog used when scheduling
- * sessions/invoices (distinct from the public marketing Service model
- * managed under Administrator > Services visibility toggles).
+ * The invoice rate card — every billable "Service Provided" line, with its
+ * rates editable per line.
+ *
+ * Per-therapist overrides of these rates are set on the team member's Rates
+ * tab (/admin/team/{id}); this screen sets the clinic's published rates.
  */
 export default function AdminServicesIndex({
     services,
-    stats,
     filters,
+    disciplines,
 }: AdminServicesIndexProps) {
-    const applyType = (type: ServiceType) => {
+    const [search, setSearch] = useState(filters.search);
+    const [serviceToEdit, setServiceToEdit] = useState<InvoiceService | null>(
+        null,
+    );
+
+    /** Debounced so typing doesn't fire a visit per keystroke. */
+    useEffect(() => {
+        if (search === filters.search) {
+            return;
+        }
+
+        const timeout = setTimeout(() => {
+            router.get(
+                '/admin/services',
+                { search, discipline: filters.discipline },
+                { preserveState: true, replace: true },
+            );
+        }, 300);
+
+        return () => clearTimeout(timeout);
+    }, [search, filters.search, filters.discipline]);
+
+    const applyDiscipline = (discipline: string) => {
         router.get(
             '/admin/services',
-            { type },
+            { search, discipline },
             { preserveState: true, replace: true },
         );
     };
@@ -45,131 +92,142 @@ export default function AdminServicesIndex({
     const goToPage = (page: number) => {
         router.get(
             '/admin/services',
-            { type: filters.type, page },
+            { page, search: filters.search, discipline: filters.discipline },
             { preserveState: true, replace: true },
         );
     };
 
     return (
         <>
-            <Head title="Services" />
+            <Head title="Invoice Services" />
             <div className="space-y-6 p-6">
                 {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="rounded-lg bg-primary/10 p-3">
-                            <Layers className="h-6 w-6 text-primary" />
-                        </div>
-                        <div>
+                <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-primary/10 p-3">
+                        <Layers className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
                             <h1 className="text-3xl font-bold">
-                                Service Offerings
+                                Invoice Services
                             </h1>
-                            <p className="text-muted-foreground">
-                                Manage services offered by your organization
-                            </p>
+                            <Badge variant="secondary">{services.total}</Badge>
                         </div>
+                        <p className="text-muted-foreground">
+                            The billable rate card, with FSCD and
+                            private/insurance rates
+                        </p>
+                    </div>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                    <div className="relative flex-1">
+                        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search by name or code"
+                            className="rounded-[10px] pl-9"
+                        />
                     </div>
 
-                    <Button asChild className="rounded-[10px]">
-                        <Link href="/admin/services/add">
-                            <Plus className="mr-2 h-4 w-4" /> Add Service
-                        </Link>
-                    </Button>
+                    <Select
+                        value={filters.discipline}
+                        onValueChange={applyDiscipline}
+                    >
+                        <SelectTrigger className="rounded-[10px] md:w-72">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All disciplines</SelectItem>
+                            {disciplines.map((value) => (
+                                <SelectItem key={value} value={value}>
+                                    {DISCIPLINE_LABELS[value] ?? value}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
 
-                {/* Tabs */}
-                <div className="flex gap-4 border-b">
-                    {TABS.map((tab) => (
-                        <button
-                            key={tab.key}
-                            onClick={() => applyType(tab.key)}
-                            className={`flex items-center gap-2 border-b-2 px-4 py-2 font-medium ${
-                                filters.type === tab.key
-                                    ? 'border-primary text-foreground'
-                                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                            }`}
-                        >
-                            {tab.label}
-                            <Badge variant="secondary">{stats[tab.key]}</Badge>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Content */}
+                {/* Table */}
                 <Card className="p-6">
-                    {services.data.length === 0 && (
-                        <p className="text-sm text-muted-foreground">
-                            No services found for this category.
-                        </p>
-                    )}
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Discipline</TableHead>
+                                    <TableHead className="text-right">
+                                        FSCD Rate
+                                    </TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">
+                                        Private/Insurance Rate
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        Action
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {services.data.map((service) => (
+                                    <TableRow key={service.id}>
+                                        <TableCell>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="font-medium">
+                                                    {service.name}
+                                                </span>
+                                                {!service.is_active && (
+                                                    <Badge variant="destructive">
+                                                        Inactive
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">
+                                                Code: {service.code}
+                                            </p>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary">
+                                                {DISCIPLINE_LABELS[
+                                                    service.discipline
+                                                ] ?? service.discipline}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                            {formatRate(service.rate_fscd)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-medium">
+                                            {formatRate(service.rate_private)}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="rounded-[10px]"
+                                                onClick={() =>
+                                                    setServiceToEdit(service)
+                                                }
+                                            >
+                                                <Edit className="mr-1 h-4 w-4" />{' '}
+                                                Edit Rates
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
 
-                    <div className="space-y-4">
-                        {services.data.map((service) => (
-                            <Card
-                                key={service.id}
-                                className="rounded-lg border p-5 transition hover:shadow-md"
-                            >
-                                <div className="flex items-start justify-between">
-                                    <div className="space-y-1">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-lg font-semibold">
-                                                {service.name}
-                                            </h3>
-                                            {!service.is_active && (
-                                                <Badge variant="destructive">
-                                                    Inactive
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <p className="text-sm text-muted-foreground">
-                                            Code: {service.code}
-                                        </p>
-                                    </div>
-
-                                    <Button
-                                        asChild
-                                        size="sm"
-                                        variant="outline"
-                                        className="rounded-[10px]"
-                                    >
-                                        <Link
-                                            href={`/admin/services/edit/${service.id}`}
+                                {services.data.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={5}
+                                            className="text-center text-muted-foreground"
                                         >
-                                            <Edit className="mr-1 h-4 w-4" />{' '}
-                                            Edit
-                                        </Link>
-                                    </Button>
-                                </div>
-
-                                {service.description && (
-                                    <div className="mt-3 text-sm text-gray-700">
-                                        {service.description}
-                                    </div>
+                                            No services match this search.
+                                        </TableCell>
+                                    </TableRow>
                                 )}
-
-                                <div className="mt-4 flex flex-wrap gap-4 text-sm">
-                                    {service.base_price && (
-                                        <div>
-                                            <span className="text-muted-foreground">
-                                                Base Price:
-                                            </span>{' '}
-                                            <strong>
-                                                ${service.base_price}
-                                            </strong>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <span className="text-muted-foreground">
-                                            Status:
-                                        </span>{' '}
-                                        {service.is_active
-                                            ? 'Active'
-                                            : 'Inactive'}
-                                    </div>
-                                </div>
-                            </Card>
-                        ))}
+                            </TableBody>
+                        </Table>
                     </div>
 
                     {services.last_page > 1 && (
@@ -204,6 +262,12 @@ export default function AdminServicesIndex({
                     )}
                 </Card>
             </div>
+
+            <InvoiceServiceRatesModal
+                service={serviceToEdit}
+                isOpen={serviceToEdit !== null}
+                onClose={() => setServiceToEdit(null)}
+            />
         </>
     );
 }

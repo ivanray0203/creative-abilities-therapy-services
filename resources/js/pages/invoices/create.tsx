@@ -4,13 +4,13 @@ import type { PropsWithChildren } from 'react';
 import InvoiceForm from '@/components/invoices/invoice-form';
 import AdminLayout from '@/layouts/admin-layout';
 import TherapistLayout from '@/layouts/therapist-layout';
-import type { Client, ServiceOffering } from '@/types/client';
-import type { Invoice } from '@/types/invoice';
+import type { Client } from '@/types/client';
+import type { Invoice, InvoiceServiceOption } from '@/types/invoice';
 
 interface InvoicesCreateProps {
     role: 'admin' | 'therapist';
     clients: Client[];
-    services: ServiceOffering[];
+    services: InvoiceServiceOption[];
     therapistInvoices: Invoice[];
 }
 

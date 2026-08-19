@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @property array<int, string>|null $credentials
@@ -68,5 +69,33 @@ class TeamMember extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    /**
+     * The rate-card lines this team member bills at their own rate.
+     *
+     * The pivot carries the override itself; a null pivot rate means the line
+     * falls back to the published rate on `invoice_services`.
+     *
+     * @return BelongsToMany<InvoiceService, $this>
+     */
+    public function invoiceServiceRates(): BelongsToMany
+    {
+        return $this->belongsToMany(InvoiceService::class, 'team_member_invoice_service_rates')
+            ->using(TeamMemberInvoiceServiceRate::class)
+            ->withPivot(['rate_fscd', 'rate_private'])
+            ->withTimestamps();
+    }
+
+    /**
+     * The rate this team member bills a line at, by funding stream, falling
+     * back to the rate card when they have no override.
+     */
+    public function rateFor(InvoiceService $invoiceService, string $fundingSource): ?string
+    {
+        $override = $this->invoiceServiceRates->firstWhere('id', $invoiceService->id);
+        $column = $fundingSource === 'private' ? 'rate_private' : 'rate_fscd';
+
+        return $override?->pivot->{$column} ?? $invoiceService->rateFor($fundingSource);
     }
 }

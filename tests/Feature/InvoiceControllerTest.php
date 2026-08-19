@@ -9,17 +9,20 @@ use Illuminate\Support\Facades\Mail;
 test('each role only sees invoices scoped to them', function () {
     $therapistA = therapistUser();
     $therapistB = therapistUser();
+    // Per-client bills: the therapist's own working record, not the admin's.
     Invoice::factory()->create(['therapist_id' => $therapistA->id, 'billed_by' => 'therapist']);
     Invoice::factory()->create(['therapist_id' => $therapistB->id, 'billed_by' => 'therapist']);
 
     $client = clientWithUser();
     Invoice::factory()->create(['client_id' => $client->id, 'billed_by' => 'admin']);
 
+    // Only the clinic's own invoice reaches the admin list; a therapist's
+    // client bills wait for the month-end statement.
     $adminResponse = $this->actingAs(adminUser())->get('/admin/invoices');
     $adminResponse->assertOk();
     $adminResponse->assertInertia(fn ($page) => $page
         ->component('invoices/index')
-        ->has('invoices.data', 3)
+        ->has('invoices.data', 1)
     );
 
     $therapistResponse = $this->actingAs($therapistA)->get('/therapist/invoices');
@@ -385,9 +388,20 @@ test('a therapist invoice is billed to the clinic and never reaches the family',
         );
     $this->actingAs($therapist)->get("/therapist/invoices/{$clientInvoice->id}")->assertNotFound();
 
-    // The admin sits in the middle and sees both.
+    // The admin sees the clinic's own invoice. The therapist's client bill
+    // only reaches them once the month closes into a monthly statement.
+    $this->actingAs(adminUser())->get('/admin/invoices')
+        ->assertInertia(fn ($page) => $page
+            ->has('invoices.data', 1)
+            ->where('invoices.data.0.id', $clientInvoice->id)
+        );
+    $this->actingAs(adminUser())->get("/admin/invoices/{$therapistInvoice->id}")->assertNotFound();
+
+    $therapistInvoice->update(['is_monthly' => true]);
+
     $this->actingAs(adminUser())->get('/admin/invoices')
         ->assertInertia(fn ($page) => $page->has('invoices.data', 2));
+    $this->actingAs(adminUser())->get("/admin/invoices/{$therapistInvoice->id}")->assertOk();
 });
 
 test('a therapist cannot edit or resend the clinic\'s invoice to the family', function () {
@@ -404,7 +418,7 @@ test('a therapist cannot edit or resend the clinic\'s invoice to the family', fu
     $this->actingAs($therapist)->post("/therapist/invoices/{$clientInvoice->id}/resend")->assertNotFound();
 });
 
-test('sending a therapist invoice emails the admins, not the parent', function () {
+test('a therapist bill is never sent on creation, so nobody is emailed', function () {
     Mail::fake();
 
     $admin = adminUser();
@@ -428,7 +442,11 @@ test('sending a therapist invoice emails the admins, not the parent', function (
         ]],
     ])->assertSessionHasNoErrors();
 
-    Mail::assertQueued(InvoiceResendMail::class, fn ($mail) => $mail->hasTo($admin->email));
+    // Therapists bill the clinic monthly, so a per-client bill stays a draft
+    // on their own list — the month-end statement is what reaches the admin.
+    expect(Invoice::query()->where('billed_by', 'therapist')->value('status'))->toBe('draft');
+
+    Mail::assertNotQueued(InvoiceResendMail::class, fn ($mail) => $mail->hasTo($admin->email));
     Mail::assertNotQueued(InvoiceResendMail::class, fn ($mail) => $mail->hasTo($client->user->email));
 });
 
@@ -501,10 +519,13 @@ test('the invoice form offers only unsettled therapist bills, and the admin list
         'status' => 'confirmed',
     ]);
 
+    // Only monthly statements count against what the clinic owes: an
+    // unbilled client bill has not been presented to it yet.
     $unpaid = Invoice::factory()->create([
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
         'billed_by' => 'therapist',
+        'is_monthly' => true,
         'status' => 'sent',
         'total' => 120,
     ]);
@@ -512,8 +533,16 @@ test('the invoice form offers only unsettled therapist bills, and the admin list
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
         'billed_by' => 'therapist',
+        'is_monthly' => true,
         'status' => 'paid',
         'total' => 300,
+    ]);
+    Invoice::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'billed_by' => 'therapist',
+        'status' => 'draft',
+        'total' => 999,
     ]);
 
     $this->actingAs(adminUser())->get('/admin/invoices/create')
@@ -533,10 +562,12 @@ test('the admin invoice list can be filtered to one side of the ledger', functio
     $therapist = therapistUser();
     $client = clientWithUser();
 
+    // Only a monthly statement is on the admin's side of the ledger.
     $fromTherapist = Invoice::factory()->create([
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
         'billed_by' => 'therapist',
+        'is_monthly' => true,
     ]);
     $toClient = Invoice::factory()->create([
         'client_id' => $client->id,

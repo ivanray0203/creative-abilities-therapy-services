@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,6 +23,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'due_date', 'paid_at', 'paid_date', 'status', 'processed_by', 'issued_by_id', 'notes',
     'timeline', 'bill_to_name', 'bill_to_email', 'bill_to_phone', 'bill_to_address', 'billed_by',
     'linked_therapist_invoice_id', 'not_signed_invoice', 'signed_invoice',
+    'is_monthly', 'period_start', 'period_end', 'monthly_invoice_id',
 ])]
 class Invoice extends Model
 {
@@ -48,7 +51,44 @@ class Invoice extends Model
             'paid_at' => 'datetime',
             'paid_date' => 'date',
             'timeline' => 'array',
+            'is_monthly' => 'boolean',
+            'period_start' => 'date',
+            'period_end' => 'date',
         ];
+    }
+
+    /**
+     * A therapist's client bill that has not yet been rolled into a monthly
+     * statement, and so is still theirs alone to see and edit.
+     *
+     * @param  Builder<Invoice>  $query
+     */
+    #[Scope]
+    protected function unbilledClientBills(Builder $query): void
+    {
+        $query->where('billed_by', 'therapist')
+            ->where('is_monthly', false)
+            ->whereNull('monthly_invoice_id');
+    }
+
+    /**
+     * The monthly statement this client bill was rolled into.
+     *
+     * @return BelongsTo<Invoice, $this>
+     */
+    public function monthlyInvoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class, 'monthly_invoice_id');
+    }
+
+    /**
+     * The client bills this monthly statement is made of.
+     *
+     * @return HasMany<Invoice, $this>
+     */
+    public function billedClientInvoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class, 'monthly_invoice_id');
     }
 
     /** @return BelongsTo<Client, $this> */
@@ -95,7 +135,12 @@ class Invoice extends Model
 
     public function calculateTotals(): void
     {
-        $subTotal = collect($this->services ?? [])->sum(fn (array $line) => (float) ($line['rate_numeric'] ?? 0) * (int) ($line['numberOfSessions'] ?? 1));
+        // Quantity is billable hours, so it is fractional — 1.5 hours at
+        // 54.08 bills 81.12. Casting it to int would silently bill 54.08.
+        $subTotal = collect($this->services ?? [])
+            ->sum(fn (array $line) => (float) ($line['rate_numeric'] ?? 0) * (float) ($line['numberOfSessions'] ?? 1));
+
+        $subTotal = round($subTotal, 2);
 
         $gst = round($subTotal * ((float) $this->tax_percentage / 100), 2);
 

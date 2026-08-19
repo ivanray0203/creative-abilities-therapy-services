@@ -28,7 +28,9 @@ class InvoicePolicy
     public function view(User $user, Invoice $invoice): bool
     {
         if ($user->isAdmin()) {
-            return true;
+            // A therapist's per-client bill is their own working record until
+            // the month closes; the admin sees the monthly statement instead.
+            return $invoice->billed_by !== 'therapist' || $invoice->is_monthly;
         }
 
         if ($user->isTherapist()) {
@@ -45,7 +47,18 @@ class InvoicePolicy
      */
     public function update(User $user, Invoice $invoice): bool
     {
-        return $user->isAdmin()
+        // A bill already rolled into a monthly statement is part of what the
+        // clinic has been billed, so it is closed to further edits.
+        if ($invoice->monthly_invoice_id !== null) {
+            return false;
+        }
+
+        // The statement itself is generated from its bills, never hand-edited.
+        if ($invoice->is_monthly) {
+            return false;
+        }
+
+        return ($user->isAdmin() && $invoice->billed_by === 'admin')
             || ($invoice->billed_by === 'therapist' && $invoice->therapist_id === $user->id);
     }
 
