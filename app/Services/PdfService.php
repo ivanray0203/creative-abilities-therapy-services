@@ -188,6 +188,32 @@ class PdfService
     }
 
     /**
+     * A therapist's invoice to the clinic.
+     *
+     * Its own layout, not the client invoice's: this one bills the clinic
+     * across every child the therapist saw, so each line names the client and
+     * there is no client block or parent signature box to fill in. Mirrors
+     * the statement format the app already shows on screen
+     * (resources/js/components/invoices/monthly-invoice-printable.tsx).
+     */
+    public function therapistInvoice(Invoice $invoice): string
+    {
+        $invoice->loadMissing('therapist');
+        $therapist = $invoice->therapist;
+
+        return Pdf::loadView('pdf.therapist-invoice', [
+            'invoice' => $invoice,
+            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'therapist' => [
+                'name' => $therapist !== null
+                    ? trim("{$therapist->first_name} {$therapist->last_name}")
+                    : 'Therapist',
+                'email' => $therapist?->email,
+            ],
+        ])->output();
+    }
+
+    /**
      * Address lines for the BILL TO block: the address recorded on the
      * invoice if one was captured, otherwise the intake's.
      *

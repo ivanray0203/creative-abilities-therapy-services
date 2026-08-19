@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\GenerateInvoiceFromBillingRequest;
 use App\Http\Requests\SignInvoiceRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\UpdateInvoiceRequest;
@@ -10,11 +11,11 @@ use App\Mail\InvoiceSignedAdminNotification;
 use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Invoice;
-use App\Models\InvoiceService;
 use App\Models\ScheduleSession;
-use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\BillingFormOptions;
+use App\Services\BillingItemInvoiceGenerator;
 use App\Services\ClientContext;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\InvoiceDocumentService;
@@ -25,6 +26,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -42,14 +44,6 @@ use Inertia\Response;
  */
 class InvoiceController extends Controller
 {
-    /**
-     * Session statuses that mean the visit has actually been delivered, and
-     * so can be billed for.
-     *
-     * @var array<int, string>
-     */
-    private const DELIVERED_SESSION_STATUSES = ['pending', 'confirmed', 'completed'];
-
     public function __construct(private ClientContext $clientContext) {}
 
     public function index(Request $request): Response
@@ -103,6 +97,9 @@ class InvoiceController extends Controller
             'stats' => $stats,
             'filters' => ['quick' => $quick, 'search' => $search, 'status' => $status, 'direction' => $direction],
             'role' => $user->role,
+            // Feeds the "Create Invoice" modal. Admin-only: nobody else
+            // raises an invoice out of the clinic's billing.
+            'billableClients' => $user->isAdmin() ? $this->clientsWithOutstandingBills() : [],
         ]);
     }
 
@@ -119,6 +116,54 @@ class InvoiceController extends Controller
             'invoice' => $invoice,
             'role' => $request->user()->role,
         ]);
+    }
+
+    /**
+     * Raises an invoice for everything billed over a chosen period, from the
+     * "Create Invoice" modal on the invoices list.
+     *
+     * The two sides of the ledger both bill this way: an admin invoices one
+     * family for what the clinic billed them, and a therapist invoices the
+     * clinic for everything they billed, whoever it was for.
+     */
+    public function generateFromBilling(
+        GenerateInvoiceFromBillingRequest $request,
+        BillingItemInvoiceGenerator $generator,
+    ): RedirectResponse {
+        $validated = $request->validated();
+        $user = $request->user();
+        $from = Carbon::parse($validated['date_start']);
+        $to = Carbon::parse($validated['date_end']);
+
+        $client = $user->isAdmin()
+            ? Client::query()->findOrFail((int) $validated['client_id'])
+            : null;
+
+        $invoice = $client !== null
+            ? $generator->generate($client, $from, $to, $user)
+            : $generator->generateForTherapist($user, $from, $to);
+
+        if ($invoice === null) {
+            throw ValidationException::withMessages([
+                $client !== null ? 'client_id' : 'date_start' => $client !== null
+                    ? 'That client has nothing left to invoice between those dates.'
+                    : 'You have nothing left to invoice between those dates.',
+            ]);
+        }
+
+        // Generating is the decision to bill, so it goes out on the spot —
+        // the family for the clinic's invoice, the admins for a therapist's.
+        $this->emailInvoice($invoice);
+
+        AuditLogger::log(
+            'Generated invoice from billing',
+            'Invoices',
+            "Generated invoice {$invoice->invoice_id} from billing items"
+                .($client !== null ? " for client #{$client->id}" : ''),
+        );
+
+        return to_route($this->routeName($request, 'invoices.show'), $invoice)
+            ->with('success', 'Invoice generated and sent.');
     }
 
     public function create(Request $request): Response
@@ -172,15 +217,16 @@ class InvoiceController extends Controller
     }
 
     /**
-     * The invoice document itself, for a client (clinic → parent) invoice:
-     * the copy the parent signed when there is one, otherwise the PDF filed
-     * when the invoice was raised.
+     * The invoice document itself: the copy the parent signed when there is
+     * one, otherwise the PDF filed when the invoice was raised.
+     *
+     * Both sides of the ledger are served here — the clinic's invoice to a
+     * family, and a therapist's to the clinic — each in its own format. Who
+     * may open which is the policy's call, not this method's.
      */
     public function pdf(Request $request, Invoice $invoice, PdfService $pdfService): HttpResponse
     {
         $this->assertCanView($invoice, $request->user());
-        // Therapist bills have no stored document and are not parent-facing.
-        abort_unless($invoice->billed_by === 'admin', 404);
 
         $stored = $invoice->signed_invoice ?? $invoice->not_signed_invoice;
         $filename = 'invoice-'.($invoice->invoice_id ?? $invoice->id).'.pdf';
@@ -189,7 +235,11 @@ class InvoiceController extends Controller
 
         // Nothing on file (or it could not be read) — render the document from
         // the invoice as it stands rather than showing the viewer an error.
-        $contents ??= $pdfService->invoice($invoice);
+        // Each side of the ledger renders in its own format, the same choice
+        // InvoiceDocumentService makes when it files one.
+        $contents ??= $invoice->billed_by === 'therapist'
+            ? $pdfService->therapistInvoice($invoice)
+            : $pdfService->invoice($invoice);
 
         return response($contents, 200, [
             'Content-Type' => 'application/pdf',
@@ -653,58 +703,34 @@ class InvoiceController extends Controller
     }
 
     /**
-     * The invoice rate card, priced for whoever is raising the invoice.
-     *
      * @return Collection<int, array{id: int, name: string, code: string, discipline: string, rate_fscd: ?string, rate_private: ?string}>
      */
     private function serviceOptions(User $user): Collection
     {
-        $services = InvoiceService::query()->active()->orderBy('sort_order')->get();
-
-        // The clinic bills the family at its published rates. A therapist
-        // billing the clinic bills at their own, which falls back to the
-        // published rate wherever they have no override.
-        $teamMember = $user->isAdmin()
-            ? null
-            : TeamMember::query()->where('user_id', $user->id)->with('invoiceServiceRates')->first();
-
-        return $services->map(fn (InvoiceService $service): array => [
-            'id' => $service->id,
-            'name' => $service->name,
-            'code' => $service->code,
-            'discipline' => $service->discipline,
-            'rate_fscd' => $teamMember?->rateFor($service, 'fscd') ?? $service->rate_fscd,
-            'rate_private' => $teamMember?->rateFor($service, 'private') ?? $service->rate_private,
-        ]);
+        return app(BillingFormOptions::class)->services($user);
     }
 
     /**
-     * Clients billable from the invoice form: those with at least one session
-     * already delivered. A visit counts as delivered once the therapist has
-     * clocked out of it — `pending` (awaiting the client's sign-off),
-     * `confirmed` (signed off) and `completed` (paid for). Anything merely
-     * booked, cancelled or missed has nothing to bill for yet.
+     * Clients the clinic has billed for but not yet invoiced — the only ones
+     * an invoice can be generated for.
      *
-     * A therapist only sees clients they themselves have delivered a session
-     * to; admins bill for anyone. The invoice being edited keeps its own
-     * client selectable so reopening it never renders an empty field.
-     *
+     * @return Collection<int, Client>
+     */
+    private function clientsWithOutstandingBills(): Collection
+    {
+        return Client::query()
+            ->whereHas('billingItems', fn (Builder $outstanding) => $outstanding->whereNull('invoice_id')
+                ->whereHas('issuedBy', fn (Builder $issuer) => $issuer->where('role', 'admin')))
+            ->with('originalIntake:id,child_first_name,child_last_name')
+            ->get(['id', 'original_intake_id']);
+    }
+
+    /**
      * @return Collection<int, Client>
      */
     private function clientOptions(User $user, ?Invoice $invoice = null): Collection
     {
-        return Client::query()
-            ->where(function (Builder $selectable) use ($user, $invoice): void {
-                $selectable->whereHas('sessions', fn (Builder $sessions) => $sessions
-                    ->whereIn('status', self::DELIVERED_SESSION_STATUSES)
-                    ->when(! $user->isAdmin(), fn (Builder $own) => $own->where('therapist_id', $user->id)));
-
-                if ($invoice?->client_id !== null) {
-                    $selectable->orWhere('clients.id', $invoice->client_id);
-                }
-            })
-            ->with('originalIntake:id,child_first_name,child_last_name,funding_source')
-            ->get(['id', 'original_intake_id']);
+        return app(BillingFormOptions::class)->clients($user, $invoice?->client_id);
     }
 
     /**

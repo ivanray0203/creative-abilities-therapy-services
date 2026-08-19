@@ -121,6 +121,12 @@ class Client extends Model
         return $this->hasMany(Invoice::class);
     }
 
+    /** @return HasMany<BillingItem, $this> */
+    public function billingItems(): HasMany
+    {
+        return $this->hasMany(BillingItem::class);
+    }
+
     /** @return HasMany<ClientDocument, $this> */
     public function documents(): HasMany
     {

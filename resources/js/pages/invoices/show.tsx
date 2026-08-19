@@ -52,11 +52,13 @@ export default function InvoiceShow({ invoice, role }: InvoiceShowProps) {
     // that the signed PDF is on file.
     const canSign = role === 'client' && !invoice.signed_invoice;
     /*
-     * Only the clinic's bill to the family is issued as a stored PDF the
-     * parent signs. A therapist's bill to the clinic has no such document,
-     * so it keeps the browser-print view.
+     * Both sides of the ledger are issued as a real PDF — the clinic's bill
+     * to the family, and the therapist's to the clinic — so the viewer opens
+     * the document itself rather than a browser-print rendering of the page.
+     * An invoice raised before either was filed is rendered on request by the
+     * controller, so there is always something to show.
      */
-    const hasDocument = invoice.billed_by === 'admin';
+    const hasDocument = invoice.billed_by !== null;
 
     const resend = () => {
         router.post(`${basePath}/${invoice.id}/resend`, undefined, {

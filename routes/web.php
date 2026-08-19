@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Admin\ServiceOfferingController;
 use App\Http\Controllers\Admin\TeamMemberController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\BillingItemController;
 use App\Http\Controllers\Client\IntakeController as ClientIntakeController;
 use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientProfileController;
@@ -149,10 +150,16 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('services/edit/{service}', [ServiceOfferingController::class, 'edit'])->name('admin.services.edit');
         Route::put('services/{service}', [ServiceOfferingController::class, 'update'])->name('admin.services.update');
 
+        Route::get('billing', [BillingItemController::class, 'index'])->name('admin.billing.index');
+        Route::get('billing/create', [BillingItemController::class, 'create'])->name('admin.billing.create');
+        Route::post('billing', [BillingItemController::class, 'store'])->name('admin.billing.store');
+        Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('admin.billing.destroy');
+
         Route::get('invoices', [InvoiceController::class, 'index'])->name('admin.invoices.index');
         Route::get('invoices/create', [InvoiceController::class, 'create'])->name('admin.invoices.create');
         Route::post('invoices', [InvoiceController::class, 'store'])->name('admin.invoices.store');
         Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('admin.invoices.generate-from-session');
+        Route::post('invoices/generate-from-billing', [InvoiceController::class, 'generateFromBilling'])->name('admin.invoices.generate-from-billing');
         Route::get('invoices/therapist/{user}', [InvoiceController::class, 'byTherapist'])->name('admin.invoices.by-therapist');
         Route::get('invoices/client/{client}', [InvoiceController::class, 'byClient'])->name('admin.invoices.by-client');
         Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('admin.invoices.pdf');
@@ -241,10 +248,17 @@ Route::middleware(['auth', 'role:therapist'])
         Route::post('sessions/{session}/start', [SessionController::class, 'startSession'])->name('therapist.sessions.start');
         Route::post('sessions/{session}/end', [SessionController::class, 'endSession'])->name('therapist.sessions.end');
 
+        Route::get('billing', [BillingItemController::class, 'index'])->name('therapist.billing.index');
+        Route::get('billing/create', [BillingItemController::class, 'create'])->name('therapist.billing.create');
+        Route::post('billing', [BillingItemController::class, 'store'])->name('therapist.billing.store');
+        Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('therapist.billing.destroy');
+
         Route::get('invoices', [InvoiceController::class, 'index'])->name('therapist.invoices.index');
         Route::get('invoices/create', [InvoiceController::class, 'create'])->name('therapist.invoices.create');
         Route::post('invoices', [InvoiceController::class, 'store'])->name('therapist.invoices.store');
         Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('therapist.invoices.generate-from-session');
+        Route::post('invoices/generate-from-billing', [InvoiceController::class, 'generateFromBilling'])->name('therapist.invoices.generate-from-billing');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('therapist.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('therapist.invoices.show');
         Route::get('invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('therapist.invoices.edit');
         Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])->name('therapist.invoices.update');

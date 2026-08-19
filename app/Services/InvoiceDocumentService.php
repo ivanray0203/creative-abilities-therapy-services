@@ -16,6 +16,9 @@ use Illuminate\Support\Str;
  *   CATS/Invoice/not-signed/{client_id}_{client name}_invoice.pdf
  *   CATS/Invoice/signed/{client_id}_{client name}_signed_invoice.pdf
  *
+ * A therapist's invoice to the clinic is filed alongside the unsigned ones —
+ * it is never signed — under its own invoice number and their name.
+ *
  * The Drive URL is written to `not_signed_invoice` / `signed_invoice`. Both
  * uploads are wrapped: a Drive outage must not cost the clinic an invoice or
  * a parent their signature, since the record itself is already saved.
@@ -35,13 +38,18 @@ class InvoiceDocumentService
 
     /**
      * Renders the invoice as it stands and files it under Invoice/not-signed.
-     * Called once the admin has raised the invoice.
+     * Called once the invoice has been raised, on either side of the ledger —
+     * each in its own format.
      */
     public function storeUnsigned(Invoice $invoice): ?string
     {
+        $contents = $invoice->billed_by === 'therapist'
+            ? $this->pdfService->therapistInvoice($invoice)
+            : $this->pdfService->invoice($invoice);
+
         $url = $this->upload(
             $invoice,
-            $this->pdfService->invoice($invoice),
+            $contents,
             self::UNSIGNED_FOLDER,
             $this->filename($invoice, 'invoice'),
         );
@@ -78,9 +86,24 @@ class InvoiceDocumentService
     /**
      * `{client_id}_{client name}_{suffix}.pdf`, with the name slugged so a
      * child called "Anne-Marie O'Neil" cannot produce an awkward Drive name.
+     *
+     * A therapist bills the clinic across every child they saw, so there is
+     * no one client to name the file after: it is filed under its invoice
+     * number and the therapist instead.
      */
     private function filename(Invoice $invoice, string $suffix): string
     {
+        if ($invoice->billed_by === 'therapist') {
+            $reference = Str::slug((string) ($invoice->invoice_id ?? $invoice->id), '-');
+            $therapist = $invoice->therapist;
+            $therapistName = Str::slug(
+                $therapist !== null ? "{$therapist->first_name} {$therapist->last_name}" : 'therapist',
+                '-',
+            );
+
+            return "{$reference}_{$therapistName}_{$suffix}.pdf";
+        }
+
         $clientId = $invoice->client_id ?? 'unknown';
         $name = Str::slug($invoice->client?->displayName() ?? 'client', '-');
 

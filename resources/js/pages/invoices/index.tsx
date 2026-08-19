@@ -11,6 +11,7 @@ import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
 
 import { InvoiceStatusBadge } from '@/components/invoices/badges';
+import GenerateInvoiceModal from '@/components/invoices/generate-invoice-modal';
 import InvoicesTable from '@/components/invoices/invoices-table';
 import PaginationFooter from '@/components/pagination-footer';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import ClientLayout from '@/layouts/client-layout';
 import TherapistLayout from '@/layouts/therapist-layout';
 import { formatDate } from '@/lib/helpers';
 import { exportInvoicesCsv } from '@/lib/invoices-csv';
+import type { Client } from '@/types/client';
 import type { Paginated } from '@/types/intake';
 import type {
     Invoice,
@@ -41,6 +43,8 @@ interface InvoicesIndexProps {
     stats: InvoiceStats;
     filters: InvoiceFilters;
     role: 'admin' | 'therapist' | 'client';
+    /** Admins only — clients with billing still waiting to be invoiced. */
+    billableClients: Client[];
 }
 
 const QUICK_FILTERS: { value: QuickInvoiceFilter; label: string }[] = [
@@ -65,9 +69,11 @@ export default function InvoicesIndex({
     stats,
     filters,
     role,
+    billableClients = [],
 }: InvoicesIndexProps) {
     const [search, setSearch] = useState(filters.search);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('table');
+    const [isGenerateOpen, setIsGenerateOpen] = useState(false);
     const basePath = BASE_PATHS[role];
     const canCreate = role !== 'client';
 
@@ -128,11 +134,17 @@ export default function InvoicesIndex({
                         >
                             <Download /> Export CSV
                         </Button>
+                        {/*
+                         * Both billers raise an invoice out of what has
+                         * already been billed, so the button opens the modal
+                         * rather than the line-by-line form.
+                         */}
                         {canCreate && (
-                            <Button className="rounded-[10px]" asChild>
-                                <Link href={`${basePath}/create`}>
-                                    <Plus /> New Invoice
-                                </Link>
+                            <Button
+                                className="rounded-[10px]"
+                                onClick={() => setIsGenerateOpen(true)}
+                            >
+                                <Plus /> Create Invoice
                             </Button>
                         )}
                     </div>
@@ -351,6 +363,17 @@ export default function InvoicesIndex({
                     />
                 </Card>
             </div>
+
+            {canCreate && (
+                <GenerateInvoiceModal
+                    basePath={basePath}
+                    // A therapist invoices the clinic for all their own work,
+                    // so there is no client to pick.
+                    clients={role === 'admin' ? billableClients : undefined}
+                    isOpen={isGenerateOpen}
+                    onClose={() => setIsGenerateOpen(false)}
+                />
+            )}
         </>
     );
 }

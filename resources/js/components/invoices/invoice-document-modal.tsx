@@ -12,13 +12,12 @@ import {
 import type { Invoice } from '@/types/invoice';
 
 /**
- * The stored invoice document for a client (clinic → parent) invoice: the
- * copy the parent signed when there is one, otherwise the PDF filed when the
- * invoice was raised.
+ * The stored invoice document: the copy the parent signed when there is one,
+ * otherwise the PDF filed when the invoice was raised.
  *
- * The controller resolves which of the two to serve and streams it inline,
- * so the browser's own viewer renders it in the frame. Therapist → clinic
- * bills have no such document and keep `invoice-pdf-view-modal.tsx`.
+ * The controller resolves which to serve and streams it inline, so the
+ * browser's own viewer renders it in the frame. It serves a therapist's bill
+ * to the clinic the same way, in that document's own format.
  */
 export default function InvoiceDocumentModal({
     invoice,
@@ -33,6 +32,9 @@ export default function InvoiceDocumentModal({
 }) {
     const source = `${basePath}/${invoice.id}/pdf`;
     const isSigned = Boolean(invoice.signed_invoice);
+    // Only the clinic's invoice to a family is ever signed; a bill to the
+    // clinic is not waiting on anyone.
+    const isParentFacing = invoice.billed_by === 'admin';
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -42,9 +44,11 @@ export default function InvoiceDocumentModal({
                         Invoice {invoice.invoice_id ?? `#${invoice.id}`}
                     </DialogTitle>
                     <DialogDescription>
-                        {isSigned
-                            ? 'The copy signed and returned by the parent.'
-                            : 'Awaiting the parent’s signature.'}
+                        {!isParentFacing
+                            ? 'The invoice as it was filed.'
+                            : isSigned
+                              ? 'The copy signed and returned by the parent.'
+                              : 'Awaiting the parent’s signature.'}
                     </DialogDescription>
                 </DialogHeader>
 
