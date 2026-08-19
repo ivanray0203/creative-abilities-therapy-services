@@ -18,19 +18,6 @@ import type { Client, ServiceOffering } from '@/types/client';
 import type { TherapistOption } from '@/types/intake';
 import type { ScheduleSession } from '@/types/session';
 
-/**
- * Values are minutes, matching the integer the server stores. Radix Select
- * needs string values, so these are stringified and Laravel casts them back.
- */
-const DURATIONS = [
-    { value: '30', label: '30 minutes' },
-    { value: '45', label: '45 minutes' },
-    { value: '60', label: '60 minutes' },
-    { value: '90', label: '90 minutes' },
-];
-
-const DEFAULT_DURATION = '60';
-
 interface SessionFormData {
     client_id: string;
     therapist_id: string;
@@ -39,8 +26,21 @@ interface SessionFormData {
     location: string;
     date: string;
     start_time: string;
-    duration: string;
+    end_time: string;
     notes: string;
+}
+
+/** Minutes between two `HH:MM` values; null while either is incomplete. */
+function minutesBetween(startTime: string, endTime: string): number | null {
+    if (!startTime || !endTime) {
+        return null;
+    }
+
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+    return Number.isFinite(minutes) ? minutes : null;
 }
 
 function initialValues(
@@ -48,6 +48,7 @@ function initialValues(
     preselectedClientId?: number | null,
 ): SessionFormData {
     const start = session ? new Date(session.scheduled_start) : null;
+    const end = session?.scheduled_end ? new Date(session.scheduled_end) : null;
 
     return {
         client_id: session
@@ -63,9 +64,7 @@ function initialValues(
         location: session?.location ?? '',
         date: start ? start.toISOString().slice(0, 10) : '',
         start_time: start ? start.toISOString().slice(11, 16) : '',
-        duration: session?.duration
-            ? String(session.duration)
-            : DEFAULT_DURATION,
+        end_time: end ? end.toISOString().slice(11, 16) : '',
         notes: session?.notes ?? '',
     };
 }
@@ -103,6 +102,13 @@ export default function SessionsForm({
     const selectedClient = useMemo(
         () => clients.find((client) => String(client.id) === data.client_id),
         [clients, data.client_id],
+    );
+
+    // Replaces the information the removed Duration dropdown used to state
+    // outright, so the booked length stays visible while picking times.
+    const durationMinutes = useMemo(
+        () => minutesBetween(data.start_time, data.end_time),
+        [data.start_time, data.end_time],
     );
 
     const clientServiceOptions = useMemo(
@@ -280,33 +286,6 @@ export default function SessionsForm({
                     </div>
 
                     <div>
-                        <Label htmlFor="session-duration">Duration *</Label>
-                        <Select
-                            value={data.duration}
-                            onValueChange={(value) =>
-                                setData('duration', value)
-                            }
-                        >
-                            <SelectTrigger
-                                id="session-duration"
-                                className="mt-2 rounded-[10px]"
-                            >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DURATIONS.map((duration) => (
-                                    <SelectItem
-                                        key={duration.value}
-                                        value={duration.value}
-                                    >
-                                        {duration.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div>
                         <Label htmlFor="session-date">Date *</Label>
                         <Input
                             id="session-date"
@@ -339,6 +318,31 @@ export default function SessionsForm({
                             <p className="mt-1 text-sm text-destructive">
                                 {errors.start_time}
                             </p>
+                        )}
+                    </div>
+
+                    <div>
+                        <Label htmlFor="session-end-time">End Time *</Label>
+                        <Input
+                            id="session-end-time"
+                            type="time"
+                            value={data.end_time}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('end_time', event.target.value)
+                            }
+                        />
+                        {errors.end_time ? (
+                            <p className="mt-1 text-sm text-destructive">
+                                {errors.end_time}
+                            </p>
+                        ) : (
+                            durationMinutes !== null &&
+                            durationMinutes > 0 && (
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    {durationMinutes} minutes
+                                </p>
+                            )
                         )}
                     </div>
 

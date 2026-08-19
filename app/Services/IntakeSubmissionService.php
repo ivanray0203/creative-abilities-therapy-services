@@ -34,6 +34,18 @@ class IntakeSubmissionService
      */
     public const FSCD_SOURCES = ['BDS-FSCD', 'SS-FSCD', 'Counselling-FSCD'];
 
+    /**
+     * Availability grid axes, mirroring `days` and `times` in
+     * resources/js/lib/content/intake-taxonomy.ts.
+     */
+    public const AVAILABILITY_DAYS = [
+        'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    ];
+
+    public const AVAILABILITY_TIMES = [
+        'Mornings (8am-11am)', 'Afternoons (12pm-3pm)', 'Evenings (4pm-7pm)',
+    ];
+
     public function __construct(
         private PdfService $pdfService,
         private DriveStorage $drive,
@@ -57,6 +69,9 @@ class IntakeSubmissionService
         $fundingSource = (string) ($input['funding_source'] ?? '');
         $isFscd = in_array($fundingSource, self::FSCD_SOURCES, true);
         $isInsurance = $fundingSource === 'Insurance';
+
+        $diagnosis = $input['diagnosis'] ?? [];
+        $hasOtherDiagnosis = is_array($diagnosis) && in_array('Other', $diagnosis, true);
 
         $emailRules = ['required', 'email', 'max:255'];
 
@@ -84,6 +99,7 @@ class IntakeSubmissionService
             'receiving_services_desc' => ['nullable', 'string'],
             'diagnosis' => ['array'],
             'diagnosis.*' => ['string'],
+            'diagnosis_other' => [Rule::requiredIf($hasOtherDiagnosis), 'nullable', 'string', 'max:255'],
             'has_medical_conditions' => ['boolean'],
             'languages_spoken_at_home' => ['nullable', 'string', 'max:255'],
             'require_interpreter' => ['boolean'],
@@ -91,10 +107,9 @@ class IntakeSubmissionService
             'medical_conditions' => ['nullable', 'string'],
 
             'funding_source' => ['required', Rule::in([...self::FSCD_SOURCES, 'Insurance', 'private'])],
-            'available_days' => ['array'],
-            'available_days.*' => ['string'],
-            'preferred_times' => ['array'],
-            'preferred_times.*' => ['string'],
+            'availability_slots' => ['required', 'array', 'min:1', self::rejectUnknownDays()],
+            'availability_slots.*' => ['array', 'min:1'],
+            'availability_slots.*.*' => ['string', Rule::in(self::AVAILABILITY_TIMES)],
 
             'primary_parent_name' => ['required', 'string', 'max:255'],
             'primary_parent_phone' => ['required', 'string', 'max:20'],
@@ -164,13 +179,13 @@ class IntakeSubmissionService
             'services_needed' => 'services needed',
             'currently_receiving_services' => 'currently receiving services',
             'receiving_services_desc' => 'description of current services',
+            'diagnosis_other' => 'other diagnosis',
             'has_medical_conditions' => 'medical conditions',
             'languages_spoken_at_home' => 'languages spoken at home',
             'require_interpreter' => 'interpreter required',
             'interpreter_needed' => 'interpreter language',
             'funding_source' => 'funding source',
-            'available_days' => 'available days',
-            'preferred_times' => 'preferred times',
+            'availability_slots' => 'availability',
             'primary_parent_name' => "primary parent's name",
             'primary_parent_phone' => "primary parent's phone",
             'primary_parent_email' => "primary parent's email",
@@ -208,6 +223,84 @@ class IntakeSubmissionService
     }
 
     /**
+     * Rejects availability grids keyed by anything other than a weekday name.
+     * Laravel's array rules validate values, not keys, so this covers the keys.
+     */
+    private static function rejectUnknownDays(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_array($value)) {
+                return;
+            }
+
+            $unknown = array_diff(array_keys($value), self::AVAILABILITY_DAYS);
+
+            if ($unknown !== []) {
+                $fail('The availability contains an unknown day: '.implode(', ', $unknown).'.');
+            }
+        };
+    }
+
+    /**
+     * Expands the availability grid into the flat day/time lists that the
+     * therapist dashboard, CSV export, session form and ScheduleMatcher read,
+     * keeping all three columns consistent from one source of truth.
+     *
+     * @param  array<string, array<int, string>>  $slots
+     * @return array{slots: array<string, array<int, string>>, days: array<int, string>, times: array<int, string>}
+     */
+    public static function resolveAvailability(array $slots): array
+    {
+        $normalized = [];
+
+        foreach (self::AVAILABILITY_DAYS as $day) {
+            $selected = array_values(array_intersect(
+                self::AVAILABILITY_TIMES,
+                array_filter((array) ($slots[$day] ?? []), 'is_string'),
+            ));
+
+            if ($selected !== []) {
+                $normalized[$day] = $selected;
+            }
+        }
+
+        $times = array_values(array_filter(
+            self::AVAILABILITY_TIMES,
+            fn (string $time): bool => collect($normalized)->contains(
+                fn (array $selected): bool => in_array($time, $selected, true),
+            ),
+        ));
+
+        return [
+            'slots' => $normalized,
+            'days' => array_keys($normalized),
+            'times' => $times,
+        ];
+    }
+
+    /**
+     * Fold the "Other" free-text answer into the stored diagnosis list.
+     *
+     * `diagnosis` is a plain JSON array of labels with no companion column,
+     * so the typed value replaces the literal "Other" entry — the same shape
+     * as `referral_source_other` collapsing into `referral_source`.
+     *
+     * @param  array<int, string>  $diagnosis
+     * @return array<int, string>
+     */
+    public static function resolveDiagnosis(array $diagnosis, ?string $other): array
+    {
+        if (! in_array('Other', $diagnosis, true) || blank($other)) {
+            return array_values($diagnosis);
+        }
+
+        return array_values(array_map(
+            fn (string $entry): string => $entry === 'Other' ? trim($other) : $entry,
+            $diagnosis,
+        ));
+    }
+
+    /**
      * Create the intake, record consents, file the consent PDF, and send the
      * confirmation/notification emails.
      *
@@ -222,6 +315,13 @@ class IntakeSubmissionService
         $referralSource = $validated['referral_source'] === 'Other' && ! empty($validated['referral_source_other'])
             ? $validated['referral_source_other']
             : $validated['referral_source'];
+
+        $availability = self::resolveAvailability($validated['availability_slots'] ?? []);
+
+        $diagnosis = $this->resolveDiagnosis(
+            $validated['diagnosis'] ?? [],
+            $validated['diagnosis_other'] ?? null,
+        );
 
         $intake = Intake::query()->create([
             'submitted_by_id' => $submittedBy?->id,
@@ -242,15 +342,16 @@ class IntakeSubmissionService
             'services_needed' => $validated['services_needed'] ?? [],
             'currently_receiving_services' => $validated['currently_receiving_services'] ?? false,
             'receiving_services_desc' => $validated['receiving_services_desc'] ?? null,
-            'diagnosis' => $validated['diagnosis'] ?? [],
+            'diagnosis' => $diagnosis,
             'has_medical_conditions' => $validated['has_medical_conditions'] ?? false,
             'languages_spoken_at_home' => $validated['languages_spoken_at_home'] ?? null,
             'require_interpreter' => $validated['require_interpreter'] ?? false,
             'interpreter_needed' => $validated['interpreter_needed'] ?? null,
             'medical_conditions' => $validated['medical_conditions'] ?? null,
             'funding_source' => $validated['funding_source'],
-            'available_days' => $validated['available_days'] ?? [],
-            'preferred_times' => $validated['preferred_times'] ?? [],
+            'available_days' => $availability['days'],
+            'preferred_times' => $availability['times'],
+            'availability_slots' => $availability['slots'],
             'primary_parent_name' => $validated['primary_parent_name'],
             'primary_parent_phone' => $validated['primary_parent_phone'],
             'primary_parent_email' => $validated['primary_parent_email'],

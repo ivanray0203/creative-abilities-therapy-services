@@ -13,6 +13,7 @@ const NAV_ITEMS = [
     { label: 'Home', path: '/' },
     { label: 'About Us', path: '/about' },
     { label: 'Services', path: '/services' },
+    { label: 'Programs', path: '/programs' },
     { label: 'FSCD', path: '/fscd' },
     { label: 'Careers', path: '/careers' },
     { label: 'FAQ', path: '/faq' },

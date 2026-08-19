@@ -27,6 +27,38 @@ export function sessionServiceNames(session: SessionServiceFields): string[] {
     return single ? [single] : [];
 }
 
+export interface SessionServiceRef {
+    /** Null for a session that only carries the free-text `service_name`. */
+    id: number | null;
+    name: string;
+}
+
+/**
+ * The same services as {@link sessionServiceNames}, but keeping each one's
+ * offering id so a caller can match it back to a service dropdown and pull
+ * the configured rate. Used to seed invoice lines from a linked session.
+ */
+export function sessionServiceRefs(
+    session: SessionServiceFields,
+): SessionServiceRef[] {
+    const covered = (session.client_services ?? [])
+        .map((clientService) => clientService.service)
+        .filter((service) => Boolean(service?.name))
+        .map((service) => ({ id: service!.id, name: service!.name }));
+
+    if (covered.length > 0) {
+        return covered;
+    }
+
+    if (session.service?.name) {
+        return [{ id: session.service.id, name: session.service.name }];
+    }
+
+    return session.service_name
+        ? [{ id: null, name: session.service_name }]
+        : [];
+}
+
 /** The same services as one line of text, for tables, CSVs and option labels. */
 export function sessionServiceLabel(
     session: SessionServiceFields,

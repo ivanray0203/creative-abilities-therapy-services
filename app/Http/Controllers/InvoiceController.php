@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\SignInvoiceRequest;
 use App\Http\Requests\StoreInvoiceRequest;
 use App\Http\Requests\UpdateInvoiceRequest;
 use App\Mail\InvoiceResendMail;
+use App\Mail\InvoiceSignedAdminNotification;
 use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Invoice;
@@ -13,13 +15,18 @@ use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ClientContext;
+use App\Services\GoogleDrive\DriveStorage;
+use App\Services\InvoiceDocumentService;
+use App\Services\PdfService;
 use App\Services\ReferenceNumberGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -136,6 +143,7 @@ class InvoiceController extends Controller
             'billing_account_id' => $client->billing?->id,
             'therapist_id' => $user->isAdmin() ? null : $user->id,
             'billed_by' => $billedBy,
+            'tax_percentage' => 0,
             'invoice_id' => $referenceNumberGenerator->invoice(),
             'status' => $validated['action'] === 'send' ? 'sent' : 'draft',
             'issued_by_id' => $user->id,
@@ -146,6 +154,10 @@ class InvoiceController extends Controller
         $invoice->linked_therapist_invoice_id = $this->recoveredTherapistInvoiceId($validated, $billedBy);
         $invoice->save();
 
+        if ($invoice->billed_by === 'admin') {
+            app(InvoiceDocumentService::class)->storeUnsigned($invoice);
+        }
+
         if ($invoice->status === 'sent') {
             $this->emailInvoice($invoice);
         }
@@ -153,6 +165,103 @@ class InvoiceController extends Controller
         AuditLogger::log('Created invoice', 'Invoices', "Created invoice {$invoice->invoice_id}");
 
         return to_route($this->routeName($request, 'invoices.show'), $invoice)->with('success', 'Invoice created successfully.');
+    }
+
+    /**
+     * The invoice document itself, for a client (clinic → parent) invoice:
+     * the copy the parent signed when there is one, otherwise the PDF filed
+     * when the invoice was raised.
+     */
+    public function pdf(Request $request, Invoice $invoice, PdfService $pdfService): HttpResponse
+    {
+        $this->assertCanView($invoice, $request->user());
+        // Therapist bills have no stored document and are not parent-facing.
+        abort_unless($invoice->billed_by === 'admin', 404);
+
+        $stored = $invoice->signed_invoice ?? $invoice->not_signed_invoice;
+        $filename = 'invoice-'.($invoice->invoice_id ?? $invoice->id).'.pdf';
+
+        $contents = filled($stored) ? $this->storedInvoiceContents($stored) : null;
+
+        // Nothing on file (or it could not be read) — render the document from
+        // the invoice as it stands rather than showing the viewer an error.
+        $contents ??= $pdfService->invoice($invoice);
+
+        return response($contents, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
+            // The modal frames this on our own origin.
+            'X-Frame-Options' => 'SAMEORIGIN',
+        ]);
+    }
+
+    /**
+     * The bytes behind a stored invoice URL.
+     *
+     * Drive's own links either force a download (`webContentLink`) or refuse
+     * to be framed (`webViewLink`), so the file is fetched and served under
+     * this app's origin instead of redirected to. The file id is recovered
+     * from the URL, which keeps invoices filed earlier readable.
+     */
+    private function storedInvoiceContents(string $url): ?string
+    {
+        $localBase = rtrim(Storage::disk('public')->url(''), '/');
+
+        if (str_starts_with($url, $localBase)) {
+            $path = ltrim(substr($url, strlen($localBase)), '/');
+
+            return Storage::disk('public')->exists($path)
+                ? Storage::disk('public')->get($path)
+                : null;
+        }
+
+        if (! preg_match('~(?:[?&]id=|/d/)([A-Za-z0-9_-]{10,})~', $url, $matches)) {
+            return null;
+        }
+
+        return app(DriveStorage::class)->get($matches[1]);
+    }
+
+    /**
+     * The parent returns the invoice with their signature drawn into the
+     * signature box. The signed copy is filed separately — the unsigned
+     * original stays exactly as it was issued.
+     */
+    public function sign(SignInvoiceRequest $request, Invoice $invoice, InvoiceDocumentService $documents): RedirectResponse
+    {
+        abort_unless($request->user()->can('sign', $invoice), 404);
+
+        $stored = $documents->storeSigned($invoice, $request->validated()['signature']);
+
+        if ($stored === null) {
+            return back()->with('error', 'We could not file your signed invoice. Please try again.');
+        }
+
+        $invoice->forceFill([
+            'timeline' => [
+                ...($invoice->timeline ?? []),
+                $this->timelineEntry('Invoice signed by parent'),
+            ],
+        ])->save();
+
+        AuditLogger::log(
+            'Invoice signed',
+            'Invoices',
+            "Invoice {$invoice->invoice_id} signed by the parent",
+            'success',
+            $request->user()->email,
+        );
+
+        $adminEmails = User::query()
+            ->where('role', 'admin')
+            ->where('is_active', true)
+            ->pluck('email');
+
+        if ($adminEmails->isNotEmpty()) {
+            Mail::to($adminEmails)->send(new InvoiceSignedAdminNotification($invoice));
+        }
+
+        return back()->with('success', 'Thank you — your signed invoice has been sent.');
     }
 
     public function edit(Request $request, Invoice $invoice): Response
@@ -248,7 +357,7 @@ class InvoiceController extends Controller
             'billed_by' => $billedBy,
             'invoice_date' => now()->toDateString(),
             'due_date' => now()->addDays(30)->toDateString(),
-            'tax_percentage' => 5.00,
+            'tax_percentage' => 0,
             'services' => [$this->serviceLineItem(
                 $serviceName,
                 1,
@@ -266,6 +375,10 @@ class InvoiceController extends Controller
             $billedBy,
         );
         $invoice->save();
+
+        if ($invoice->billed_by === 'admin') {
+            app(InvoiceDocumentService::class)->storeUnsigned($invoice);
+        }
 
         AuditLogger::log('Generated invoice from session', 'Invoices', "Generated invoice {$invoice->invoice_id} from session #{$session->id}");
 
@@ -425,7 +538,8 @@ class InvoiceController extends Controller
             'session_id' => $validated['session_id'] ?? null,
             'invoice_date' => $validated['invoice_date'],
             'due_date' => $validated['due_date'],
-            'tax_percentage' => $validated['tax_percentage'] ?? 5.00,
+            // No tax_percentage: invoices are raised without GST, and an
+            // older invoice that recorded one keeps it through an edit.
             'notes' => $validated['notes'] ?? null,
             'services' => $services,
         ];

@@ -12,6 +12,8 @@ use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ClientContext;
+use App\Services\SessionNotifier;
+use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\Relation;
@@ -130,6 +132,8 @@ class SessionController extends Controller
 
         AuditLogger::log('Scheduled session', 'System', "Scheduled session #{$session->id}");
 
+        SessionNotifier::scheduled($session);
+
         return to_route($this->routeName($request, 'sessions.index'))->with('success', 'Session scheduled successfully.');
     }
 
@@ -153,6 +157,8 @@ class SessionController extends Controller
         $validated = $request->validated();
         $therapistId = $request->user()->isAdmin() ? (int) $validated['therapist_id'] : $session->therapist_id;
 
+        $previousStart = $session->scheduled_start;
+
         $session->update([
             ...$this->scheduleAttributes($validated),
             'therapist_id' => $therapistId,
@@ -161,6 +167,10 @@ class SessionController extends Controller
         $session->clientServices()->sync($this->linkedClientServiceIds($validated));
 
         AuditLogger::log('Updated session', 'System', "Updated session #{$session->id}");
+
+        if ($this->wasRescheduled($session, $previousStart)) {
+            SessionNotifier::rescheduled($session, $previousStart);
+        }
 
         return to_route($this->routeName($request, 'sessions.index'))->with('success', 'Session updated successfully.');
     }
@@ -190,6 +200,8 @@ class SessionController extends Controller
         ]);
 
         AuditLogger::log('Cancelled session', 'System', "Cancelled session #{$session->id}", 'warning');
+
+        SessionNotifier::cancelled($session);
 
         return back()->with('success', 'Session cancelled.');
     }
@@ -242,7 +254,7 @@ class SessionController extends Controller
      * No dedicated start/end action exists in the reference either — it's a
      * raw PATCH from the frontend. Kept as small dedicated actions here
      * rather than folding into update()/UpdateSessionRequest, which
-     * validates date/duration/location fields irrelevant to a status flip.
+     * validates date/time/location fields irrelevant to a status flip.
      */
     public function startSession(Request $request, ScheduleSession $session): RedirectResponse
     {
@@ -441,23 +453,46 @@ class SessionController extends Controller
     }
 
     /**
+     * `update()` also handles edits that leave the appointment where it is —
+     * retitling the notes, relinking a service. Only a genuine move of the
+     * start time, or a handover to a different therapist, is worth emailing
+     * the parent about; anything looser turns every save into inbox noise.
+     */
+    private function wasRescheduled(ScheduleSession $session, ?CarbonInterface $previousStart): bool
+    {
+        if ($session->wasChanged('therapist_id')) {
+            return true;
+        }
+
+        $currentStart = $session->scheduled_start;
+
+        if ($previousStart === null || $currentStart === null) {
+            return $previousStart !== $currentStart;
+        }
+
+        return ! $previousStart->equalTo($currentStart);
+    }
+
+    /**
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
     private function scheduleAttributes(array $validated): array
     {
         $start = Carbon::parse("{$validated['date']} {$validated['start_time']}");
-        $minutes = (int) $validated['duration'];
+        $end = Carbon::parse("{$validated['date']} {$validated['end_time']}");
         $linkedIds = $this->linkedClientServiceIds($validated);
 
         return [
             'client_id' => $validated['client_id'],
             'service_id' => $validated['service_id'] ?? $this->leadServiceIdOf($linkedIds),
             'location' => $validated['location'] ?? null,
-            'duration' => $minutes,
+            // Still stored, just derived rather than picked: ClientProgress
+            // and the session emails both read it.
+            'duration' => (int) $start->diffInMinutes($end),
             'notes' => $validated['notes'] ?? null,
             'scheduled_start' => $start,
-            'scheduled_end' => (clone $start)->addMinutes($minutes),
+            'scheduled_end' => $end,
         ];
     }
 

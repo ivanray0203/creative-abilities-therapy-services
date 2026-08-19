@@ -49,6 +49,19 @@ class InvoicePolicy
             || ($invoice->billed_by === 'therapist' && $invoice->therapist_id === $user->id);
     }
 
+    /**
+     * Only the parent the invoice is addressed to may sign it, and only once
+     * — a signed invoice is a record of what they agreed to, so it is not
+     * re-signable.
+     */
+    public function sign(User $user, Invoice $invoice): bool
+    {
+        return $user->isClient()
+            && $invoice->billed_by === 'admin'
+            && $invoice->signed_invoice === null
+            && $this->clientContext->owns($user, $invoice->client_id);
+    }
+
     public function delete(User $user, Invoice $invoice): bool
     {
         return $user->isAdmin();

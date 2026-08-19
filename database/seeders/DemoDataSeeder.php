@@ -16,6 +16,7 @@ use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
 use App\Models\TeamMember;
 use App\Models\User;
+use App\Services\IntakeSubmissionService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -635,6 +636,14 @@ class DemoDataSeeder extends Seeder
         $parentFirst = ['Marisol', 'Grace', 'Tobias', 'Nadia', 'Peter', 'Lucia', 'Arun', 'Beth'][$seed % 8];
         $dob = now()->subYears(random_int(3, 11))->subDays(random_int(0, 300));
 
+        // Derived so the grid and the flat day/time lists stay consistent,
+        // exactly as a real submission does.
+        $availability = IntakeSubmissionService::resolveAvailability([
+            'Monday' => ['Afternoons (12pm-3pm)'],
+            'Wednesday' => ['Afternoons (12pm-3pm)', 'Evenings (4pm-7pm)'],
+            'Thursday' => ['Evenings (4pm-7pm)'],
+        ]);
+
         return Intake::query()->firstOrCreate(
             ['child_first_name' => $first, 'child_last_name' => $last],
             [
@@ -658,8 +667,9 @@ class DemoDataSeeder extends Seeder
                 'currently_receiving_services' => $seed % 4 === 0,
                 'funding_source' => $funding,
                 'funding_source_info' => $this->fundingInfo($funding),
-                'available_days' => ['Monday', 'Wednesday', 'Thursday'],
-                'preferred_times' => ['Afternoon (1pm-3pm)', 'Evenings (4pm-7pm)'],
+                'available_days' => $availability['days'],
+                'preferred_times' => $availability['times'],
+                'availability_slots' => $availability['slots'],
                 'primary_parent_name' => "{$parentFirst} {$last}",
                 'primary_parent_phone' => $this->phone(),
                 'primary_parent_email' => Str::lower("{$parentFirst}.{$last}@example.com"),

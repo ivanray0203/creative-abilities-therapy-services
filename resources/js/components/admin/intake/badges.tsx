@@ -2,6 +2,7 @@ import { UserCheck } from 'lucide-react';
 
 import { INTAKE_STATUS_CLASSES } from '@/components/intake/status-badge';
 import { Badge } from '@/components/ui/badge';
+import { fundingSourceLabel } from '@/lib/content/intake-taxonomy';
 import type { Intake, IntakeStatusVariant } from '@/types/intake';
 
 /**
@@ -37,41 +38,35 @@ export function IntakeStatusBadge({ intake }: { intake: Intake }) {
     );
 }
 
-const FUNDING_BADGES: Record<string, { label: string; className: string }> = {
-    'BDS-FSCD': {
-        label: 'FSCD',
-        className: 'bg-green-100 text-green-700 border border-green-400',
-    },
-    'Counselling-FSCD': {
-        label: 'FSCD',
-        className: 'bg-blue-100 text-blue-700 border border-blue-400',
-    },
-    'SS-FSCD': {
-        label: 'FSCD',
-        className: 'bg-purple-100 text-purple-700 border border-purple-400',
-    },
-    Insurance: {
-        label: 'Insurance',
-        className: 'bg-red-100 text-red-700 border border-red-400',
-    },
+/**
+ * Colour per funding source. The wording comes from the shared label map, so
+ * a badge always spells the programme out in full rather than abbreviating it.
+ */
+const FUNDING_BADGE_CLASSES: Record<string, string> = {
+    'BDS-FSCD': 'bg-green-100 text-green-700 border border-green-400',
+    'Counselling-FSCD': 'bg-blue-100 text-blue-700 border border-blue-400',
+    'SS-FSCD': 'bg-purple-100 text-purple-700 border border-purple-400',
+    Insurance: 'bg-red-100 text-red-700 border border-red-400',
 };
 
-const PRIVATE_PAY_BADGE = {
-    label: 'Private Pay',
-    className: 'bg-yellow-100 text-yellow-800 border border-yellow-400',
-};
+const PRIVATE_PAY_CLASSES =
+    'bg-yellow-100 text-yellow-800 border border-yellow-400';
 
 export function FundingBadge({
     fundingSource,
 }: {
     fundingSource: string | null;
 }) {
-    const config =
-        (fundingSource && FUNDING_BADGES[fundingSource]) || PRIVATE_PAY_BADGE;
+    const className =
+        (fundingSource && FUNDING_BADGE_CLASSES[fundingSource]) ||
+        PRIVATE_PAY_CLASSES;
 
     return (
-        <Badge className={`rounded-[5px] ${config.className}`}>
-            {config.label}
+        <Badge
+            className={`max-w-[280px] rounded-[5px] text-left break-words whitespace-normal ${className}`}
+        >
+            {/* A missing source has always read as private pay here. */}
+            {fundingSourceLabel(fundingSource ?? 'private')}
         </Badge>
     );
 }

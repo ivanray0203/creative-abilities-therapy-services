@@ -43,7 +43,6 @@ test('creating an invoice computes totals from the line items using the document
         'client_id' => $client->id,
         'invoice_date' => now()->toDateString(),
         'due_date' => now()->addDays(30)->toDateString(),
-        'tax_percentage' => 5,
         'action' => 'draft',
         'services' => [
             ['name' => 'OT Session', 'numberOfSessions' => 4, 'rate_numeric' => 100],
@@ -54,11 +53,56 @@ test('creating an invoice computes totals from the line items using the document
     $invoice = Invoice::first();
     expect($invoice)->not->toBeNull();
     expect((float) $invoice->sub_total)->toBe(500.0);
-    expect((float) $invoice->gst)->toBe(25.0);
-    expect((float) $invoice->total)->toBe(525.0);
-    expect((float) $invoice->amount_due)->toBe(525.0);
+    // Invoices are raised without GST, so the total is the sub total.
+    expect((float) $invoice->tax_percentage)->toBe(0.0);
+    expect((float) $invoice->gst)->toBe(0.0);
+    expect((float) $invoice->total)->toBe(500.0);
+    expect((float) $invoice->amount_due)->toBe(500.0);
     expect($invoice->status)->toBe('draft');
     expect($invoice->invoice_id)->toStartWith('INV-'.now()->year.'-');
+});
+
+test('a posted tax_percentage cannot put gst back onto a new invoice', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs(adminUser())->post('/admin/invoices', [
+        'client_id' => $client->id,
+        'invoice_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+        'tax_percentage' => 5,
+        'action' => 'draft',
+        'services' => [
+            ['name' => 'OT Session', 'numberOfSessions' => 1, 'rate_numeric' => 100],
+        ],
+    ])->assertSessionHasNoErrors();
+
+    $invoice = Invoice::first();
+    expect((float) $invoice->tax_percentage)->toBe(0.0);
+    expect((float) $invoice->total)->toBe(100.0);
+});
+
+test('an invoice raised before gst was dropped keeps its rate through an edit', function () {
+    $client = Client::factory()->create();
+    $invoice = Invoice::factory()->create([
+        'client_id' => $client->id,
+        'tax_percentage' => 5.00,
+        'status' => 'draft',
+    ]);
+
+    $this->actingAs(adminUser())->put("/admin/invoices/{$invoice->id}", [
+        'client_id' => $client->id,
+        'invoice_date' => now()->toDateString(),
+        'due_date' => now()->addDays(30)->toDateString(),
+        'action' => 'draft',
+        'services' => [
+            ['name' => 'OT Session', 'numberOfSessions' => 1, 'rate_numeric' => 100],
+        ],
+    ])->assertSessionHasNoErrors();
+
+    $invoice->refresh();
+    expect((float) $invoice->tax_percentage)->toBe(5.0);
+    expect((float) $invoice->gst)->toBe(5.0);
+    expect((float) $invoice->total)->toBe(105.0);
 });
 
 test('save and send sets the invoice status to sent and emails the client', function () {

@@ -35,7 +35,8 @@ class StoreInvoiceRequest extends FormRequest
             'linked_therapist_invoice_id' => ['nullable', 'integer', 'exists:invoices,id', $this->recoverableTherapistInvoice()],
             'invoice_date' => ['required', 'date'],
             'due_date' => ['required', 'date', 'after_or_equal:invoice_date'],
-            'tax_percentage' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            // No tax_percentage rule: the form no longer offers one, and
+            // accepting it would let a crafted request put GST back on.
             'notes' => ['nullable', 'string'],
             'action' => ['required', Rule::in(['draft', 'send'])],
             'services' => ['required', 'array', 'min:1'],

@@ -166,12 +166,16 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
                             </span>
                             <span>${Number(invoice.sub_total).toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                                GST ({Number(invoice.tax_percentage)}%)
-                            </span>
-                            <span>${Number(invoice.gst).toFixed(2)}</span>
-                        </div>
+                        {/* Invoices are raised without GST; older ones that
+                            recorded a rate still show what they charged. */}
+                        {Number(invoice.tax_percentage) > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                    GST ({Number(invoice.tax_percentage)}%)
+                                </span>
+                                <span>${Number(invoice.gst).toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between border-t pt-1 font-bold">
                             <span>Total</span>
                             <span>${Number(invoice.total).toFixed(2)}</span>

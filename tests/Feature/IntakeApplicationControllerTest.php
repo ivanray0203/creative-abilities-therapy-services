@@ -28,8 +28,10 @@ function validIntakePayload(array $overrides = []): array
         'languages_spoken_at_home' => 'English',
         'require_interpreter' => false,
         'funding_source' => 'private',
-        'available_days' => ['Monday', 'Tuesday'],
-        'preferred_times' => ['Mornings (8am-11am)'],
+        'availability_slots' => [
+            'Monday' => ['Mornings (8am-11am)'],
+            'Tuesday' => ['Mornings (8am-11am)'],
+        ],
         'primary_parent_name' => 'Jane Doe',
         'primary_parent_phone' => '5874338780',
         'primary_parent_email' => 'jane@example.com',
@@ -110,6 +112,107 @@ test('the fscd case worker name is required when funding source is an fscd varia
     ]);
 
     expect(Intake::count())->toBe(0);
+});
+
+test('an ss-fscd application can request the clinical coordinator service', function () {
+    $payload = validIntakePayload([
+        'funding_source' => 'SS-FSCD',
+        'fscd_info' => [
+            'FSCD_case_worker_name' => 'Worker Name',
+            'FSCD_case_worker_email' => 'worker@example.com',
+            'FSCD_approval_start_date' => now()->toDateString(),
+        ],
+        'services_needed' => ['Clinical Coordinator', 'Occupational Therapy'],
+    ]);
+
+    $this->post('/intake/apply', $payload)->assertSessionHasNoErrors();
+
+    expect(Intake::first()->services_needed)->toBe([
+        'Clinical Coordinator',
+        'Occupational Therapy',
+    ]);
+});
+
+test('the availability grid is stored and the flat day/time lists are derived from it', function () {
+    $payload = validIntakePayload([
+        'availability_slots' => [
+            'Wednesday' => ['Evenings (4pm-7pm)', 'Mornings (8am-11am)'],
+            'Monday' => ['Mornings (8am-11am)'],
+        ],
+    ]);
+
+    $this->post('/intake/apply', $payload)->assertSessionHasNoErrors();
+
+    $intake = Intake::first();
+
+    /*
+     * Times within a day are normalised into taxonomy order, not the order
+     * they arrived in. The day keys are compared without assuming an order —
+     * MySQL does not preserve JSON object key order on read.
+     */
+    expect($intake->availability_slots)->toHaveCount(2);
+    expect($intake->availability_slots['Monday'])->toBe(['Mornings (8am-11am)']);
+    expect($intake->availability_slots['Wednesday'])->toBe([
+        'Mornings (8am-11am)',
+        'Evenings (4pm-7pm)',
+    ]);
+    expect($intake->available_days)->toBe(['Monday', 'Wednesday']);
+    expect($intake->preferred_times)->toBe([
+        'Mornings (8am-11am)',
+        'Evenings (4pm-7pm)',
+    ]);
+});
+
+test('an intake cannot be submitted without any availability', function () {
+    $this->post('/intake/apply', validIntakePayload(['availability_slots' => []]))
+        ->assertSessionHasErrors(['availability_slots']);
+
+    expect(Intake::count())->toBe(0);
+});
+
+test('an unknown availability day or time is rejected', function () {
+    $this->post('/intake/apply', validIntakePayload([
+        'availability_slots' => ['Funday' => ['Mornings (8am-11am)']],
+    ]))->assertSessionHasErrors(['availability_slots']);
+
+    $this->post('/intake/apply', validIntakePayload([
+        'availability_slots' => ['Monday' => ['Midnight']],
+    ]))->assertSessionHasErrors(['availability_slots.Monday.0']);
+
+    expect(Intake::count())->toBe(0);
+});
+
+test('an other diagnosis is stored as the free-text answer instead of the "Other" label', function () {
+    $payload = validIntakePayload([
+        'diagnosis' => ['Autism Spectrum Disorder (ASD)', 'Other'],
+        'diagnosis_other' => 'Cerebral Palsy',
+    ]);
+
+    $this->post('/intake/apply', $payload)->assertSessionHasNoErrors();
+
+    expect(Intake::first()->diagnosis)->toBe([
+        'Autism Spectrum Disorder (ASD)',
+        'Cerebral Palsy',
+    ]);
+});
+
+test('the other diagnosis free text is required when "Other" is selected', function () {
+    $payload = validIntakePayload(['diagnosis' => ['Other']]);
+
+    $this->post('/intake/apply', $payload)->assertSessionHasErrors(['diagnosis_other']);
+
+    expect(Intake::count())->toBe(0);
+});
+
+test('the other diagnosis free text is ignored when "Other" is not selected', function () {
+    $payload = validIntakePayload([
+        'diagnosis' => ['Down Syndrome'],
+        'diagnosis_other' => 'Cerebral Palsy',
+    ]);
+
+    $this->post('/intake/apply', $payload)->assertSessionHasNoErrors();
+
+    expect(Intake::first()->diagnosis)->toBe(['Down Syndrome']);
 });
 
 test('mismatched primary parent emails fail validation', function () {

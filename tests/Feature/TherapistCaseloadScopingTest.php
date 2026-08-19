@@ -53,7 +53,7 @@ test('a therapist cannot schedule for a client outside their caseload', function
         'client_id' => $stranger->id,
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasErrors('client_id');
 
     expect(ScheduleSession::count())->toBe(0);
@@ -73,7 +73,7 @@ test('a therapist cannot reschedule a session onto a client outside their caselo
         'client_id' => $stranger->id,
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasErrors('client_id');
 
     expect($session->refresh()->client_id)->toBe($own->id);
@@ -88,7 +88,7 @@ test('a therapist can schedule for a client on their caseload', function () {
         'client_id' => $client->id,
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasNoErrors();
 
     expect(ScheduleSession::first()->client_id)->toBe($client->id);

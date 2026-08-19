@@ -18,6 +18,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\IntakeApprovalService;
+use App\Services\IntakeSubmissionService;
 use App\Services\ReferenceNumberGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -940,6 +941,8 @@ class IntakeController extends Controller
      */
     private function intakeAttributes(array $validated): array
     {
+        $availability = IntakeSubmissionService::resolveAvailability($validated['availability_slots'] ?? []);
+
         $referralSource = ($validated['referral_source'] ?? null) === 'Other' && ! empty($validated['referral_source_other'])
             ? $validated['referral_source_other']
             : $validated['referral_source'];
@@ -959,7 +962,10 @@ class IntakeController extends Controller
             'services_needed' => $validated['services_needed'] ?? [],
             'currently_receiving_services' => $validated['currently_receiving_services'] ?? false,
             'receiving_services_desc' => $validated['receiving_services_desc'] ?? null,
-            'diagnosis' => $validated['diagnosis'] ?? [],
+            'diagnosis' => IntakeSubmissionService::resolveDiagnosis(
+                $validated['diagnosis'] ?? [],
+                $validated['diagnosis_other'] ?? null,
+            ),
             'has_medical_conditions' => $validated['has_medical_conditions'] ?? false,
             'languages_spoken_at_home' => $validated['languages_spoken_at_home'] ?? null,
             'require_interpreter' => $validated['require_interpreter'] ?? false,
@@ -968,8 +974,9 @@ class IntakeController extends Controller
             'theraphy_goals' => $validated['theraphy_goals'] ?? null,
             'admin_addition_informations' => $validated['admin_addition_informations'] ?? null,
             'funding_source' => $validated['funding_source'],
-            'available_days' => $validated['available_days'] ?? [],
-            'preferred_times' => $validated['preferred_times'] ?? [],
+            'available_days' => $availability['days'],
+            'preferred_times' => $availability['times'],
+            'availability_slots' => $availability['slots'],
             'primary_parent_name' => $validated['primary_parent_name'],
             'primary_parent_phone' => $validated['primary_parent_phone'],
             'primary_parent_email' => $validated['primary_parent_email'] ?? null,

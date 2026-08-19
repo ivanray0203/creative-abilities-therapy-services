@@ -9,7 +9,9 @@ import {
     Users2Icon,
 } from 'lucide-react';
 
+import AvailabilitySummary from '@/components/availability-summary';
 import { Card, CardContent } from '@/components/ui/card';
+import { fundingSourceLabel } from '@/lib/content/intake-taxonomy';
 import { capitalize } from '@/lib/helpers';
 import type { Intake } from '@/types/intake';
 
@@ -188,41 +190,12 @@ export default function OverviewTab({
                             <Calendar className="text-primary" /> Availability
                         </p>
 
-                        <div className="mt-10 grid gap-5">
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Available Days
-                                </p>
-                                <div className="flex flex-row flex-wrap gap-3">
-                                    {(intake.available_days ?? []).map(
-                                        (day) => (
-                                            <p
-                                                key={day}
-                                                className="rounded-[5px] border p-1 text-sm"
-                                            >
-                                                {day}
-                                            </p>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Preferred Times
-                                </p>
-                                <div className="flex flex-row flex-wrap gap-3">
-                                    {(intake.preferred_times ?? []).map(
-                                        (time) => (
-                                            <p
-                                                key={time}
-                                                className="rounded-[5px] border p-1 text-sm"
-                                            >
-                                                {time}
-                                            </p>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
+                        <div className="mt-10">
+                            <AvailabilitySummary
+                                slots={intake.availability_slots}
+                                fallbackDays={intake.available_days}
+                                fallbackTimes={intake.preferred_times}
+                            />
                         </div>
                     </CardContent>
                 </Card>
@@ -252,7 +225,11 @@ export default function OverviewTab({
                                         <p className="text-xs text-muted-foreground">
                                             Funding source
                                         </p>
-                                        <p>{intake.funding_source || '-'}</p>
+                                        <p>
+                                            {fundingSourceLabel(
+                                                intake.funding_source,
+                                            )}
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">
@@ -290,7 +267,11 @@ export default function OverviewTab({
                                         <p className="text-xs text-muted-foreground">
                                             Funding source
                                         </p>
-                                        <p>{intake.funding_source || '-'}</p>
+                                        <p>
+                                            {fundingSourceLabel(
+                                                intake.funding_source,
+                                            )}
+                                        </p>
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">

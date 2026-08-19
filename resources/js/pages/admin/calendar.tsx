@@ -2,6 +2,7 @@ import { Head } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { CalendarDaySessionsModal } from '@/components/admin/calendar-day-sessions-modal';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,57 +14,26 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AdminLayout from '@/layouts/admin-layout';
+import type { CalendarSession } from '@/types/session';
 
 type ViewMode = 'month' | 'week' | 'day';
 
-interface Session {
-    id: string;
-    date: string;
-    time: string;
-    endTime: string;
-    client: string;
-    type: 'OT' | 'ABA' | 'Speech';
-    location: string;
+interface TherapistOption {
+    id: number;
+    name: string;
 }
 
 /**
- * Static mock sessions, ported 1:1 from cats-frontend's CalendarPage.tsx
- * dummySessions. The reference's fetchSessions() has its axios call
- * commented out and always falls back to this same data, so there is no
- * real endpoint to wire up here either.
+ * Local calendar date, not UTC. The server sends `date` in the app timezone,
+ * so `toISOString()` here would put the two a day apart for any admin west
+ * of UTC and quietly drop sessions out of the grid.
  */
-const DUMMY_SESSIONS: Session[] = [
-    {
-        id: '1',
-        date: '2025-11-04',
-        time: '09:00',
-        endTime: '10:30',
-        client: 'Emma Thompson',
-        type: 'OT',
-        location: 'Main Office - Room 101',
-    },
-    {
-        id: '2',
-        date: '2025-11-04',
-        time: '11:00',
-        endTime: '12:00',
-        client: 'Noah Williams',
-        type: 'ABA',
-        location: 'School - Lincoln Elementary',
-    },
-    {
-        id: '3',
-        date: '2025-11-06',
-        time: '10:00',
-        endTime: '11:00',
-        client: 'Sophia Anderson',
-        type: 'Speech',
-        location: 'Clinic Room 3',
-    },
-];
-
 function formatDate(date: Date): string {
-    return date.toISOString().slice(0, 10);
+    return [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, '0'),
+        String(date.getDate()).padStart(2, '0'),
+    ].join('-');
 }
 
 function isSameDay(a: Date, b: Date): boolean {
@@ -99,11 +69,40 @@ function getWeekDays(date: Date): Date[] {
 /**
  * Admin calendar, ported from cats-frontend's src/pages/admin/CalendarPage.tsx.
  */
-export default function AdminCalendar() {
-    const [sessions] = useState<Session[]>(DUMMY_SESSIONS);
+export default function AdminCalendar({
+    sessions: allSessions,
+    therapists,
+}: {
+    sessions: CalendarSession[];
+    therapists: TherapistOption[];
+}) {
     const [view, setView] = useState<ViewMode>('week');
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(formatDate(new Date()));
+    const [search, setSearch] = useState('');
+    const [therapistId, setTherapistId] = useState('all');
+    const [dayModalOpen, setDayModalOpen] = useState(false);
+
+    const sessions = useMemo(() => {
+        const term = search.trim().toLowerCase();
+
+        return allSessions.filter((session) => {
+            if (
+                therapistId !== 'all' &&
+                String(session.therapistId) !== therapistId
+            ) {
+                return false;
+            }
+
+            if (term === '') {
+                return true;
+            }
+
+            return [session.client, session.type, session.therapist].some(
+                (field) => field.toLowerCase().includes(term),
+            );
+        });
+    }, [allSessions, search, therapistId]);
 
     const daySessions = useMemo(
         () => sessions.filter((s) => s.date === selectedDate),
@@ -122,6 +121,12 @@ export default function AdminCalendar() {
         setSelectedDate(formatDate(d));
     };
 
+    /** Month cells only have room for a count, so the detail goes in a modal. */
+    const openDay = (date: string) => {
+        setSelectedDate(date);
+        setDayModalOpen(true);
+    };
+
     const goToday = () => {
         const today = new Date();
         setCurrentDate(today);
@@ -135,31 +140,40 @@ export default function AdminCalendar() {
                 {/* Header */}
                 <div>
                     <h1 className="mb-1 text-3xl font-bold text-foreground">
-                        My Calendar
+                        Clinic Calendar
                     </h1>
                     <p className="text-muted-foreground">
-                        View and manage your personal schedule
+                        Every therapist&apos;s schedule in one place
                     </p>
                 </div>
 
                 {/* Filters */}
                 <Card className="p-4">
                     <div className="flex items-center gap-4">
-                        <Input placeholder="Search by client or session type..." />
-                        <Select defaultValue="all-types">
-                            <SelectTrigger className="w-48">
+                        <Input
+                            placeholder="Search by client, therapist, or service..."
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                        />
+                        <Select
+                            value={therapistId}
+                            onValueChange={setTherapistId}
+                        >
+                            <SelectTrigger className="w-56">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all-types">
-                                    All Types
+                                <SelectItem value="all">
+                                    All Therapists
                                 </SelectItem>
-                                <SelectItem value="ot">
-                                    Occupational Therapy
-                                </SelectItem>
-                                <SelectItem value="speech">
-                                    Speech Therapy
-                                </SelectItem>
+                                {therapists.map((therapist) => (
+                                    <SelectItem
+                                        key={therapist.id}
+                                        value={String(therapist.id)}
+                                    >
+                                        {therapist.name}
+                                    </SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -250,7 +264,8 @@ export default function AdminCalendar() {
                                 return (
                                     <Card
                                         key={key}
-                                        onClick={() => setSelectedDate(key)}
+                                        id={`month-day-${key}`}
+                                        onClick={() => openDay(key)}
                                         className={`min-h-24 cursor-pointer p-2 ${isToday ? 'border-2 border-primary' : ''} ${!isCurrentMonth ? 'opacity-50' : ''}`}
                                     >
                                         <div className="mb-1 text-sm font-medium">
@@ -292,9 +307,14 @@ export default function AdminCalendar() {
                                         {weekDaySessions.map((s) => (
                                             <div
                                                 key={s.id}
-                                                className="mb-1 rounded bg-muted p-1 text-xs"
+                                                className={`mb-1 rounded bg-muted p-1 text-xs ${s.status === 'cancelled' ? 'line-through opacity-60' : ''}`}
                                             >
-                                                {s.time} · {s.client}
+                                                <p>
+                                                    {s.time} · {s.client}
+                                                </p>
+                                                <p className="text-muted-foreground">
+                                                    {s.therapist}
+                                                </p>
                                             </div>
                                         ))}
                                     </Card>
@@ -314,16 +334,17 @@ export default function AdminCalendar() {
                             {daySessions.map((s) => (
                                 <div
                                     key={s.id}
-                                    className="rounded bg-muted/40 p-3"
+                                    className={`rounded bg-muted/40 p-3 ${s.status === 'cancelled' ? 'opacity-60' : ''}`}
                                 >
                                     <p className="font-medium">
-                                        {s.time} – {s.endTime}
+                                        {s.time} – {s.endTime} · {s.type}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        {s.client}
+                                        {s.client} with {s.therapist}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                        {s.location}
+                                        {s.location || 'No location set'} ·{' '}
+                                        {s.status}
                                     </p>
                                 </div>
                             ))}
@@ -331,6 +352,13 @@ export default function AdminCalendar() {
                     )}
                 </Card>
             </div>
+
+            <CalendarDaySessionsModal
+                open={dayModalOpen}
+                onClose={() => setDayModalOpen(false)}
+                date={selectedDate}
+                sessions={daySessions}
+            />
         </>
     );
 }

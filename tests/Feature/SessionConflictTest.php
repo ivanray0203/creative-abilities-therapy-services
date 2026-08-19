@@ -48,7 +48,7 @@ function sessionPayload(Client $client, User $therapist, array $overrides = []):
         'therapist_id' => $therapist->id,
         'date' => '2026-09-01',
         'start_time' => '09:30',
-        'duration' => 60,
+        'end_time' => '10:30',
     ], $overrides);
 }
 
@@ -91,7 +91,7 @@ test('a session that merely surrounds the existing one still conflicts', functio
     $this->actingAs(adminUser())
         ->post('/admin/sessions', sessionPayload($client, $therapist, [
             'start_time' => '08:30',
-            'duration' => 120,
+            'end_time' => '10:30',
         ]))
         ->assertSessionHasErrors('therapist_id');
 });
@@ -141,6 +141,7 @@ test('rescheduling onto another booking conflicts', function () {
     $this->actingAs(adminUser())
         ->put("/admin/sessions/{$session->id}", sessionPayload($client, $therapist, [
             'start_time' => '14:30',
+            'end_time' => '15:30',
         ]))
         ->assertSessionHasErrors('therapist_id');
 
@@ -158,7 +159,7 @@ test('a therapist scheduling for themselves is checked against their own diary',
             'therapist_id' => therapistUser()->id, // spoofed, ignored
             'date' => '2026-09-01',
             'start_time' => '09:30',
-            'duration' => 60,
+            'end_time' => '10:30',
         ])
         ->assertSessionHasErrors('therapist_id');
 

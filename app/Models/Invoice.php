@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'services', 'sub_total', 'tax_percentage', 'gst', 'total', 'amount_due', 'invoice_date',
     'due_date', 'paid_at', 'paid_date', 'status', 'processed_by', 'issued_by_id', 'notes',
     'timeline', 'bill_to_name', 'bill_to_email', 'bill_to_phone', 'bill_to_address', 'billed_by',
-    'linked_therapist_invoice_id',
+    'linked_therapist_invoice_id', 'not_signed_invoice', 'signed_invoice',
 ])]
 class Invoice extends Model
 {

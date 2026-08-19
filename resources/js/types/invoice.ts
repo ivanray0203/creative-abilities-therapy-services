@@ -41,6 +41,10 @@ export interface Invoice {
     services: InvoiceLineItem[];
     sub_total: string;
     tax_percentage: string;
+    /** Drive URL of the invoice as issued, before the parent signs it. */
+    not_signed_invoice: string | null;
+    /** Drive URL of the copy the parent signed and returned. Null until then. */
+    signed_invoice: string | null;
     gst: string;
     total: string;
     amount_due: string;

@@ -6,7 +6,7 @@ use App\Models\ScheduleSession;
 
 /**
  * Same field set as StoreSessionRequest — reschedules reuse the same
- * date/time/duration → scheduled_start/scheduled_end computation.
+ * date + start_time + end_time → scheduled_start/scheduled_end computation.
  */
 class UpdateSessionRequest extends StoreSessionRequest
 {

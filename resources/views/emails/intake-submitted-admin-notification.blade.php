@@ -11,7 +11,12 @@ A new intake application has been submitted and is ready for review.
 - **Date of Birth:** {{ $intake->date_of_birth?->format('M j, Y') ?? 'Not provided' }}
 - **Age:** {{ $intake->age ?? 'Not provided' }}
 - **Gender:** {{ $intake->gender ?? 'Not provided' }}
+- **Street Address:** {{ $intake->street_address ?? 'Not provided' }}
+@if ($intake->address_line_2)
+- **Address Line 2:** {{ $intake->address_line_2 }}
+@endif
 - **City / Province:** {{ $intake->city ?? 'Not provided' }}, {{ $intake->state_province ?? 'Not provided' }}
+- **Full Address:** {{ collect([$intake->street_address, $intake->address_line_2, $intake->city, $intake->state_province, $intake->postal_code])->filter()->implode(', ') ?: 'Not provided' }}
 
 @if (! empty($intake->services_needed))
 **Services Requested:** {{ implode(', ', $intake->services_needed) }}

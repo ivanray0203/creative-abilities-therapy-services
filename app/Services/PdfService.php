@@ -6,6 +6,7 @@ use App\Models\Application;
 use App\Models\Client;
 use App\Models\ConsentDocument;
 use App\Models\Intake;
+use App\Models\Invoice;
 use App\Models\TeamMember;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
@@ -145,6 +146,76 @@ class PdfService
             'intake' => $intake,
             'documents' => $documents,
         ])->output();
+    }
+
+    /**
+     * The client-facing invoice (resources/views/pdf/invoice.blade.php),
+     * matching the clinic's printed form.
+     *
+     * @param  string|null  $parentSignature  A data: URI for the parent's drawn
+     *                                        signature. Null renders the empty
+     *                                        signature box the parent signs.
+     */
+    public function invoice(Invoice $invoice, ?string $parentSignature = null): string
+    {
+        $invoice->loadMissing(['client.originalIntake', 'client.user']);
+        $intake = $invoice->client?->originalIntake;
+
+        $directorSignature = config('cats.invoice.clinical_director_signature');
+        $directorPath = $directorSignature !== null && is_file(public_path($directorSignature))
+            ? public_path($directorSignature)
+            : null;
+
+        return Pdf::loadView('pdf.invoice', [
+            'invoice' => $invoice,
+            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'billTo' => [
+                // The invoice is addressed to whoever is billed, falling back
+                // to the parent captured on the intake.
+                'name' => $invoice->bill_to_name
+                    ?: (optional($intake)->primary_parent_name ?? 'Parent / Guardian'),
+                'address' => $this->invoiceAddressLines($invoice, $intake),
+            ],
+            'clientDetails' => [
+                'name' => $invoice->client?->displayName() ?? 'Client',
+                'date_of_birth' => $intake?->date_of_birth?->format('Y-M-d') ?? '',
+                // The clinic's own file number for the child.
+                'number' => $invoice->client?->id !== null ? (string) $invoice->client->id : '',
+            ],
+            'parentSignature' => $parentSignature,
+            'directorSignature' => $directorPath,
+        ])->output();
+    }
+
+    /**
+     * Address lines for the BILL TO block: the address recorded on the
+     * invoice if one was captured, otherwise the intake's.
+     *
+     * @return array<int, string>
+     */
+    private function invoiceAddressLines(Invoice $invoice, ?Intake $intake): array
+    {
+        if (filled($invoice->bill_to_address)) {
+            return array_values(array_filter(
+                preg_split('/
+
+|
+|
+/', (string) $invoice->bill_to_address) ?: [],
+                fn (string $line): bool => trim($line) !== '',
+            ));
+        }
+
+        if ($intake === null) {
+            return [];
+        }
+
+        return array_values(array_filter([
+            $intake->street_address,
+            $intake->address_line_2,
+            trim(implode(', ', array_filter([$intake->city, $intake->state_province]))),
+            $intake->postal_code,
+        ], fn (?string $line): bool => filled($line)));
     }
 
     /**

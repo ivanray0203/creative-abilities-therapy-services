@@ -51,7 +51,7 @@ import {
     RESIDENT_STATUS,
     WEEK_DAYS,
 } from '@/lib/content/careers-config';
-import { Provinces } from '@/lib/content/intake-taxonomy';
+import { ProvinceCities, Provinces } from '@/lib/content/intake-taxonomy';
 import { computeFormProgress } from '@/lib/form-progress';
 import type { Career } from '@/types/career';
 
@@ -179,6 +179,8 @@ const PROFESSION_STATUS_OPTIONS = [
 
 interface FileUploadFieldProps {
     label: string;
+    /** Falls back to a slug of the label, which carries the label's punctuation. */
+    id?: string;
     accept?: string;
     required?: boolean;
     value: File | null;
@@ -188,13 +190,14 @@ interface FileUploadFieldProps {
 
 function FileUploadField({
     label,
+    id,
     accept = '.pdf,.doc,.docx',
     required = false,
     value,
     onChange,
     error,
 }: FileUploadFieldProps) {
-    const inputId = label.replace(/\s+/g, '').toLowerCase();
+    const inputId = id ?? label.replace(/\s+/g, '').toLowerCase();
 
     return (
         <div className="flex flex-col gap-2">
@@ -483,7 +486,10 @@ export default function CareerApplicationForm({
                 className="my-10 rounded-lg bg-white shadow-2xl"
             >
                 <AccordionItem value="applicant-info">
-                    <AccordionTrigger className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5">
+                    <AccordionTrigger
+                        id="applicant-info-trigger"
+                        className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5"
+                    >
                         <div className="flex flex-row items-center gap-3">
                             <div className="flex-shrink-0 rounded-md bg-primary p-3 sm:p-4">
                                 <User className="h-4 w-4 text-white sm:h-5 sm:w-5" />
@@ -689,28 +695,14 @@ export default function CareerApplicationForm({
                         </div>
 
                         <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-3">
-                            <div className="flex flex-col">
-                                <Label htmlFor="city">
-                                    City <span className="text-red-700">*</span>
-                                </Label>
-                                <Input
-                                    id="city"
-                                    value={data.city}
-                                    onChange={(e) =>
-                                        setData('city', e.target.value)
-                                    }
-                                    placeholder="Calgary"
-                                    className="mt-2 rounded-[10px]"
-                                />
-                                {errors.city && (
-                                    <p className="text-sm text-red-600">
-                                        {errors.city}
-                                    </p>
-                                )}
-                            </div>
-
+                            {/*
+                             * Province precedes city, and city is a dependent
+                             * dropdown, matching the intake form — the city
+                             * list is scoped to the province, so choosing a
+                             * city first has nothing to scope it by.
+                             */}
                             <div>
-                                <Label>
+                                <Label htmlFor="province">
                                     State / Province{' '}
                                     <span className="text-red-700">*</span>
                                 </Label>
@@ -721,7 +713,10 @@ export default function CareerApplicationForm({
                                         setData('city', '');
                                     }}
                                 >
-                                    <SelectTrigger className="rounded-[5px]">
+                                    <SelectTrigger
+                                        id="province"
+                                        className="mt-2 rounded-[10px]"
+                                    >
                                         <SelectValue placeholder="Select Province" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -738,6 +733,44 @@ export default function CareerApplicationForm({
                                 {errors.province && (
                                     <p className="text-sm text-red-600">
                                         {errors.province}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="city">
+                                    City <span className="text-red-700">*</span>
+                                </Label>
+                                <Select
+                                    value={data.city}
+                                    onValueChange={(value) =>
+                                        setData('city', value)
+                                    }
+                                    disabled={!data.province}
+                                >
+                                    <SelectTrigger
+                                        id="city"
+                                        className="mt-2 rounded-[10px]"
+                                    >
+                                        <SelectValue placeholder="Select City" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {data.province &&
+                                            ProvinceCities[data.province]?.map(
+                                                (city) => (
+                                                    <SelectItem
+                                                        key={city}
+                                                        value={city}
+                                                    >
+                                                        {city}
+                                                    </SelectItem>
+                                                ),
+                                            )}
+                                    </SelectContent>
+                                </Select>
+                                {errors.city && (
+                                    <p className="text-sm text-red-600">
+                                        {errors.city}
                                     </p>
                                 )}
                             </div>
@@ -775,7 +808,10 @@ export default function CareerApplicationForm({
                 className="my-10 rounded-lg bg-white shadow-2xl"
             >
                 <AccordionItem value="position-details">
-                    <AccordionTrigger className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5">
+                    <AccordionTrigger
+                        id="position-details-trigger"
+                        className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5"
+                    >
                         <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 rounded-md bg-primary p-3 sm:p-4">
                                 <Luggage className="h-4 w-4 text-white sm:h-5 sm:w-5" />
@@ -871,7 +907,10 @@ export default function CareerApplicationForm({
                 className="my-10 rounded-lg bg-white shadow-2xl"
             >
                 <AccordionItem value="availability">
-                    <AccordionTrigger className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5">
+                    <AccordionTrigger
+                        id="availability-trigger"
+                        className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5"
+                    >
                         <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 rounded-md bg-primary p-3 sm:p-4">
                                 <Calendar className="h-4 w-4 text-white sm:h-5 sm:w-5" />
@@ -994,7 +1033,10 @@ export default function CareerApplicationForm({
                 className="my-10 rounded-lg bg-white shadow-2xl"
             >
                 <AccordionItem value="personal-info">
-                    <AccordionTrigger className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5">
+                    <AccordionTrigger
+                        id="personal-info-trigger"
+                        className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5"
+                    >
                         <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 rounded-md bg-primary p-3 sm:p-4">
                                 <User className="h-4 w-4 text-white sm:h-5 sm:w-5" />
@@ -1071,6 +1113,7 @@ export default function CareerApplicationForm({
                         <div className="mb-4">
                             <FileUploadField
                                 label="Upload Resume (pdf, doc, docx)"
+                                id="resume-file"
                                 accept=".pdf,.doc,.docx"
                                 required
                                 value={data.resume_file}
@@ -1084,6 +1127,7 @@ export default function CareerApplicationForm({
                         <div className="mb-4">
                             <FileUploadField
                                 label="Upload Cover Letter (pdf, doc, docx)"
+                                id="cover-letter-file"
                                 accept=".pdf,.doc,.docx"
                                 value={data.cover_letter_file}
                                 onChange={(file) =>
@@ -1355,7 +1399,10 @@ export default function CareerApplicationForm({
                 className="my-10 rounded-lg bg-white shadow-2xl"
             >
                 <AccordionItem value="additional-info">
-                    <AccordionTrigger className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5">
+                    <AccordionTrigger
+                        id="additional-info-trigger"
+                        className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5"
+                    >
                         <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 rounded-md bg-primary p-3 sm:p-4">
                                 <Info className="h-4 w-4 text-white sm:h-5 sm:w-5" />
@@ -1480,7 +1527,10 @@ export default function CareerApplicationForm({
                 className="my-10 rounded-lg bg-white shadow-2xl"
             >
                 <AccordionItem value="privacy-consent">
-                    <AccordionTrigger className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5">
+                    <AccordionTrigger
+                        id="privacy-consent-trigger"
+                        className="flex items-center gap-3 rounded-t-lg bg-gradient-to-br from-secondary-orange/10 to-transparent p-4 transition hover:bg-secondary-orange/20 sm:p-5"
+                    >
                         <div className="flex items-center gap-3">
                             <div className="flex-shrink-0 rounded-md bg-primary p-3 sm:p-4">
                                 <Shield className="h-4 w-4 text-white sm:h-5 sm:w-5" />

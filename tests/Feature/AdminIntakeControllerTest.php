@@ -42,8 +42,10 @@ function validAdminIntakePayload(array $overrides = []): array
         'languages_spoken_at_home' => 'English',
         'require_interpreter' => false,
         'funding_source' => 'private',
-        'available_days' => ['Monday', 'Tuesday'],
-        'preferred_times' => ['Mornings (8am-11am)'],
+        'availability_slots' => [
+            'Monday' => ['Mornings (8am-11am)'],
+            'Tuesday' => ['Mornings (8am-11am)'],
+        ],
         'primary_parent_name' => 'Jane Doe',
         'primary_parent_phone' => '5874338780',
         'primary_parent_email' => 'jane@example.com',
@@ -124,6 +126,15 @@ test('an admin can update an intake and a timeline entry is appended', function 
     expect($intake->child_first_name)->toBe('Renamed');
     expect($intake->timeline)->toHaveCount(1);
     expect($intake->timeline[0]['title'])->toBe('Intake Edited via Admin');
+});
+
+test('an admin saving an "Other" diagnosis stores the free-text answer', function () {
+    $this->actingAs(adminUser())->post('/admin/intake', validAdminIntakePayload([
+        'diagnosis' => ['Other'],
+        'diagnosis_other' => 'Cerebral Palsy',
+    ]))->assertSessionHasNoErrors();
+
+    expect(Intake::first()->diagnosis)->toBe(['Cerebral Palsy']);
 });
 
 test('the primary parent email cannot be changed once it is set', function () {

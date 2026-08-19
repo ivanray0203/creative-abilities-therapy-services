@@ -45,6 +45,27 @@ export interface ScheduleSession {
     client_services?: ClientService[];
 }
 
+/**
+ * A session flattened for the admin calendar grid
+ * (Admin\CalendarController::sessions()). Dates and times arrive
+ * pre-formatted in the app timezone so the grid never re-parses them.
+ */
+export interface CalendarSession {
+    id: string;
+    /** `YYYY-MM-DD`. */
+    date: string;
+    /** `HH:MM`. */
+    time: string;
+    endTime: string;
+    client: string;
+    /** The service name as configured, so not a fixed set of codes. */
+    type: string;
+    location: string;
+    status: string;
+    therapistId: number | null;
+    therapist: string;
+}
+
 export interface SessionStats {
     total: number;
     today: number;

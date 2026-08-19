@@ -70,6 +70,27 @@ class GoogleDriveService implements DriveStorage
     }
 
     /**
+     * Downloads a file's contents. Drive's share links either force a
+     * download or refuse to be framed, so anything that needs to render
+     * in-page has to be streamed by us instead of linked to.
+     */
+    public function get(string $fileId): ?string
+    {
+        try {
+            $response = $this->service()->files->get($fileId, ['alt' => 'media']);
+
+            return (string) $response->getBody();
+        } catch (\Throwable $exception) {
+            Log::error('Google Drive download failed.', [
+                'file_id' => $fileId,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Hard-delete, falling back to trashing the file when the delete call
      * fails (matches the reference's permission-denied fallback).
      */

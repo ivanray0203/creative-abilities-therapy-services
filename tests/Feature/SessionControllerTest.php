@@ -44,7 +44,7 @@ test('quick filters and stats scope correctly', function () {
     );
 });
 
-test('creating a session computes scheduled_start and scheduled_end from date, start_time, and duration', function () {
+test('creating a session computes scheduled_start and scheduled_end from date, start_time, and end_time', function () {
     $client = Client::factory()->create();
     $therapist = therapistUser();
 
@@ -54,7 +54,7 @@ test('creating a session computes scheduled_start and scheduled_end from date, s
         'location' => 'Clinic',
         'date' => '2026-08-10',
         'start_time' => '14:30',
-        'duration' => 45,
+        'end_time' => '15:15',
         'notes' => 'First session',
     ])->assertSessionHasNoErrors();
 
@@ -63,7 +63,41 @@ test('creating a session computes scheduled_start and scheduled_end from date, s
     expect($session->status)->toBe('scheduled');
     expect($session->scheduled_start->format('Y-m-d H:i'))->toBe('2026-08-10 14:30');
     expect($session->scheduled_end->format('Y-m-d H:i'))->toBe('2026-08-10 15:15');
+    // `duration` is no longer posted, but is still derived and stored for
+    // ClientProgress and the session emails.
+    expect($session->duration)->toBe(45);
 });
+
+test('the end time must come after the start time', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs(adminUser())->post('/admin/sessions', [
+        'client_id' => $client->id,
+        'therapist_id' => therapistUser()->id,
+        'date' => '2026-08-10',
+        'start_time' => '14:30',
+        'end_time' => '13:30',
+    ])->assertSessionHasErrors('end_time');
+
+    expect(ScheduleSession::count())->toBe(0);
+});
+
+test('the booked window still has to fall between 5 minutes and 8 hours', function (string $endTime) {
+    $client = Client::factory()->create();
+
+    $this->actingAs(adminUser())->post('/admin/sessions', [
+        'client_id' => $client->id,
+        'therapist_id' => therapistUser()->id,
+        'date' => '2026-08-10',
+        'start_time' => '08:00',
+        'end_time' => $endTime,
+    ])->assertSessionHasErrors('end_time');
+
+    expect(ScheduleSession::count())->toBe(0);
+})->with([
+    'under five minutes' => '08:03',
+    'over eight hours' => '16:30',
+]);
 
 test('a therapist creating a session is always scheduled as themselves, ignoring a spoofed therapist_id', function () {
     $therapist = therapistUser();
@@ -76,7 +110,7 @@ test('a therapist creating a session is always scheduled as themselves, ignoring
         'therapist_id' => $otherTherapist->id,
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])
         ->assertSessionHasNoErrors()
         ->assertRedirect('/therapist/sessions');
@@ -105,7 +139,7 @@ test('rescheduling a session updates the computed times', function () {
         'therapist_id' => $session->therapist_id,
         'date' => '2026-09-01',
         'start_time' => '10:00',
-        'duration' => 60,
+        'end_time' => '11:00',
     ])->assertSessionHasNoErrors();
 
     $session->refresh();
@@ -286,7 +320,7 @@ test('a therapist cannot schedule for a caseload client with no service of their
         'client_id' => $client->id,
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasErrors('client_id');
 
     expect(ScheduleSession::count())->toBe(0);
@@ -306,7 +340,7 @@ test('a therapist session takes its service from the availed service it is linke
         'linked_client_service_ids' => [$clientService->id],
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasNoErrors();
 
     expect(ScheduleSession::first()->service_id)->toBe($service->id);
@@ -326,7 +360,7 @@ test('one session can cover several availed services, leaving only the unbooked 
         'linked_client_service_ids' => [$first->id, $second->id],
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasNoErrors();
 
     $session = ScheduleSession::first();
@@ -358,7 +392,7 @@ test('an availed service already booked cannot be scheduled a second time', func
         'linked_client_service_ids' => [$free->id, $booked->id],
         'date' => now()->addDays(2)->toDateString(),
         'start_time' => '09:00',
-        'duration' => 30,
+        'end_time' => '09:30',
     ])->assertSessionHasErrors('linked_client_service_ids');
 
     expect(ScheduleSession::count())->toBe(1);
@@ -385,7 +419,7 @@ test('rescheduling keeps the services the session already covers and can drop on
         'linked_client_service_ids' => [$first->id],
         'date' => now()->addDays(3)->toDateString(),
         'start_time' => '11:00',
-        'duration' => 60,
+        'end_time' => '12:00',
     ])->assertSessionHasNoErrors();
 
     expect($session->fresh()->clientServices->pluck('id')->all())->toBe([$first->id]);

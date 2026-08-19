@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatScheduledDate } from '@/lib/helpers';
-import { sessionServiceLabel } from '@/lib/sessions';
+import { sessionServiceLabel, sessionServiceRefs } from '@/lib/sessions';
 import type { Client, ServiceOffering } from '@/types/client';
 import type { Invoice } from '@/types/invoice';
 import type { ScheduleSession } from '@/types/session';
@@ -36,7 +36,6 @@ interface InvoiceFormData {
     linked_therapist_invoice_id: string;
     invoice_date: string;
     due_date: string;
-    tax_percentage: string;
     notes: string;
     services: LineItemForm[];
 }
@@ -66,7 +65,6 @@ function initialValues(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 .toISOString()
                 .slice(0, 10),
-        tax_percentage: invoice ? String(invoice.tax_percentage) : '5',
         notes: invoice?.notes ?? '',
         services: invoice
             ? invoice.services.map((line) => {
@@ -84,6 +82,33 @@ function initialValues(
               })
             : [{ ...EMPTY_LINE }],
     };
+}
+
+/**
+ * One invoice line per service the visit covered, priced from the matching
+ * service offering. A service the clinic no longer offers still gets a line,
+ * as "Other" with its name filled in, rather than being dropped.
+ */
+function linesFromSession(
+    session: ScheduleSession,
+    services: ServiceOffering[],
+): LineItemForm[] {
+    return sessionServiceRefs(session).map((ref) => {
+        const option = services.find(
+            (service) =>
+                (ref.id !== null && service.id === ref.id) ||
+                service.name === ref.name,
+        );
+
+        return {
+            service_id: option ? String(option.id) : OTHER_SERVICE,
+            name: option?.name ?? ref.name,
+            description: '',
+            // One visit, so one of each service it delivered.
+            numberOfSessions: '1',
+            rate_numeric: option?.base_price ?? '',
+        };
+    });
 }
 
 /**
@@ -114,6 +139,15 @@ export default function InvoiceForm({
     const [clientSessions, setClientSessions] = useState<ScheduleSession[]>(
         invoice?.session ? [invoice.session] : [],
     );
+
+    /*
+     * The lines this form last wrote from a session. Kept so picking a
+     * different session can replace them, while anything the user typed —
+     * or an existing invoice's own lines — is left alone.
+     */
+    const [autoFilledLines, setAutoFilledLines] = useState<
+        LineItemForm[] | null
+    >(null);
 
     useEffect(() => {
         if (!data.client_id) {
@@ -146,6 +180,13 @@ export default function InvoiceForm({
         [therapistInvoices, data.client_id],
     );
 
+    /*
+     * New invoices carry no GST. An invoice raised before that change keeps
+     * the rate it was billed at, so editing one still shows and charges it —
+     * the server leaves `tax_percentage` untouched on update.
+     */
+    const taxPercentage = parseFloat(invoice?.tax_percentage ?? '0') || 0;
+
     const totals = useMemo(() => {
         const subTotal = data.services.reduce((sum, line) => {
             const rate = parseFloat(line.rate_numeric) || 0;
@@ -153,11 +194,10 @@ export default function InvoiceForm({
 
             return sum + rate * sessions;
         }, 0);
-        const taxPercentage = parseFloat(data.tax_percentage) || 0;
         const gst = Math.round(subTotal * (taxPercentage / 100) * 100) / 100;
 
         return { subTotal, gst, total: subTotal + gst };
-    }, [data.services, data.tax_percentage]);
+    }, [data.services, taxPercentage]);
 
     const updateLine = (
         index: number,
@@ -193,6 +233,39 @@ export default function InvoiceForm({
         });
 
         setData('services', updatedLines);
+    };
+
+    /**
+     * Safe to overwrite when the lines are still the blank starting state, or
+     * are exactly what a previous session selection put there.
+     */
+    const linesAreUnedited = () =>
+        autoFilledLines !== null
+            ? JSON.stringify(data.services) === JSON.stringify(autoFilledLines)
+            : data.services.every(
+                  (line) =>
+                      !line.name && !line.description && !line.rate_numeric,
+              );
+
+    const selectSession = (sessionId: string) => {
+        setData('session_id', sessionId);
+
+        const session = clientSessions.find(
+            (option) => String(option.id) === sessionId,
+        );
+
+        if (!session) {
+            return;
+        }
+
+        const lines = linesFromSession(session, services);
+
+        if (lines.length === 0 || !linesAreUnedited()) {
+            return;
+        }
+
+        setData('services', lines);
+        setAutoFilledLines(lines);
     };
 
     const addLine = () => {
@@ -240,6 +313,7 @@ export default function InvoiceForm({
                                 onValueChange={(value) => {
                                     setData('client_id', value);
                                     setData('session_id', '');
+                                    setAutoFilledLines(null);
                                 }}
                             >
                                 <SelectTrigger
@@ -252,6 +326,7 @@ export default function InvoiceForm({
                                     {clients.map((client) => (
                                         <SelectItem
                                             key={client.id}
+                                            id={`invoice-client-${client.id}`}
                                             value={String(client.id)}
                                         >
                                             {client.original_intake
@@ -274,9 +349,7 @@ export default function InvoiceForm({
                             </Label>
                             <Select
                                 value={data.session_id}
-                                onValueChange={(value) =>
-                                    setData('session_id', value)
-                                }
+                                onValueChange={selectSession}
                                 disabled={
                                     !data.client_id ||
                                     clientSessions.length === 0
@@ -292,6 +365,7 @@ export default function InvoiceForm({
                                     {clientSessions.map((session) => (
                                         <SelectItem
                                             key={session.id}
+                                            id={`invoice-session-${session.id}`}
                                             value={String(session.id)}
                                         >
                                             {formatScheduledDate(
@@ -308,8 +382,8 @@ export default function InvoiceForm({
                                 </SelectContent>
                             </Select>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Linking a session marks it completed once this
-                                invoice is paid.
+                                Fills the services below, and marks the session
+                                completed once this invoice is paid.
                             </p>
                             {errors.session_id && (
                                 <p className="mt-1 text-sm text-destructive">
@@ -549,23 +623,6 @@ export default function InvoiceForm({
                     </div>
 
                     <div>
-                        <Label htmlFor="invoice-tax">Tax Percentage</Label>
-                        <Input
-                            id="invoice-tax"
-                            type="number"
-                            min={0}
-                            max={100}
-                            step="0.01"
-                            value={data.tax_percentage}
-                            disabled
-                            className="mt-2 w-32 rounded-[10px]"
-                            onChange={(event) =>
-                                setData('tax_percentage', event.target.value)
-                            }
-                        />
-                    </div>
-
-                    <div>
                         <Label htmlFor="invoice-notes">Notes</Label>
                         <Textarea
                             id="invoice-notes"
@@ -610,12 +667,14 @@ export default function InvoiceForm({
                             </span>
                             <span>${totals.subTotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                                GST ({data.tax_percentage || 0}%)
-                            </span>
-                            <span>${totals.gst.toFixed(2)}</span>
-                        </div>
+                        {taxPercentage > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                    GST ({taxPercentage}%)
+                                </span>
+                                <span>${totals.gst.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between border-t pt-2 font-bold">
                             <span>Total</span>
                             <span>${totals.total.toFixed(2)}</span>

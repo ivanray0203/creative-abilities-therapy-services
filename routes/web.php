@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\GoogleDriveConnectionController;
 use App\Http\Controllers\Admin\IntakeController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ProgramController as AdminProgramController;
 use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Admin\ServiceOfferingController;
 use App\Http\Controllers\Admin\TeamMemberController;
@@ -24,6 +25,8 @@ use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Public\CheckEmailController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\IntakeApplicationController;
+use App\Http\Controllers\Public\ProgramController;
+use App\Http\Controllers\Public\ProgramRegistrationController;
 use App\Http\Controllers\Public\ServiceController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TherapistClientController;
@@ -38,6 +41,12 @@ Route::inertia('team', 'public/team')->name('public.team');
 Route::inertia('team/founder', 'public/founder')->name('public.founder');
 Route::get('services', [ServiceController::class, 'index'])->name('public.services');
 Route::get('servicesDetails/{service}', [ServiceController::class, 'show'])->name('public.service-detail');
+Route::get('programs', [ProgramController::class, 'index'])->name('public.programs');
+Route::get('programs/{program}', [ProgramController::class, 'show'])->name('public.program-detail');
+// Throttled like the other public write endpoints: this one is unauthenticated.
+Route::post('programs/{program}/register', [ProgramRegistrationController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('public.programs.register');
 Route::inertia('fscd', 'public/fscd')->name('public.fscd');
 Route::get('careers', [CareerController::class, 'index'])->name('public.careers');
 Route::get('careers/apply/{career?}', [CareerApplicationController::class, 'create'])->name('public.careers.apply');
@@ -144,6 +153,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('admin.invoices.generate-from-session');
         Route::get('invoices/therapist/{user}', [InvoiceController::class, 'byTherapist'])->name('admin.invoices.by-therapist');
         Route::get('invoices/client/{client}', [InvoiceController::class, 'byClient'])->name('admin.invoices.by-client');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('admin.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('admin.invoices.show');
         Route::get('invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('admin.invoices.edit');
         Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])->name('admin.invoices.update');
@@ -177,6 +187,16 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('careers/edit/{career}', [AdminCareerController::class, 'edit'])->name('admin.careers.edit');
         Route::put('careers/{career}', [AdminCareerController::class, 'update'])->name('admin.careers.update');
         Route::delete('careers/{career}', [AdminCareerController::class, 'destroy'])->name('admin.careers.destroy');
+
+        Route::get('programs', [AdminProgramController::class, 'index'])->name('admin.programs.index');
+        Route::get('programs/add', [AdminProgramController::class, 'create'])->name('admin.programs.create');
+        Route::post('programs', [AdminProgramController::class, 'store'])->name('admin.programs.store');
+        Route::get('programs/edit/{program}', [AdminProgramController::class, 'edit'])->name('admin.programs.edit');
+        Route::get('programs/{program}', [AdminProgramController::class, 'show'])->name('admin.programs.show');
+        Route::put('programs/{program}', [AdminProgramController::class, 'update'])->name('admin.programs.update');
+        Route::delete('programs/{program}', [AdminProgramController::class, 'destroy'])->name('admin.programs.destroy');
+        Route::put('programs/{program}/registrations/{registration}', [AdminProgramController::class, 'updateRegistrationStatus'])
+            ->name('admin.programs.registrations.update');
 
         Route::get('users/admin-list', [UserController::class, 'adminList'])->name('admin.users.admin-list');
         Route::patch('users/{user}/admin-update', [UserController::class, 'adminUpdate'])->name('admin.users.admin-update');
@@ -249,7 +269,9 @@ Route::middleware(['auth', 'role:client'])
         Route::post('intake', [ClientIntakeController::class, 'store'])->name('client.intake.store');
 
         Route::get('invoices', [InvoiceController::class, 'index'])->name('client.invoices.index');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('client.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('client.invoices.show');
+        Route::post('invoices/{invoice}/sign', [InvoiceController::class, 'sign'])->name('client.invoices.sign');
 
         Route::get('sessions/by-user', [SessionController::class, 'byUser'])->name('client.sessions.by-user');
         Route::post('sessions/{session}/verify', [SessionController::class, 'verify'])->name('client.sessions.verify');

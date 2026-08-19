@@ -41,8 +41,10 @@ class StoreSessionRequest extends FormRequest
             'location' => ['nullable', 'string', 'max:255'],
             'date' => ['required', 'date'],
             'start_time' => ['required', 'date_format:H:i'],
-            // Minutes. Phase 18 replaced the free-text "30 minutes" form.
-            'duration' => ['required', 'integer', 'min:5', 'max:480'],
+            // The booked finish time. `duration` is no longer posted — the
+            // controller derives those minutes from this window and stores
+            // them, so everything reading `duration` keeps working.
+            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'notes' => ['nullable', 'string'],
         ];
     }
@@ -67,12 +69,16 @@ class StoreSessionRequest extends FormRequest
                 $this->failOnUnbookableServices($validator);
             },
             function (Validator $validator): void {
-                if ($validator->errors()->hasAny(['client_id', 'therapist_id', 'date', 'start_time', 'duration'])) {
+                if ($validator->errors()->hasAny(['client_id', 'therapist_id', 'date', 'start_time', 'end_time'])) {
                     return;
                 }
 
                 $start = Carbon::parse("{$this->date} {$this->start_time}");
-                $end = (clone $start)->addMinutes((int) $this->duration);
+                $end = Carbon::parse("{$this->date} {$this->end_time}");
+
+                if (! $this->hasWorkableLength($validator, $start, $end)) {
+                    return;
+                }
 
                 $this->failOnConflict(
                     $validator,
@@ -93,6 +99,33 @@ class StoreSessionRequest extends FormRequest
                 );
             },
         ];
+    }
+
+    /**
+     * The old `duration` field carried `min:5|max:480`. Those bounds still
+     * apply, but now against the window the two times describe — `after`
+     * alone would happily accept a one-minute or nine-hour session.
+     *
+     * Returns false when the window is unusable, so the caller can skip the
+     * conflict lookup rather than report a clash on nonsense times.
+     */
+    private function hasWorkableLength(Validator $validator, Carbon $start, Carbon $end): bool
+    {
+        $minutes = (int) $start->diffInMinutes($end);
+
+        if ($minutes < 5) {
+            $validator->errors()->add('end_time', 'A session must run for at least 5 minutes.');
+
+            return false;
+        }
+
+        if ($minutes > 480) {
+            $validator->errors()->add('end_time', 'A session cannot run longer than 8 hours.');
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

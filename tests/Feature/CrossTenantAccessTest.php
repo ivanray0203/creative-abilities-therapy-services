@@ -227,7 +227,7 @@ test('a valid-looking payload from an intruder still cannot rewrite records it d
         'client_id' => $intrudersClient->id,
         'date' => now()->addDays(60)->toDateString(),
         'start_time' => '11:00',
-        'duration' => 60,
+        'end_time' => '12:00',
     ])->assertNotFound();
 
     $this->actingAs($intruder)->put("/therapist/invoices/{$invoice->id}", [

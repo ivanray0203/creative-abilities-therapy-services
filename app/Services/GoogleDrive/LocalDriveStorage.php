@@ -37,6 +37,13 @@ class LocalDriveStorage implements DriveStorage
         ];
     }
 
+    public function get(string $fileId): ?string
+    {
+        return Storage::disk('public')->exists($fileId)
+            ? Storage::disk('public')->get($fileId)
+            : null;
+    }
+
     public function delete(?string $fileId): void
     {
         if ($fileId === null || $fileId === '') {

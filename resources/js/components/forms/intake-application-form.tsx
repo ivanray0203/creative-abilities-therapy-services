@@ -22,8 +22,10 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
+import AvailabilityGrid from '@/components/availability-grid';
 import ConsentModal from '@/components/consent-modal';
 import FormErrorSummary from '@/components/forms/form-error-summary';
+import FscdConsentTermsModal from '@/components/fscd-consent-terms-modal';
 import IntakePreviewModal from '@/components/intake-preview-modal';
 import IntakeSubmittedModal from '@/components/intake-submitted-modal';
 import MissingFieldsModal from '@/components/missing-fields-modal';
@@ -51,14 +53,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { fscdConsentTerms } from '@/lib/content/fscd-consent-terms';
+import type { AvailabilitySlots } from '@/lib/content/intake-taxonomy';
 import {
-    days,
-    IntakeServicesNeeded,
+    FUNDING_SOURCE_LABELS,
+    intakeServicesFor,
     leadSource,
     medicalConditionsOptions,
     ProvinceCities,
     Provinces,
-    times,
+    SS_ONLY_SERVICE,
+    toggleAvailabilitySlot,
 } from '@/lib/content/intake-taxonomy';
 import { computeIntakeProgress } from '@/lib/form-progress';
 import type { ConsentDocument } from '@/types/consent';
@@ -104,12 +109,12 @@ interface IntakeFormData {
     currently_receiving_services: boolean;
     receiving_services_desc: string;
     diagnosis: string[];
+    diagnosis_other: string;
     has_medical_conditions: boolean;
     languages_spoken_at_home: string;
     require_interpreter: boolean;
     funding_source: string;
-    available_days: string[];
-    preferred_times: string[];
+    availability_slots: AvailabilitySlots;
     primary_parent_name: string;
     primary_parent_phone: string;
     primary_parent_email: string;
@@ -155,12 +160,12 @@ const DEFAULT_VALUES: IntakeFormData = {
     currently_receiving_services: false,
     receiving_services_desc: '',
     diagnosis: [],
+    diagnosis_other: '',
     has_medical_conditions: false,
     languages_spoken_at_home: '',
     require_interpreter: false,
     funding_source: '',
-    available_days: [],
-    preferred_times: [],
+    availability_slots: {},
     primary_parent_name: '',
     primary_parent_phone: '',
     primary_parent_email: '',
@@ -262,6 +267,12 @@ export default function IntakeApplicationForm({
     const [consentGivenFSCD1, setConsentGivenFSCD1] = useState(false);
     const [consentGivenFSCD2, setConsentGivenFSCD2] = useState(false);
     const [consentGivenFSCD3, setConsentGivenFSCD3] = useState(false);
+    // Which FSCD consents the applicant has read to the end, keyed by
+    // consent id. A consent can't be checked until its terms are read.
+    const [fscdTermsRead, setFscdTermsRead] = useState<Record<string, boolean>>(
+        {},
+    );
+    const [openFscdTermsId, setOpenFscdTermsId] = useState<string | null>(null);
     const { progress, missingFields } = useMemo(
         () =>
             computeIntakeProgress(data, [
@@ -284,6 +295,28 @@ export default function IntakeApplicationForm({
     const [showLoadDraftModal, setShowLoadDraftModal] = useState(false);
     const [savedDraft, setSavedDraft] =
         useState<Partial<IntakeFormData> | null>(null);
+
+    /** Binds each content-defined FSCD consent to its checkbox state. */
+    const fscdConsentState: Record<
+        string,
+        { checked: boolean; setChecked: (checked: boolean) => void }
+    > = {
+        consentFSCD1: {
+            checked: consentGivenFSCD1,
+            setChecked: setConsentGivenFSCD1,
+        },
+        consentFSCD2: {
+            checked: consentGivenFSCD2,
+            setChecked: setConsentGivenFSCD2,
+        },
+        consentFSCD3: {
+            checked: consentGivenFSCD3,
+            setChecked: setConsentGivenFSCD3,
+        },
+    };
+
+    const openFscdTerms =
+        fscdConsentTerms.find((terms) => terms.id === openFscdTermsId) ?? null;
 
     const allConsentsGiven = requiredConsents.every((c) => consentStates[c.id]);
     const isFscdFunding = FSCD_FUNDING_SOURCES.includes(data.funding_source);
@@ -338,6 +371,20 @@ export default function IntakeApplicationForm({
             Object.values(data.insurance_info).some(Boolean)
         ) {
             setData('insurance_info', DEFAULT_VALUES.insurance_info);
+        }
+
+        // Clinical Coordinator is only offered under SS-FSCD, so switching
+        // away would otherwise post a service the applicant can no longer see.
+        if (
+            data.funding_source !== 'SS-FSCD' &&
+            data.services_needed.includes(SS_ONLY_SERVICE)
+        ) {
+            setData(
+                'services_needed',
+                data.services_needed.filter(
+                    (service) => service !== SS_ONLY_SERVICE,
+                ),
+            );
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.funding_source]);
@@ -428,14 +475,20 @@ export default function IntakeApplicationForm({
     };
 
     const toggleService = (
-        field:
-            | 'services_needed'
-            | 'diagnosis'
-            | 'available_days'
-            | 'preferred_times',
+        field: 'services_needed' | 'diagnosis',
         value: string,
     ) => {
-        setData(field, toggleArrayValue(data[field] as string[], value));
+        const next = toggleArrayValue(data[field] as string[], value);
+
+        setData((current) => ({
+            ...current,
+            [field]: next,
+            // Un-checking "Other" must drop the free-text answer with it,
+            // otherwise a stale description still posts.
+            ...(field === 'diagnosis' && !next.includes('Other')
+                ? { diagnosis_other: '' }
+                : {}),
+        }));
     };
 
     const toggleConsentDocument = (id: number, checked: boolean) => {
@@ -1500,6 +1553,32 @@ export default function IntakeApplicationForm({
                                     {errors.diagnosis}
                                 </p>
                             )}
+
+                            {data.diagnosis.includes('Other') && (
+                                <div className="mt-4">
+                                    <Label htmlFor="diagnosisOther">
+                                        Please specify the other diagnosis{' '}
+                                        <span className="text-red-700">*</span>
+                                    </Label>
+                                    <Input
+                                        id="diagnosisOther"
+                                        value={data.diagnosis_other}
+                                        onChange={(e) =>
+                                            setData(
+                                                'diagnosis_other',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="e.g., Cerebral Palsy"
+                                        className="mt-2 rounded-[10px]"
+                                    />
+                                    {errors.diagnosis_other && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.diagnosis_other}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <div className="mt-6">
@@ -1613,22 +1692,29 @@ export default function IntakeApplicationForm({
                                     <SelectValue placeholder="Select a funding" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="BDS-FSCD">
-                                        Behavioral/Development Support (BDS) -
-                                        FSCD
-                                    </SelectItem>
-                                    <SelectItem value="SS-FSCD">
-                                        Specialized Serices (SS) - FSCD
-                                    </SelectItem>
-                                    <SelectItem value="Counselling-FSCD">
-                                        Counselling - FSCD
-                                    </SelectItem>
-                                    <SelectItem value="Insurance">
-                                        Insurance
-                                    </SelectItem>
-                                    <SelectItem value="private">
-                                        Private Pay
-                                    </SelectItem>
+                                    {/*
+                                     * Driven by the shared label map so the
+                                     * applicant, the admin detail page and the
+                                     * client funding tab always word a funding
+                                     * source identically. The id gives tests a
+                                     * handle on the SS option, whose label's
+                                     * parentheses parse as CSS selector tokens.
+                                     */}
+                                    {Object.entries(FUNDING_SOURCE_LABELS).map(
+                                        ([value, label]) => (
+                                            <SelectItem
+                                                key={value}
+                                                value={value}
+                                                id={
+                                                    value === 'SS-FSCD'
+                                                        ? 'funding-ss'
+                                                        : undefined
+                                                }
+                                            >
+                                                {label}
+                                            </SelectItem>
+                                        ),
+                                    )}
                                 </SelectContent>
                             </Select>
                             {errors.funding_source && (
@@ -1760,57 +1846,59 @@ export default function IntakeApplicationForm({
                                     </p>
 
                                     <div className="grid grid-cols-1 gap-4">
-                                        {[
-                                            {
-                                                id: 'consentFSCD1',
-                                                state: consentGivenFSCD1,
-                                                setState: setConsentGivenFSCD1,
-                                                label: 'I consent to Creative Abilities Therapy Services communicating with my FSCD worker regarding services, progress, and billing',
-                                            },
-                                            {
-                                                id: 'consentFSCD2',
-                                                state: consentGivenFSCD2,
-                                                setState: setConsentGivenFSCD2,
-                                                label: 'I consent to sharing reports and session notes with the FSCD program as required',
-                                            },
-                                            {
-                                                id: 'consentFSCD3',
-                                                state: consentGivenFSCD3,
-                                                setState: setConsentGivenFSCD3,
-                                                label: 'I understand I am responsible for any costs not approved by FSCD (e.g., top-ups, cancellations)',
-                                            },
-                                        ].map(
-                                            ({
-                                                id,
-                                                state,
-                                                setState,
-                                                label,
-                                            }) => (
+                                        {fscdConsentTerms.map((terms) => {
+                                            const state =
+                                                fscdConsentState[terms.id];
+                                            const hasRead = Boolean(
+                                                fscdTermsRead[terms.id],
+                                            );
+
+                                            return (
                                                 <div
-                                                    key={id}
+                                                    key={terms.id}
                                                     className="flex items-start gap-3"
                                                 >
                                                     <input
                                                         type="checkbox"
-                                                        id={id}
-                                                        checked={state}
-                                                        className="mt-1 h-5 w-5 accent-primary"
+                                                        id={terms.id}
+                                                        checked={state.checked}
+                                                        disabled={!hasRead}
+                                                        className="mt-1 h-5 w-5 accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                                                         onChange={(e) =>
-                                                            setState(
+                                                            state.setChecked(
                                                                 e.target
                                                                     .checked,
                                                             )
                                                         }
                                                     />
                                                     <label
-                                                        htmlFor={id}
-                                                        className="text-sm sm:text-base"
+                                                        htmlFor={terms.id}
+                                                        className={`text-sm sm:text-base ${hasRead ? '' : 'text-charcoal-gray'}`}
                                                     >
-                                                        {label}
+                                                        {terms.label} —{' '}
+                                                        <button
+                                                            type="button"
+                                                            className="cursor-pointer text-primary underline"
+                                                            onClick={() =>
+                                                                setOpenFscdTermsId(
+                                                                    terms.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            Terms and Conditions
+                                                        </button>
+                                                        {!hasRead && (
+                                                            <span className="mt-1 block text-xs text-charcoal-gray">
+                                                                Read the terms
+                                                                to the end to
+                                                                enable this
+                                                                consent.
+                                                            </span>
+                                                        )}
                                                     </label>
                                                 </div>
-                                            ),
-                                        )}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -2177,33 +2265,35 @@ export default function IntakeApplicationForm({
 
                         <div className="mt-6">
                             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                {IntakeServicesNeeded.map((service) => (
-                                    <div
-                                        key={service}
-                                        className="flex items-start gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.services_needed.includes(
-                                                service,
-                                            )}
-                                            onChange={() =>
-                                                toggleService(
-                                                    'services_needed',
-                                                    service,
-                                                )
-                                            }
-                                            id={service}
-                                            className="mt-1 h-5 w-5 accent-primary"
-                                        />
-                                        <label
-                                            htmlFor={service}
-                                            className="text-sm sm:text-base"
+                                {intakeServicesFor(data.funding_source).map(
+                                    (service) => (
+                                        <div
+                                            key={service}
+                                            className="flex items-start gap-2"
                                         >
-                                            {service}
-                                        </label>
-                                    </div>
-                                ))}
+                                            <input
+                                                type="checkbox"
+                                                checked={data.services_needed.includes(
+                                                    service,
+                                                )}
+                                                onChange={() =>
+                                                    toggleService(
+                                                        'services_needed',
+                                                        service,
+                                                    )
+                                                }
+                                                id={service}
+                                                className="mt-1 h-5 w-5 accent-primary"
+                                            />
+                                            <label
+                                                htmlFor={service}
+                                                className="text-sm sm:text-base"
+                                            >
+                                                {service}
+                                            </label>
+                                        </div>
+                                    ),
+                                )}
                             </div>
                         </div>
                     </AccordionContent>
@@ -2304,77 +2394,33 @@ export default function IntakeApplicationForm({
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-5">
-                        <div className="mt-6">
-                            <Label className="font-medium">
-                                Available Days{' '}
-                                <span className="text-red-700">*</span>
-                            </Label>
-                            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                {days.map((day) => (
-                                    <div
-                                        key={day}
-                                        className="flex items-start gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.available_days.includes(
-                                                day,
-                                            )}
-                                            onChange={() =>
-                                                toggleService(
-                                                    'available_days',
-                                                    day,
-                                                )
-                                            }
-                                            id={day}
-                                            className="mt-1 h-5 w-5 accent-primary"
-                                        />
-                                        <label
-                                            htmlFor={day}
-                                            className="text-sm sm:text-base"
-                                        >
-                                            {day}
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <Label className="font-medium">
+                            Availability <span className="text-red-700">*</span>
+                        </Label>
+                        <p className="mt-1 text-sm text-charcoal-gray">
+                            Tick every time of day that works, for each day of
+                            the week.
+                        </p>
 
-                        <div className="mt-6">
-                            <Label className="font-medium">
-                                Preferred Times{' '}
-                                <span className="text-red-700">*</span>
-                            </Label>
-                            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                {times.map((time) => (
-                                    <div
-                                        key={time}
-                                        className="flex items-start gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.preferred_times.includes(
-                                                time,
-                                            )}
-                                            onChange={() =>
-                                                toggleService(
-                                                    'preferred_times',
-                                                    time,
-                                                )
-                                            }
-                                            id={time}
-                                            className="mt-1 h-5 w-5 accent-primary"
-                                        />
-                                        <label
-                                            htmlFor={time}
-                                            className="text-sm sm:text-base"
-                                        >
-                                            {time}
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <AvailabilityGrid
+                            slots={data.availability_slots}
+                            onToggle={(day, time) =>
+                                setData(
+                                    'availability_slots',
+                                    toggleAvailabilitySlot(
+                                        data.availability_slots,
+                                        day,
+                                        time,
+                                    ),
+                                )
+                            }
+                        />
+
+                        {errors.availability_slots && (
+                            <p className="mt-2 text-sm text-red-600">
+                                {errors.availability_slots}
+                            </p>
+                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
@@ -2674,6 +2720,25 @@ export default function IntakeApplicationForm({
                         childsFullName: `${data.child_first_name} ${data.child_last_name}`,
                         childsDateOfBirth: data.date_of_birth,
                     }}
+                />
+            )}
+
+            {openFscdTerms && (
+                <FscdConsentTermsModal
+                    key={openFscdTerms.id}
+                    terms={openFscdTerms}
+                    open
+                    onOpenChange={(open) =>
+                        setOpenFscdTermsId(open ? openFscdTerms.id : null)
+                    }
+                    alreadyRead={Boolean(fscdTermsRead[openFscdTerms.id])}
+                    onRead={() =>
+                        setFscdTermsRead((previous) =>
+                            previous[openFscdTerms.id]
+                                ? previous
+                                : { ...previous, [openFscdTerms.id]: true },
+                        )
+                    }
                 />
             )}
 
