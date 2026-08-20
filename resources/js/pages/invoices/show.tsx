@@ -1,11 +1,22 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CheckCircle, Edit, Printer, Send, Trash } from 'lucide-react';
+import {
+    CheckCircle,
+    Edit,
+    FileCheck2,
+    PenLine,
+    Printer,
+    Send,
+    Trash,
+} from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 import { useState } from 'react';
 
+import InvoiceDocumentModal from '@/components/invoices/invoice-document-modal';
 import InvoicePdfViewModal from '@/components/invoices/invoice-pdf-view-modal';
 import InvoicePrintable from '@/components/invoices/invoice-printable';
+import LinkedInvoicePanel from '@/components/invoices/linked-invoice-panel';
 import MarkAsPaidModal from '@/components/invoices/mark-as-paid-modal';
+import SignInvoiceModal from '@/components/invoices/sign-invoice-modal';
 import { Button } from '@/components/ui/button';
 import AdminLayout from '@/layouts/admin-layout';
 import ClientLayout from '@/layouts/client-layout';
@@ -30,12 +41,24 @@ const BASE_PATHS: Record<InvoiceShowProps['role'], string> = {
 export default function InvoiceShow({ invoice, role }: InvoiceShowProps) {
     const [pdfOpen, setPdfOpen] = useState(false);
     const [markPaidOpen, setMarkPaidOpen] = useState(false);
+    const [signOpen, setSignOpen] = useState(false);
     const basePath = BASE_PATHS[role];
     const canEdit = role !== 'client' && invoice.status !== 'paid';
     const canResend = role !== 'client';
     const canMarkPaid =
         role === 'admin' && !['paid', 'refunded'].includes(invoice.status);
     const canDelete = role === 'admin';
+    // The parent signs their own copy once; afterwards everyone just sees
+    // that the signed PDF is on file.
+    const canSign = role === 'client' && !invoice.signed_invoice;
+    /*
+     * Both sides of the ledger are issued as a real PDF — the clinic's bill
+     * to the family, and the therapist's to the clinic — so the viewer opens
+     * the document itself rather than a browser-print rendering of the page.
+     * An invoice raised before either was filed is rendered on request by the
+     * controller, so there is always something to show.
+     */
+    const hasDocument = invoice.billed_by !== null;
 
     const resend = () => {
         router.post(`${basePath}/${invoice.id}/resend`, undefined, {
@@ -110,14 +133,73 @@ export default function InvoiceShow({ invoice, role }: InvoiceShowProps) {
                     </div>
                 </div>
 
+                {canSign && (
+                    <div className="flex flex-col gap-3 rounded-[10px] border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <p className="font-semibold">
+                                This invoice needs your signature
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                Sign it here and it goes straight back to the
+                                clinic.
+                            </p>
+                        </div>
+                        <Button
+                            id="open-sign-invoice"
+                            className="rounded-[10px]"
+                            onClick={() => setSignOpen(true)}
+                        >
+                            <PenLine /> Sign Invoice
+                        </Button>
+                    </div>
+                )}
+
+                {invoice.signed_invoice && (
+                    <div className="flex items-center gap-3 rounded-[10px] border bg-muted/40 p-4">
+                        <FileCheck2 className="h-5 w-5 shrink-0 text-primary" />
+                        <p className="text-sm">
+                            Signed by the parent.{' '}
+                            <a
+                                href={invoice.signed_invoice}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary underline"
+                            >
+                                View the signed PDF
+                            </a>
+                        </p>
+                    </div>
+                )}
+
+                {role === 'admin' && (
+                    <LinkedInvoicePanel invoice={invoice} basePath={basePath} />
+                )}
+
                 <InvoicePrintable invoice={invoice} />
             </div>
 
-            <InvoicePdfViewModal
-                invoice={invoice}
-                isOpen={pdfOpen}
-                onClose={() => setPdfOpen(false)}
-            />
+            {hasDocument ? (
+                <InvoiceDocumentModal
+                    invoice={invoice}
+                    basePath={basePath}
+                    isOpen={pdfOpen}
+                    onClose={() => setPdfOpen(false)}
+                />
+            ) : (
+                <InvoicePdfViewModal
+                    invoice={invoice}
+                    isOpen={pdfOpen}
+                    onClose={() => setPdfOpen(false)}
+                />
+            )}
+            {canSign && (
+                <SignInvoiceModal
+                    invoiceId={invoice.id}
+                    parentName={invoice.bill_to_name ?? ''}
+                    isOpen={signOpen}
+                    onClose={() => setSignOpen(false)}
+                />
+            )}
             {canMarkPaid && (
                 <MarkAsPaidModal
                     invoice={invoice}

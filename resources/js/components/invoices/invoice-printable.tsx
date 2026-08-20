@@ -1,6 +1,7 @@
 import { usePage } from '@inertiajs/react';
 
 import { InvoiceStatusBadge } from '@/components/invoices/badges';
+import MonthlyInvoicePrintable from '@/components/invoices/monthly-invoice-printable';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Invoice } from '@/types/invoice';
 
@@ -11,9 +12,27 @@ import type { Invoice } from '@/types/invoice';
  */
 export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
     const { organization } = usePage().props;
+
+    // The therapist's month-end statement bills the clinic across every
+    // client they saw, so it uses the clinic's own monthly sheet format.
+    if (invoice.is_monthly) {
+        return <MonthlyInvoicePrintable invoice={invoice} />;
+    }
+
     const childName = invoice.client?.original_intake
         ? `${invoice.client.original_intake.child_first_name} ${invoice.client.original_intake.child_last_name}`
         : invoice.bill_to_name;
+
+    /*
+     * Billing runs in two hops. A therapist bills the clinic for the work
+     * they delivered; the clinic bills the family. The document has to be
+     * addressed accordingly, or a therapist's invoice reads as though the
+     * parent owes them directly.
+     */
+    const isTherapistBill = invoice.billed_by === 'therapist';
+    const therapistName = invoice.therapist
+        ? `${invoice.therapist.first_name} ${invoice.therapist.last_name}`
+        : 'Therapist';
 
     return (
         <div className="grid grid-cols-1 gap-5">
@@ -22,19 +41,26 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
                     <div className="flex flex-col justify-between gap-4 sm:flex-row">
                         <div>
                             <p className="text-lg font-bold text-primary">
-                                {organization.name}
+                                {isTherapistBill
+                                    ? therapistName
+                                    : organization.name}
                             </p>
-                            {organization.address && (
+                            {isTherapistBill && invoice.therapist?.email && (
+                                <p className="text-sm text-muted-foreground">
+                                    {invoice.therapist.email}
+                                </p>
+                            )}
+                            {!isTherapistBill && organization.address && (
                                 <p className="text-sm text-muted-foreground">
                                     {organization.address}
                                 </p>
                             )}
-                            {organization.phone && (
+                            {!isTherapistBill && organization.phone && (
                                 <p className="text-sm text-muted-foreground">
                                     {organization.phone}
                                 </p>
                             )}
-                            {organization.email && (
+                            {!isTherapistBill && organization.email && (
                                 <p className="text-sm text-muted-foreground">
                                     {organization.email}
                                 </p>
@@ -59,17 +85,40 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
             <Card className="rounded-[10px]">
                 <CardContent className="p-5">
                     <p className="font-bold text-primary">Bill To</p>
-                    <p>{invoice.bill_to_name ?? childName ?? '-'}</p>
-                    <p className="text-sm text-muted-foreground">
-                        {invoice.bill_to_email ??
-                            invoice.client?.original_intake
-                                ?.primary_parent_email}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                        {invoice.bill_to_phone ??
-                            invoice.client?.original_intake
-                                ?.primary_parent_phone}
-                    </p>
+                    {isTherapistBill ? (
+                        <>
+                            <p>{organization.name}</p>
+                            {organization.email && (
+                                <p className="text-sm text-muted-foreground">
+                                    {organization.email}
+                                </p>
+                            )}
+                            {organization.phone && (
+                                <p className="text-sm text-muted-foreground">
+                                    {organization.phone}
+                                </p>
+                            )}
+                            {childName && (
+                                <p className="mt-2 text-sm text-muted-foreground">
+                                    For services delivered to {childName}
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <p>{invoice.bill_to_name ?? childName ?? '-'}</p>
+                            <p className="text-sm text-muted-foreground">
+                                {invoice.bill_to_email ??
+                                    invoice.client?.original_intake
+                                        ?.primary_parent_email}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                                {invoice.bill_to_phone ??
+                                    invoice.client?.original_intake
+                                        ?.primary_parent_phone}
+                            </p>
+                        </>
+                    )}
                 </CardContent>
             </Card>
 
@@ -125,12 +174,16 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
                             </span>
                             <span>${Number(invoice.sub_total).toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                                GST ({Number(invoice.tax_percentage)}%)
-                            </span>
-                            <span>${Number(invoice.gst).toFixed(2)}</span>
-                        </div>
+                        {/* Invoices are raised without GST; older ones that
+                            recorded a rate still show what they charged. */}
+                        {Number(invoice.tax_percentage) > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                    GST ({Number(invoice.tax_percentage)}%)
+                                </span>
+                                <span>${Number(invoice.gst).toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between border-t pt-1 font-bold">
                             <span>Total</span>
                             <span>${Number(invoice.total).toFixed(2)}</span>

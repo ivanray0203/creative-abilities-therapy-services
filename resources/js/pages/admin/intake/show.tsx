@@ -14,6 +14,7 @@ import {
     Trash,
     User,
     UserCheck,
+    UserX,
     X,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -50,6 +51,10 @@ export default function AdminIntakeShow({
     therapists,
     statusTransitions,
 }: IntakeShowProps) {
+    const declinedServices = (intake.therapist_reviews ?? []).filter(
+        (review) => review.status === 'rejected',
+    );
+
     const [changeStatusOpen, setChangeStatusOpen] = useState(false);
     const [targetStatus, setTargetStatus] = useState<IntakeStatus | ''>('');
     const [pdfOpen, setPdfOpen] = useState(false);
@@ -237,6 +242,50 @@ export default function AdminIntakeShow({
                         )}
                     </div>
                 </div>
+
+                {/*
+                 * This intake is only still listed because a service was
+                 * refused — the child is already a client. Without saying so,
+                 * the page reads as an intake awaiting a decision, and the
+                 * declined service (the one thing actually outstanding) is
+                 * buried in the review history.
+                 */}
+                {intake.approved_as_client && declinedServices.length > 0 && (
+                    <div
+                        role="status"
+                        className="rounded-[10px] border border-destructive/40 bg-destructive/5 p-4"
+                    >
+                        <p className="flex items-center gap-2 font-semibold text-destructive">
+                            <UserX className="h-5 w-5 shrink-0" />
+                            Already a client — a declined service needs
+                            reassigning
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            {declinedServices
+                                .map((review) => review.service)
+                                .join(', ')}{' '}
+                            {declinedServices.length === 1 ? 'was' : 'were'}{' '}
+                            declined. Send{' '}
+                            {declinedServices.length === 1 ? 'it' : 'them'} to
+                            another therapist from the Review tab, or from the
+                            client&apos;s Overview.
+                        </p>
+
+                        {intake.linked_client_id && (
+                            <Button
+                                variant="outline"
+                                className="mt-3 rounded-[10px]"
+                                asChild
+                            >
+                                <Link
+                                    href={`/admin/clients/${intake.linked_client_id}`}
+                                >
+                                    Open Client Record
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
+                )}
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     <SummaryCard

@@ -35,10 +35,7 @@ export default function SessionsMonthlyView({
     const sessionsForDay = (day: Date) =>
         sessions
             .filter((session) =>
-                isSameDay(
-                    toScheduledDisplayDate(session.scheduled_start),
-                    day,
-                ),
+                isSameDay(toScheduledDisplayDate(session.scheduled_start), day),
             )
             .sort(
                 (a, b) =>

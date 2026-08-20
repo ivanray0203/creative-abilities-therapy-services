@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\ClientServiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -18,7 +21,7 @@ use Illuminate\Support\Carbon;
 #[Fillable(['client_id', 'service_id', 'therapist_id', 'frequency', 'duration', 'start_date', 'funding_source', 'no_sessions', 'goals'])]
 class ClientService extends Model
 {
-    /** @use HasFactory<\Database\Factories\ClientServiceFactory> */
+    /** @use HasFactory<ClientServiceFactory> */
     use HasFactory;
 
     protected function casts(): array
@@ -27,6 +30,26 @@ class ClientService extends Model
             'start_date' => 'date',
             'no_sessions' => 'integer',
         ];
+    }
+
+    /**
+     * Availed services still waiting on a session — either nothing has ever
+     * been booked against them, or every session that was booked has since
+     * been cancelled or missed, which frees the service up again (the same
+     * rule StoreSessionRequest uses when checking slot conflicts).
+     *
+     * A service whose session has been held, completed or is merely awaiting
+     * sign-off is *not* awaiting scheduling, so it drops out of the picker.
+     *
+     * @param  Builder<ClientService>  $query
+     */
+    #[Scope]
+    protected function awaitingSchedule(Builder $query): void
+    {
+        $query->whereDoesntHave(
+            'sessions',
+            fn (Builder $sessions) => $sessions->whereNotIn('status', ['cancelled', 'no_show']),
+        );
     }
 
     /** @return BelongsTo<Client, $this> */
@@ -47,9 +70,18 @@ class ClientService extends Model
         return $this->belongsTo(User::class, 'therapist_id');
     }
 
-    /** @return HasMany<ScheduleSession, $this> */
-    public function sessions(): HasMany
+    /**
+     * The offering's name, or a neutral label when the offering was deleted
+     * out from under the availed service.
+     */
+    public function serviceName(): string
     {
-        return $this->hasMany(ScheduleSession::class, 'linked_client_service_id');
+        return $this->service !== null ? $this->service->name : 'Service';
+    }
+
+    /** @return BelongsToMany<ScheduleSession, $this> */
+    public function sessions(): BelongsToMany
+    {
+        return $this->belongsToMany(ScheduleSession::class)->withTimestamps();
     }
 }

@@ -32,7 +32,7 @@ export const BDSService = [
 ];
 
 export const SSService = [
-    'Clinical Coordination',
+    'Clinical Coordinator',
     'Speech and Language Therapy',
     'Psychological Support',
     'Occupational Therapy',
@@ -67,7 +67,7 @@ export const allServices = [
     'Community Aide Services',
     'Respite Aide Services',
     'Counselling',
-    'Clinical Coordination',
+    'Clinical Coordinator',
 ];
 
 // Full services list shown in the Intake form's "Services Needed" section,
@@ -85,6 +85,54 @@ export const IntakeServicesNeeded = [
     'Counselling',
     'Community Aide Services',
 ];
+
+/**
+ * Clinical Coordination is only fundable under Specialized Services, so the
+ * option is offered on the intake form exclusively when that funding source
+ * is selected rather than being listed for everyone.
+ */
+export const SS_ONLY_SERVICE = 'Clinical Coordinator';
+
+/**
+ * Services Needed options for a funding source. Every source sees the base
+ * list; SS-FSCD additionally sees the Clinical Coordinator option, placed
+ * above Occupational Therapy.
+ */
+export function intakeServicesFor(fundingSource: string): string[] {
+    if (fundingSource !== 'SS-FSCD') {
+        return IntakeServicesNeeded;
+    }
+
+    const insertAt = IntakeServicesNeeded.indexOf('Occupational Therapy');
+
+    return [
+        ...IntakeServicesNeeded.slice(0, insertAt),
+        SS_ONLY_SERVICE,
+        ...IntakeServicesNeeded.slice(insertAt),
+    ];
+}
+
+/**
+ * Display names for the stored funding-source codes. The three FSCD variants
+ * are funded under different programs, so they must stay distinguishable
+ * wherever a funding source is shown.
+ */
+export const FUNDING_SOURCE_LABELS: Record<string, string> = {
+    'BDS-FSCD': 'Behavioural/Developmental Support (BDS) - FSCD',
+    'SS-FSCD': 'Specialized Services (SS) - FSCD',
+    'Counselling-FSCD': 'Counselling - FSCD',
+    Insurance: 'Insurance',
+    private: 'Private Pay',
+};
+
+/** Falls back to the raw stored code so an unmapped source is never blank. */
+export function fundingSourceLabel(fundingSource?: string | null): string {
+    if (!fundingSource) {
+        return '-';
+    }
+
+    return FUNDING_SOURCE_LABELS[fundingSource] ?? fundingSource;
+}
 
 export const servicesMap: Record<string, string[]> = {
     'BDS-FSCD': BDSService,
@@ -107,9 +155,52 @@ export const days = [
 
 export const times = [
     'Mornings (8am-11am)',
-    'Afternoon (1pm-3pm)',
+    'Afternoons (12pm-3pm)',
     'Evenings (4pm-7pm)',
 ];
+
+/**
+ * Availability is captured as a day x time-of-day grid: which time-of-day
+ * works on which day, keyed by the singular day name in `days`.
+ */
+export type AvailabilitySlots = Record<string, string[]>;
+
+/** Toggles one grid cell, dropping days that end up with no times selected. */
+export function toggleAvailabilitySlot(
+    slots: AvailabilitySlots,
+    day: string,
+    time: string,
+): AvailabilitySlots {
+    const current = slots[day] ?? [];
+    const next = current.includes(time)
+        ? current.filter((entry) => entry !== time)
+        : [...current, time];
+
+    if (next.length === 0) {
+        const { [day]: _removed, ...rest } = slots;
+
+        return rest;
+    }
+
+    return { ...slots, [day]: next };
+}
+
+/**
+ * The days and times the grid implies, in taxonomy order. The server derives
+ * and stores the same two lists so existing readers (therapist dashboard, CSV
+ * export, ScheduleMatcher) keep working; this mirrors it for the preview.
+ */
+export function availabilitySummary(slots: AvailabilitySlots): {
+    days: string[];
+    times: string[];
+} {
+    const selectedDays = days.filter((day) => (slots[day] ?? []).length > 0);
+    const selectedTimes = times.filter((time) =>
+        selectedDays.some((day) => (slots[day] ?? []).includes(time)),
+    );
+
+    return { days: selectedDays, times: selectedTimes };
+}
 
 // Lead source
 export const leadSource = [

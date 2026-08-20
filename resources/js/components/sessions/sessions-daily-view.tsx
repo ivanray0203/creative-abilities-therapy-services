@@ -1,7 +1,10 @@
 import { isSameDay } from 'date-fns';
 import { Clock, MapPin } from 'lucide-react';
 
-import { SessionStatusBadge } from '@/components/sessions/badges';
+import {
+    SessionServiceTags,
+    SessionStatusBadge,
+} from '@/components/sessions/badges';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatScheduledTime, toScheduledDisplayDate } from '@/lib/helpers';
 import type { ScheduleSession } from '@/types/session';
@@ -78,9 +81,7 @@ export default function SessionsDailyView({
                                             : '-'}
                                     </td>
                                     <td className="py-3">
-                                        {session.service?.name ||
-                                            session.service_name ||
-                                            '-'}
+                                        <SessionServiceTags session={session} />
                                     </td>
                                     <td className="py-3">
                                         <SessionStatusBadge
@@ -113,9 +114,10 @@ export default function SessionsDailyView({
                             </p>
                             <SessionStatusBadge status={session.status} />
                         </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                            {session.service?.name || session.service_name}
-                        </p>
+                        <SessionServiceTags
+                            session={session}
+                            className="mt-2"
+                        />
                         <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                             <Clock className="h-4 w-4" />
                             {formatScheduledTime(session.scheduled_start)}

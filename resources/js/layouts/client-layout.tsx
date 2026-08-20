@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 
+import { ChildSwitcher } from '@/components/client/child-switcher';
 import { ClientSidebar } from '@/components/client-sidebar';
 import FlashToaster from '@/components/flash-toaster';
 import { Button } from '@/components/ui/button';
@@ -23,16 +24,24 @@ export default function ClientLayout({ children }: PropsWithChildren) {
                         <div className="flex items-center gap-4">
                             <SidebarTrigger />
                             <div>
-                                <h1 className="text-lg font-semibold text-primary">CATS Client Portal</h1>
-                                <p className="text-xs text-muted-foreground">Creative Abilities Therapy Services</p>
+                                <h1 className="text-lg font-semibold text-primary">
+                                    CATS Client Portal
+                                </h1>
+                                <p className="text-xs text-muted-foreground">
+                                    Creative Abilities Therapy Services
+                                </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
+                            <ChildSwitcher />
                             <div className="hidden items-center gap-1 border-l p-2 md:flex md:flex-col md:items-start">
                                 <span className="text-sm font-medium">
-                                    {user.first_name || user.email} {user.last_name}
+                                    {user.first_name || user.email}{' '}
+                                    {user.last_name}
                                 </span>
-                                <span className="text-xs text-muted-foreground capitalize">{user.role.toLowerCase()}</span>
+                                <span className="text-xs text-muted-foreground capitalize">
+                                    {user.role.toLowerCase()}
+                                </span>
                             </div>
                             <Button
                                 variant="outline"
@@ -44,7 +53,9 @@ export default function ClientLayout({ children }: PropsWithChildren) {
                             </Button>
                         </div>
                     </header>
-                    <main className="flex-1 bg-secondary-orange/5">{children}</main>
+                    <main className="flex-1 bg-secondary-orange/5">
+                        {children}
+                    </main>
                 </div>
             </div>
         </SidebarProvider>

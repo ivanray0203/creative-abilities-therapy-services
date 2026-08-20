@@ -25,7 +25,7 @@ class TherapistDashboardController extends Controller
         $todaysSessions = ScheduleSession::query()
             ->where('therapist_id', $therapistId)
             ->whereDate('scheduled_start', now()->toDateString())
-            ->with(['client.originalIntake', 'service'])
+            ->with(['client.originalIntake', 'service', 'clientServices.service'])
             ->orderBy('scheduled_start')
             ->get();
 
@@ -56,7 +56,7 @@ class TherapistDashboardController extends Controller
             ->where('status', 'completed')
             ->whereBetween('scheduled_start', [now()->startOfMonth(), now()->endOfMonth()])
             ->get(['scheduled_start', 'scheduled_end'])
-            ->sum(fn (ScheduleSession $session): int => $session->scheduled_start->diffInMinutes($session->scheduled_end)) / 60;
+            ->sum(fn (ScheduleSession $session): float => $session->scheduled_start->diffInMinutes($session->scheduled_end)) / 60;
 
         return Inertia::render('therapist/dashboard', [
             'stats' => [
@@ -79,7 +79,7 @@ class TherapistDashboardController extends Controller
     {
         $sessions = ScheduleSession::query()
             ->where('therapist_id', $request->user()->id)
-            ->with(['client.originalIntake', 'service'])
+            ->with(['client.originalIntake', 'service', 'clientServices.service'])
             ->orderBy('scheduled_start')
             ->get();
 

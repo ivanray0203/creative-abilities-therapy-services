@@ -12,36 +12,13 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Admin "Service Offerings" catalog — reference: cats-frontend/src/pages/admin/Services.tsx.
- * Distinct from Admin\ServiceController, which only toggles visibility for
- * the public marketing `Service` model; this manages the internal
- * `ServiceOffering` catalog used when scheduling sessions/invoices.
+ * The internal `ServiceOffering` catalog used when scheduling sessions.
+ *
+ * Listing lives on Admin\InvoiceServiceController, which owns /admin/services;
+ * these forms are reached directly by URL.
  */
 class ServiceOfferingController extends Controller
 {
-    public function index(Request $request): Response
-    {
-        $type = (string) $request->query('type', 'general_service');
-
-        $stats = [
-            'general_service' => ServiceOffering::query()->where('type', 'general_service')->count(),
-            'specific_service' => ServiceOffering::query()->where('type', 'specific_service')->count(),
-            'non_direct_service' => ServiceOffering::query()->where('type', 'non_direct_service')->count(),
-        ];
-
-        $services = ServiceOffering::query()
-            ->where('type', $type)
-            ->orderBy('name')
-            ->paginate(15)
-            ->withQueryString();
-
-        return Inertia::render('admin/services/index', [
-            'services' => $services,
-            'stats' => $stats,
-            'filters' => ['type' => $type],
-        ]);
-    }
-
     public function create(): Response
     {
         return Inertia::render('admin/services/create');

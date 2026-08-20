@@ -8,6 +8,7 @@ use App\Models\Intake;
 use App\Models\Invoice;
 use App\Models\ScheduleSession;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -76,6 +77,9 @@ class DashboardController extends Controller
      * New-record count this week vs. the prior week, as a signed delta and
      * percentage — used for the "Pending Intakes" trend line.
      *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @return array{delta: int, percent: int}
      */
     private function weekOverWeekTrend(Builder $query): array
@@ -95,6 +99,9 @@ class DashboardController extends Controller
      * Same idea as weekOverWeekTrend() but month-over-month — used for the
      * "Active Clients" trend line.
      *
+     * @template TModel of Model
+     *
+     * @param  Builder<TModel>  $query
      * @return array{delta: int, percent: int}
      */
     private function monthOverMonthTrend(Builder $query): array
@@ -154,12 +161,13 @@ class DashboardController extends Controller
         }
 
         $counts = $sessions
+            // @phpstan-ignore nullsafe.neverNull (service_id is a nullable FK; Larastan doesn't model that on the relation accessor)
             ->groupBy(fn (ScheduleSession $session) => $session->service?->name ?? $session->service_name ?? 'Other')
             ->map->count()
             ->sortDesc();
 
         $top = $counts->take(5);
-        $otherCount = $counts->slice(5)->sum();
+        $otherCount = (int) $counts->slice(5)->sum();
 
         if ($otherCount > 0) {
             $top->put('Other', $top->get('Other', 0) + $otherCount);

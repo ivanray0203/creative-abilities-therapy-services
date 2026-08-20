@@ -214,3 +214,45 @@ function validTeamMemberPayload(array $overrides = []): array
         'can_manage_clients' => true,
     ], $overrides);
 }
+
+test('an admin can export a team member profile as a PDF', function () {
+    $therapist = User::factory()->therapist()->create([
+        'first_name' => 'Jane',
+        'last_name' => 'Doe',
+        'email' => 'jane.doe@example.com',
+    ]);
+    $teamMember = TeamMember::factory()->create([
+        'user_id' => $therapist->id,
+        'position' => 'Speech Language Pathologist',
+        'credentials' => ['SLP', 'RSLP'],
+        'specializations' => ['Speech and Language Therapy'],
+        'emergency_contact_name' => 'John Doe',
+        'availability' => [
+            ['week_day' => 'Monday', 'time_from' => '09:00', 'time_to' => '17:00'],
+            ['week_day' => 'Tuesday', 'time_from' => '', 'time_to' => ''],
+        ],
+        'sin_number' => '123456789',
+    ]);
+
+    $response = $this->actingAs(adminUser())->get("/admin/team/{$teamMember->id}/pdf");
+
+    $response->assertOk();
+    $response->assertHeader('content-type', 'application/pdf');
+    $response->assertDownload('jane-doe-profile.pdf');
+
+    $pdf = $response->streamedContent();
+    expect($pdf)->toStartWith('%PDF');
+
+    // The hash must never reach the document, nor the plaintext it came from.
+    expect($pdf)->not->toContain(hash('sha256', '123456789'))
+        ->and($pdf)->not->toContain('123456789');
+});
+
+test('a therapist cannot export a team member profile', function () {
+    $teamMember = TeamMember::factory()->create(['user_id' => therapistUser()->id]);
+
+    // The role middleware bounces non-admins to their own home rather than
+    // answering 403 — same as every other admin route.
+    $this->actingAs(therapistUser())->get("/admin/team/{$teamMember->id}/pdf")
+        ->assertRedirect('/therapist');
+});

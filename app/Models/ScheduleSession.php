@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use Database\Factories\ScheduleSessionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -17,16 +20,16 @@ use Illuminate\Support\Carbon;
  * @property-read Client|null $client
  * @property-read User|null $therapist
  * @property-read ServiceOffering|null $service
- * @property-read ClientService|null $linkedClientService
+ * @property-read Collection<int, ClientService> $clientServices
  */
 #[Fillable([
-    'client_id', 'therapist_id', 'service_id', 'service_name', 'linked_client_service_id',
+    'client_id', 'therapist_id', 'service_id', 'service_name',
     'scheduled_start', 'scheduled_end', 'location', 'duration', 'notes', 'status', 'elapsed_time',
     'start_time', 'end_time', 'cancel_reason', 'dispute_reason',
 ])]
 class ScheduleSession extends Model
 {
-    /** @use HasFactory<\Database\Factories\ScheduleSessionFactory> */
+    /** @use HasFactory<ScheduleSessionFactory> */
     use HasFactory;
 
     protected function casts(): array
@@ -36,6 +39,8 @@ class ScheduleSession extends Model
             'scheduled_end' => 'datetime',
             'start_time' => 'datetime',
             'end_time' => 'datetime',
+            // Minutes, not free text — see Phase 18's duration migration.
+            'duration' => 'integer',
         ];
     }
 
@@ -57,10 +62,15 @@ class ScheduleSession extends Model
         return $this->belongsTo(ServiceOffering::class, 'service_id');
     }
 
-    /** @return BelongsTo<ClientService, $this> */
-    public function linkedClientService(): BelongsTo
+    /**
+     * The availed services this session delivers. A single visit can cover
+     * more than one of the child's services.
+     *
+     * @return BelongsToMany<ClientService, $this>
+     */
+    public function clientServices(): BelongsToMany
     {
-        return $this->belongsTo(ClientService::class, 'linked_client_service_id');
+        return $this->belongsToMany(ClientService::class)->withTimestamps();
     }
 
     /** @return HasMany<Invoice, $this> */

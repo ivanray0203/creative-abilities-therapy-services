@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { MultiSelect } from '@/components/ui/multi-select';
 import {
     Select,
     SelectContent,
@@ -17,34 +18,53 @@ import type { Client, ServiceOffering } from '@/types/client';
 import type { TherapistOption } from '@/types/intake';
 import type { ScheduleSession } from '@/types/session';
 
-const DURATIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
-
 interface SessionFormData {
     client_id: string;
     therapist_id: string;
-    linked_client_service_id: string;
+    linked_client_service_ids: number[];
     service_id: string;
     location: string;
     date: string;
     start_time: string;
-    duration: string;
+    end_time: string;
     notes: string;
 }
 
-function initialValues(session?: ScheduleSession | null): SessionFormData {
+/** Minutes between two `HH:MM` values; null while either is incomplete. */
+function minutesBetween(startTime: string, endTime: string): number | null {
+    if (!startTime || !endTime) {
+        return null;
+    }
+
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    const minutes = endHour * 60 + endMinute - (startHour * 60 + startMinute);
+
+    return Number.isFinite(minutes) ? minutes : null;
+}
+
+function initialValues(
+    session?: ScheduleSession | null,
+    preselectedClientId?: number | null,
+): SessionFormData {
     const start = session ? new Date(session.scheduled_start) : null;
+    const end = session?.scheduled_end ? new Date(session.scheduled_end) : null;
 
     return {
-        client_id: session ? String(session.client_id) : '',
+        client_id: session
+            ? String(session.client_id)
+            : preselectedClientId
+              ? String(preselectedClientId)
+              : '',
         therapist_id: session ? String(session.therapist_id) : '',
-        linked_client_service_id: session?.linked_client_service_id
-            ? String(session.linked_client_service_id)
-            : '',
+        linked_client_service_ids: (session?.client_services ?? []).map(
+            (clientService) => clientService.id,
+        ),
         service_id: session?.service_id ? String(session.service_id) : '',
         location: session?.location ?? '',
         date: start ? start.toISOString().slice(0, 10) : '',
         start_time: start ? start.toISOString().slice(11, 16) : '',
-        duration: session?.duration ?? DURATIONS[2],
+        end_time: end ? end.toISOString().slice(11, 16) : '',
         notes: session?.notes ?? '',
     };
 }
@@ -60,21 +80,44 @@ export default function SessionsForm({
     therapists,
     services,
     clients,
+    preselectedClientId = null,
 }: {
     session?: ScheduleSession | null;
     isAdmin: boolean;
     therapists: TherapistOption[];
     services: ServiceOffering[];
     clients: Client[];
+    /** Set when arriving from a client's "Create Session" action. */
+    preselectedClientId?: number | null;
 }) {
     const isEdit = session != null;
 
-    const { data, setData, post, put, processing, errors } =
-        useForm<SessionFormData>(initialValues(session));
+    const { data, setData, post, put, processing, errors, transform } =
+        useForm<SessionFormData>(initialValues(session, preselectedClientId));
+
+    // A therapist's service always follows the client service they picked,
+    // so the field they can't see is never posted stale.
+    transform((values) => (isAdmin ? values : { ...values, service_id: '' }));
 
     const selectedClient = useMemo(
         () => clients.find((client) => String(client.id) === data.client_id),
         [clients, data.client_id],
+    );
+
+    // Replaces the information the removed Duration dropdown used to state
+    // outright, so the booked length stays visible while picking times.
+    const durationMinutes = useMemo(
+        () => minutesBetween(data.start_time, data.end_time),
+        [data.start_time, data.end_time],
+    );
+
+    const clientServiceOptions = useMemo(
+        () =>
+            (selectedClient?.client_services ?? []).map((clientService) => ({
+                value: clientService.id,
+                label: clientService.service?.name ?? 'Service',
+            })),
+        [selectedClient],
     );
 
     const submit = () => {
@@ -99,7 +142,7 @@ export default function SessionsForm({
                             value={data.client_id}
                             onValueChange={(value) => {
                                 setData('client_id', value);
-                                setData('linked_client_service_id', '');
+                                setData('linked_client_service_ids', []);
                             }}
                         >
                             <SelectTrigger
@@ -165,64 +208,70 @@ export default function SessionsForm({
                         </div>
                     )}
 
+                    {/*
+                     * A single visit can cover more than one availed service,
+                     * so this dropdown takes several answers. Each service
+                     * leaves the list once it has been booked.
+                     */}
                     <div>
-                        <Label htmlFor="session-linked-service">
-                            Client Service
+                        <Label htmlFor="session-client-services">
+                            Client Services
                         </Label>
-                        <Select
-                            value={data.linked_client_service_id}
-                            onValueChange={(value) =>
-                                setData('linked_client_service_id', value)
+                        <MultiSelect
+                            id="session-client-services"
+                            className="mt-2 rounded-[10px]"
+                            options={clientServiceOptions}
+                            selected={data.linked_client_service_ids}
+                            onChange={(selected) =>
+                                setData('linked_client_service_ids', selected)
                             }
-                        >
-                            <SelectTrigger
-                                id="session-linked-service"
-                                className="mt-2 rounded-[10px]"
-                            >
-                                <SelectValue placeholder="Select availed service" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(selectedClient?.client_services ?? []).map(
-                                    (clientService) => (
-                                        <SelectItem
-                                            key={clientService.id}
-                                            value={String(clientService.id)}
-                                        >
-                                            {clientService.service?.name ??
-                                                'Service'}
-                                        </SelectItem>
-                                    ),
-                                )}
-                            </SelectContent>
-                        </Select>
+                            placeholder="Select availed services"
+                            emptyLabel={
+                                selectedClient
+                                    ? 'No availed services left to schedule'
+                                    : 'Select a client first'
+                            }
+                        />
+                        {errors.linked_client_service_ids && (
+                            <p className="mt-1 text-sm text-destructive">
+                                {errors.linked_client_service_ids}
+                            </p>
+                        )}
                     </div>
 
-                    <div>
-                        <Label htmlFor="session-service">Service</Label>
-                        <Select
-                            value={data.service_id}
-                            onValueChange={(value) =>
-                                setData('service_id', value)
-                            }
-                        >
-                            <SelectTrigger
-                                id="session-service"
-                                className="mt-2 rounded-[10px]"
+                    {/*
+                     * Therapists don't pick a service: the client service
+                     * they chose above already names it, and the server
+                     * derives `service_id` from it.
+                     */}
+                    {isAdmin && (
+                        <div>
+                            <Label htmlFor="session-service">Service</Label>
+                            <Select
+                                value={data.service_id}
+                                onValueChange={(value) =>
+                                    setData('service_id', value)
+                                }
                             >
-                                <SelectValue placeholder="Select service" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {services.map((service) => (
-                                    <SelectItem
-                                        key={service.id}
-                                        value={String(service.id)}
-                                    >
-                                        {service.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                                <SelectTrigger
+                                    id="session-service"
+                                    className="mt-2 rounded-[10px]"
+                                >
+                                    <SelectValue placeholder="Select service" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {services.map((service) => (
+                                        <SelectItem
+                                            key={service.id}
+                                            value={String(service.id)}
+                                        >
+                                            {service.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
 
                     <div>
                         <Label htmlFor="session-location">Location</Label>
@@ -234,30 +283,6 @@ export default function SessionsForm({
                                 setData('location', event.target.value)
                             }
                         />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="session-duration">Duration *</Label>
-                        <Select
-                            value={data.duration}
-                            onValueChange={(value) =>
-                                setData('duration', value)
-                            }
-                        >
-                            <SelectTrigger
-                                id="session-duration"
-                                className="mt-2 rounded-[10px]"
-                            >
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DURATIONS.map((duration) => (
-                                    <SelectItem key={duration} value={duration}>
-                                        {duration}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                     </div>
 
                     <div>
@@ -295,6 +320,45 @@ export default function SessionsForm({
                             </p>
                         )}
                     </div>
+
+                    <div>
+                        <Label htmlFor="session-end-time">End Time *</Label>
+                        <Input
+                            id="session-end-time"
+                            type="time"
+                            value={data.end_time}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('end_time', event.target.value)
+                            }
+                        />
+                        {errors.end_time ? (
+                            <p className="mt-1 text-sm text-destructive">
+                                {errors.end_time}
+                            </p>
+                        ) : (
+                            durationMinutes !== null &&
+                            durationMinutes > 0 && (
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    {durationMinutes} minutes
+                                </p>
+                            )
+                        )}
+                    </div>
+
+                    {/*
+                     * A therapist has no Therapist field to hang this on, so
+                     * a clash with their own diary would otherwise reject the
+                     * form with nothing on screen to explain it.
+                     */}
+                    {!isAdmin && errors.therapist_id && (
+                        <p
+                            id="session-therapist-conflict"
+                            className="text-sm text-destructive md:col-span-2"
+                        >
+                            {errors.therapist_id}
+                        </p>
+                    )}
 
                     <div className="md:col-span-2">
                         <Label htmlFor="session-notes">Notes</Label>

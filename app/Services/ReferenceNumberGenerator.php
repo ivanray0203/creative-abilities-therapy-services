@@ -5,7 +5,8 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates INT-{year}-{seq} / APP-{year}-{seq} / INV-{year}-{seq} reference numbers.
+ * Generates INT-{year}-{seq} / APP-{year}-{seq} / INV-{year}-{seq} /
+ * BIL-{year}-{seq} / PRG-{year}-{seq} reference numbers.
  *
  * The Django reference derives {seq} from a per-year row COUNT, which
  * races under concurrent submissions. This locks the max existing
@@ -26,6 +27,16 @@ class ReferenceNumberGenerator
     public function invoice(): string
     {
         return $this->next('invoices', 'INV', 'invoice_id');
+    }
+
+    public function billingItem(): string
+    {
+        return $this->next('billing_items', 'BIL', 'billing_number');
+    }
+
+    public function programRegistration(): string
+    {
+        return $this->next('program_registrations', 'PRG');
     }
 
     private function next(string $table, string $prefix, string $column = 'reference_number'): string

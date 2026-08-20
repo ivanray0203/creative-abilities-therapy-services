@@ -65,12 +65,20 @@ export default function UpdateStatusModal({
     isOpen: boolean;
     onClose: () => void;
 }) {
-    const { data, setData, patch, processing, errors, reset, clearErrors, transform } =
-        useForm<UpdateStatusForm>({
-            status: targetStatus,
-            note: '',
-            therapist_assignments: [],
-        });
+    const {
+        data,
+        setData,
+        patch,
+        processing,
+        errors,
+        reset,
+        clearErrors,
+        transform,
+    } = useForm<UpdateStatusForm>({
+        status: targetStatus,
+        note: '',
+        therapist_assignments: [],
+    });
 
     const services = intake.services_needed ?? [];
 
@@ -96,7 +104,9 @@ export default function UpdateStatusModal({
         setData(
             'therapist_assignments',
             data.therapist_assignments.map((assignment, i) =>
-                i === index ? { ...assignment, therapist_id: therapistId } : assignment,
+                i === index
+                    ? { ...assignment, therapist_id: therapistId }
+                    : assignment,
             ),
         );
     };
@@ -113,7 +123,9 @@ export default function UpdateStatusModal({
 
     const canSubmit =
         targetStatus !== 'approved' ||
-        data.therapist_assignments.some((assignment) => assignment.therapist_id !== '');
+        data.therapist_assignments.some(
+            (assignment) => assignment.therapist_id !== '',
+        );
 
     const submit = () => {
         transform((form) => ({
@@ -132,7 +144,7 @@ export default function UpdateStatusModal({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && closeAndReset()}>
-            <DialogContent className="w-full overflow-y-auto p-6">
+            <DialogContent>
                 <DialogHeader>
                     <DialogTitle className="text-xl font-bold">
                         Change Status to{' '}
@@ -153,7 +165,9 @@ export default function UpdateStatusModal({
 
                             return (
                                 <div
-                                    key={assignment.service ?? '__whole_intake__'}
+                                    key={
+                                        assignment.service ?? '__whole_intake__'
+                                    }
                                     className="mb-4"
                                 >
                                     <Label className="mb-2 block">
@@ -163,10 +177,7 @@ export default function UpdateStatusModal({
                                     <Select
                                         value={assignment.therapist_id}
                                         onValueChange={(value) =>
-                                            setAssignmentTherapist(
-                                                index,
-                                                value,
-                                            )
+                                            setAssignmentTherapist(index, value)
                                         }
                                         disabled={options.length === 0}
                                     >
@@ -177,9 +188,7 @@ export default function UpdateStatusModal({
                                             {options.map((therapist) => (
                                                 <SelectItem
                                                     key={therapist.id}
-                                                    value={String(
-                                                        therapist.id,
-                                                    )}
+                                                    value={String(therapist.id)}
                                                 >
                                                     {therapist.first_name}{' '}
                                                     {therapist.last_name}
@@ -190,10 +199,9 @@ export default function UpdateStatusModal({
                                     {assignment.service &&
                                         options.length === 0 && (
                                             <p className="mt-1 text-xs text-muted-foreground">
-                                                No therapist is tagged with
-                                                this specialization — this
-                                                service will be left
-                                                unassigned for now.
+                                                No therapist is tagged with this
+                                                specialization — this service
+                                                will be left unassigned for now.
                                             </p>
                                         )}
                                 </div>
@@ -208,9 +216,9 @@ export default function UpdateStatusModal({
                         <div className="rounded border border-blue-400 bg-blue-100 p-3">
                             <p className="flex flex-row gap-3 text-sm text-blue-800">
                                 <AlertCircleIcon />
-                                Each assigned therapist will be able to
-                                approve or reject their service based on their
-                                capacity and expertise.
+                                Each assigned therapist will be able to approve
+                                or reject their service based on their capacity
+                                and expertise.
                             </p>
                         </div>
                     </>

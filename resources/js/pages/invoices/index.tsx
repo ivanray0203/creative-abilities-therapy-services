@@ -11,7 +11,9 @@ import type { PropsWithChildren } from 'react';
 import { useEffect, useState } from 'react';
 
 import { InvoiceStatusBadge } from '@/components/invoices/badges';
+import GenerateInvoiceModal from '@/components/invoices/generate-invoice-modal';
 import InvoicesTable from '@/components/invoices/invoices-table';
+import PaginationFooter from '@/components/pagination-footer';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +29,7 @@ import ClientLayout from '@/layouts/client-layout';
 import TherapistLayout from '@/layouts/therapist-layout';
 import { formatDate } from '@/lib/helpers';
 import { exportInvoicesCsv } from '@/lib/invoices-csv';
+import type { Client } from '@/types/client';
 import type { Paginated } from '@/types/intake';
 import type {
     Invoice,
@@ -40,6 +43,8 @@ interface InvoicesIndexProps {
     stats: InvoiceStats;
     filters: InvoiceFilters;
     role: 'admin' | 'therapist' | 'client';
+    /** Admins only — clients with billing still waiting to be invoiced. */
+    billableClients: Client[];
 }
 
 const QUICK_FILTERS: { value: QuickInvoiceFilter; label: string }[] = [
@@ -64,9 +69,11 @@ export default function InvoicesIndex({
     stats,
     filters,
     role,
+    billableClients = [],
 }: InvoicesIndexProps) {
     const [search, setSearch] = useState(filters.search);
     const [viewMode, setViewMode] = useState<'card' | 'table'>('table');
+    const [isGenerateOpen, setIsGenerateOpen] = useState(false);
     const basePath = BASE_PATHS[role];
     const canCreate = role !== 'client';
 
@@ -95,6 +102,14 @@ export default function InvoicesIndex({
         );
     };
 
+    const goToPage = (page: number) => {
+        router.get(
+            basePath,
+            { ...filters, search, page },
+            { preserveState: true, replace: true },
+        );
+    };
+
     return (
         <>
             <Head title="Invoices" />
@@ -119,17 +134,23 @@ export default function InvoicesIndex({
                         >
                             <Download /> Export CSV
                         </Button>
+                        {/*
+                         * Both billers raise an invoice out of what has
+                         * already been billed, so the button opens the modal
+                         * rather than the line-by-line form.
+                         */}
                         {canCreate && (
-                            <Button className="rounded-[10px]" asChild>
-                                <Link href={`${basePath}/create`}>
-                                    <Plus /> New Invoice
-                                </Link>
+                            <Button
+                                className="rounded-[10px]"
+                                onClick={() => setIsGenerateOpen(true)}
+                            >
+                                <Plus /> Create Invoice
                             </Button>
                         )}
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
                     <Card className="p-4">
                         <p className="text-xs text-muted-foreground">
                             Paid This Month
@@ -154,6 +175,16 @@ export default function InvoicesIndex({
                             ${Number(stats.total_revenue).toFixed(2)}
                         </p>
                     </Card>
+                    {stats.owed_to_therapists !== null && (
+                        <Card className="p-4">
+                            <p className="text-xs text-muted-foreground">
+                                Owed to Therapists
+                            </p>
+                            <p className="text-2xl font-bold">
+                                ${Number(stats.owed_to_therapists).toFixed(2)}
+                            </p>
+                        </Card>
+                    )}
                 </div>
 
                 <Card className="rounded-[10px] p-4">
@@ -219,6 +250,30 @@ export default function InvoicesIndex({
                             </SelectContent>
                         </Select>
 
+                        {role === 'admin' && (
+                            <Select
+                                value={filters.direction}
+                                onValueChange={(value) =>
+                                    applyFilter('direction', value)
+                                }
+                            >
+                                <SelectTrigger className="rounded-[10px] sm:w-48">
+                                    <SelectValue placeholder="Direction" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        Both Directions
+                                    </SelectItem>
+                                    <SelectItem value="therapist">
+                                        From Therapist
+                                    </SelectItem>
+                                    <SelectItem value="admin">
+                                        To Client
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+
                         {role === 'client' && (
                             <div className="flex gap-2">
                                 <Button
@@ -270,7 +325,8 @@ export default function InvoicesIndex({
                                                 />
                                             </div>
                                             <p className="mt-2 text-sm text-muted-foreground">
-                                                Due {formatDate(invoice.due_date)}
+                                                Due{' '}
+                                                {formatDate(invoice.due_date)}
                                             </p>
                                             <p className="mt-1 text-lg font-bold">
                                                 $
@@ -292,10 +348,32 @@ export default function InvoicesIndex({
                         <InvoicesTable
                             invoices={invoices.data}
                             basePath={basePath}
+                            showDirection={role === 'admin'}
                         />
                     )}
+
+                    <PaginationFooter
+                        className="mt-4"
+                        currentPage={invoices.current_page}
+                        lastPage={invoices.last_page}
+                        perPage={invoices.per_page}
+                        total={invoices.total}
+                        countOnPage={invoices.data.length}
+                        onPageChange={goToPage}
+                    />
                 </Card>
             </div>
+
+            {canCreate && (
+                <GenerateInvoiceModal
+                    basePath={basePath}
+                    // A therapist invoices the clinic for all their own work,
+                    // so there is no client to pick.
+                    clients={role === 'admin' ? billableClients : undefined}
+                    isOpen={isGenerateOpen}
+                    onClose={() => setIsGenerateOpen(false)}
+                />
+            )}
         </>
     );
 }

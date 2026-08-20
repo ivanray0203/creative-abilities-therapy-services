@@ -80,20 +80,25 @@ class CareerApplicationController extends Controller
             'references.*.phone' => ['nullable', 'string', 'max:20'],
         ]);
 
-        $folderName = "Application-{$validated['first_name']}-{$validated['last_name']}";
-
-        $resumeUrl = $drive->upload($request->file('resume_file'), 'Application', $folderName)['drive_file_url'];
-
-        $coverLetterUrl = $request->hasFile('cover_letter_file')
-            ? $drive->upload($request->file('cover_letter_file'), 'Application', $folderName)['drive_file_url']
-            : null;
-
         $application = Application::query()->create([
             ...collect((array) $validated)->except(['resume_file', 'cover_letter_file'])->all(),
-            'resume' => $resumeUrl,
-            'cover_letter' => $coverLetterUrl,
             'application_status' => 'pending',
             'reference_number' => $referenceNumberGenerator->application(),
+        ]);
+
+        $folderName = "{$application->id}_{$validated['first_name']} {$validated['last_name']}";
+
+        $resume = $drive->upload($request->file('resume_file'), 'applications', $folderName);
+
+        $coverLetter = $request->hasFile('cover_letter_file')
+            ? $drive->upload($request->file('cover_letter_file'), 'applications', $folderName)
+            : null;
+
+        $application->update([
+            'resume' => $resume['drive_file_url'],
+            'resume_drive_file_id' => $resume['drive_file_id'],
+            'cover_letter' => $coverLetter['drive_file_url'] ?? null,
+            'cover_letter_drive_file_id' => $coverLetter['drive_file_id'] ?? null,
         ]);
 
         Mail::to($application->email)->send(new CareerApplicationSubmittedConfirmationMail($application));

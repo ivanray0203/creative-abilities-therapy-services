@@ -17,10 +17,9 @@ class LocalDriveStorage implements DriveStorage
     public function upload(UploadedFile $file, string $targetType, string $targetName): array
     {
         $folder = sprintf(
-            'drive/%s/%s - %s',
+            'drive/CATS/%s/%s',
             Str::slug($targetType),
             Str::slug($targetName),
-            now()->format('Y-m-d'),
         );
 
         $path = Storage::disk('public')->putFile($folder, $file);
@@ -36,6 +35,13 @@ class LocalDriveStorage implements DriveStorage
             'drive_file_url' => $url,
             'drive_web_view' => $url,
         ];
+    }
+
+    public function get(string $fileId): ?string
+    {
+        return Storage::disk('public')->exists($fileId)
+            ? Storage::disk('public')->get($fileId)
+            : null;
     }
 
     public function delete(?string $fileId): void

@@ -228,6 +228,9 @@ class ServiceSeeder extends Seeder
             'Behavioural Consulting',
             'Counselling',
             'Community Aide Services',
+            // Offered on the intake form only under SS-FSCD funding, but the
+            // offering itself still needs to exist for billing/scheduling.
+            'Clinical Coordinator',
         ];
 
         foreach ($offeringNames as $name) {

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Client;
+use App\Models\ClientService;
 use App\Models\ScheduleSession;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -27,8 +28,16 @@ class ScheduleSessionFactory extends Factory
             'scheduled_start' => $start,
             'scheduled_end' => (clone $start)->modify('+1 hour'),
             'location' => fake()->randomElement(['Clinic', 'Home', 'Virtual']),
-            'duration' => '60 minutes',
+            'duration' => 60,
             'status' => 'scheduled',
         ];
+    }
+
+    /**
+     * Book the session against one of the child's availed services.
+     */
+    public function linkedTo(ClientService $clientService): static
+    {
+        return $this->hasAttached($clientService, [], 'clientServices');
     }
 }

@@ -19,9 +19,13 @@ import {
     User,
     Users,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
+import AvailabilityGrid from '@/components/availability-grid';
 import ConsentModal from '@/components/consent-modal';
+import FormErrorSummary from '@/components/forms/form-error-summary';
+import FscdConsentTermsModal from '@/components/fscd-consent-terms-modal';
 import IntakePreviewModal from '@/components/intake-preview-modal';
 import IntakeSubmittedModal from '@/components/intake-submitted-modal';
 import MissingFieldsModal from '@/components/missing-fields-modal';
@@ -49,14 +53,17 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { fscdConsentTerms } from '@/lib/content/fscd-consent-terms';
+import type { AvailabilitySlots } from '@/lib/content/intake-taxonomy';
 import {
-    days,
-    IntakeServicesNeeded,
+    FUNDING_SOURCE_LABELS,
+    intakeServicesFor,
     leadSource,
     medicalConditionsOptions,
     ProvinceCities,
     Provinces,
-    times,
+    SS_ONLY_SERVICE,
+    toggleAvailabilitySlot,
 } from '@/lib/content/intake-taxonomy';
 import { computeIntakeProgress } from '@/lib/form-progress';
 import type { ConsentDocument } from '@/types/consent';
@@ -102,12 +109,12 @@ interface IntakeFormData {
     currently_receiving_services: boolean;
     receiving_services_desc: string;
     diagnosis: string[];
+    diagnosis_other: string;
     has_medical_conditions: boolean;
     languages_spoken_at_home: string;
     require_interpreter: boolean;
     funding_source: string;
-    available_days: string[];
-    preferred_times: string[];
+    availability_slots: AvailabilitySlots;
     primary_parent_name: string;
     primary_parent_phone: string;
     primary_parent_email: string;
@@ -153,12 +160,12 @@ const DEFAULT_VALUES: IntakeFormData = {
     currently_receiving_services: false,
     receiving_services_desc: '',
     diagnosis: [],
+    diagnosis_other: '',
     has_medical_conditions: false,
     languages_spoken_at_home: '',
     require_interpreter: false,
     funding_source: '',
-    available_days: [],
-    preferred_times: [],
+    availability_slots: {},
     primary_parent_name: '',
     primary_parent_phone: '',
     primary_parent_email: '',
@@ -209,6 +216,27 @@ function toggleArrayValue(list: string[], value: string): string[] {
 
 interface IntakeApplicationFormProps {
     requiredConsents: ConsentDocument[];
+    /** Where the completed form posts. Defaults to the public endpoint. */
+    submitUrl?: string;
+    /**
+     * Values carried over from a child already in care, used when a
+     * signed-in parent registers another child (Phase 17).
+     */
+    prefill?: Partial<IntakeFormData>;
+    /**
+     * Namespaces the autosaved draft so a portal draft and a public draft
+     * can't overwrite each other in localStorage.
+     */
+    draftKey?: string;
+    /**
+     * Fields to render read-only, used by the portal's "Register Another
+     * Child" form to lock the parent's own details to their account.
+     *
+     * Callers must only lock fields they actually pre-filled — a locked
+     * required field left empty can never be completed. Values still post,
+     * since useForm submits from state rather than serializing the DOM.
+     */
+    lockedFields?: readonly (keyof IntakeFormData)[];
 }
 
 /**
@@ -222,18 +250,38 @@ interface IntakeApplicationFormProps {
  */
 export default function IntakeApplicationForm({
     requiredConsents,
+    submitUrl = '/intake/apply',
+    prefill,
+    draftKey = DRAFT_STORAGE_KEY,
+    lockedFields = [],
 }: IntakeApplicationFormProps) {
     const { data, setData, post, processing, errors, reset, transform } =
-        useForm<IntakeFormData>(DEFAULT_VALUES);
+        useForm<IntakeFormData>({ ...DEFAULT_VALUES, ...prefill });
 
-    const [progress, setProgress] = useState(0);
-    const [missingFields, setMissingFields] = useState<string[]>([]);
+    const isLocked = (field: keyof IntakeFormData) =>
+        lockedFields.includes(field);
+
     const [lastSaved, setLastSaved] = useState<string | null>(null);
     const [consentGivenTerms, setConsentGivenTerms] = useState(false);
     const [consentGivenPrivacy, setConsentGivenPrivacy] = useState(false);
     const [consentGivenFSCD1, setConsentGivenFSCD1] = useState(false);
     const [consentGivenFSCD2, setConsentGivenFSCD2] = useState(false);
     const [consentGivenFSCD3, setConsentGivenFSCD3] = useState(false);
+    // Which FSCD consents the applicant has read to the end, keyed by
+    // consent id. A consent can't be checked until its terms are read.
+    const [fscdTermsRead, setFscdTermsRead] = useState<Record<string, boolean>>(
+        {},
+    );
+    const [openFscdTermsId, setOpenFscdTermsId] = useState<string | null>(null);
+    const { progress, missingFields } = useMemo(
+        () =>
+            computeIntakeProgress(data, [
+                consentGivenFSCD1,
+                consentGivenFSCD2,
+                consentGivenFSCD3,
+            ]),
+        [data, consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3],
+    );
     const [previewOpen, setPreviewOpen] = useState(false);
     const [submittedOpen, setSubmittedOpen] = useState(false);
     const [referenceNumber, setReferenceNumber] = useState<string | null>(null);
@@ -247,6 +295,28 @@ export default function IntakeApplicationForm({
     const [showLoadDraftModal, setShowLoadDraftModal] = useState(false);
     const [savedDraft, setSavedDraft] =
         useState<Partial<IntakeFormData> | null>(null);
+
+    /** Binds each content-defined FSCD consent to its checkbox state. */
+    const fscdConsentState: Record<
+        string,
+        { checked: boolean; setChecked: (checked: boolean) => void }
+    > = {
+        consentFSCD1: {
+            checked: consentGivenFSCD1,
+            setChecked: setConsentGivenFSCD1,
+        },
+        consentFSCD2: {
+            checked: consentGivenFSCD2,
+            setChecked: setConsentGivenFSCD2,
+        },
+        consentFSCD3: {
+            checked: consentGivenFSCD3,
+            setChecked: setConsentGivenFSCD3,
+        },
+    };
+
+    const openFscdTerms =
+        fscdConsentTerms.find((terms) => terms.id === openFscdTermsId) ?? null;
 
     const allConsentsGiven = requiredConsents.every((c) => consentStates[c.id]);
     const isFscdFunding = FSCD_FUNDING_SOURCES.includes(data.funding_source);
@@ -302,18 +372,22 @@ export default function IntakeApplicationForm({
         ) {
             setData('insurance_info', DEFAULT_VALUES.insurance_info);
         }
+
+        // Clinical Coordinator is only offered under SS-FSCD, so switching
+        // away would otherwise post a service the applicant can no longer see.
+        if (
+            data.funding_source !== 'SS-FSCD' &&
+            data.services_needed.includes(SS_ONLY_SERVICE)
+        ) {
+            setData(
+                'services_needed',
+                data.services_needed.filter(
+                    (service) => service !== SS_ONLY_SERVICE,
+                ),
+            );
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.funding_source]);
-
-    // Progress bar / missing-fields tracking.
-    useEffect(() => {
-        const { progress: pct, missingFields: missing } = computeIntakeProgress(
-            data,
-            [consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3],
-        );
-        setProgress(pct);
-        setMissingFields(missing);
-    }, [data, consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3]);
 
     // Autosave a draft every minute (gated behind cookie consent).
     useEffect(() => {
@@ -322,12 +396,12 @@ export default function IntakeApplicationForm({
         }
 
         const interval = setInterval(() => {
-            localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
+            localStorage.setItem(draftKey, JSON.stringify(data));
             setLastSaved(new Date().toLocaleTimeString());
         }, 60 * 1000);
 
         return () => clearInterval(interval);
-    }, [data]);
+    }, [data, draftKey]);
 
     // Offer to restore a saved draft on mount.
     useEffect(() => {
@@ -335,18 +409,24 @@ export default function IntakeApplicationForm({
             return;
         }
 
-        const draft = localStorage.getItem(DRAFT_STORAGE_KEY);
+        const draft = localStorage.getItem(draftKey);
 
         if (!draft) {
             return;
         }
 
         try {
+            // localStorage only exists client-side, so this can't be computed during render (SSR) —
+            // an effect is the correct place to read it.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSavedDraft(JSON.parse(draft));
             setShowLoadDraftModal(true);
         } catch {
-            localStorage.removeItem(DRAFT_STORAGE_KEY);
+            localStorage.removeItem(draftKey);
         }
+        // Restore is a one-shot prompt on mount; `draftKey` is fixed for the
+        // life of the form, so re-running on it would only re-open the modal.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleLoadDraft = () => {
@@ -354,17 +434,25 @@ export default function IntakeApplicationForm({
             return;
         }
 
-        setData((current) => ({ ...current, ...savedDraft }));
+        setData((current) => ({
+            ...current,
+            ...savedDraft,
+            // Locked fields come from the account, never the draft. A stale
+            // draft value would be both un-editable and rejected on submit.
+            ...(Object.fromEntries(
+                lockedFields.map((field) => [field, current[field]]),
+            ) as Partial<IntakeFormData>),
+        }));
         setShowLoadDraftModal(false);
     };
 
     const handleDiscardDraft = () => {
-        localStorage.removeItem(DRAFT_STORAGE_KEY);
+        localStorage.removeItem(draftKey);
         setShowLoadDraftModal(false);
     };
 
     const saveProgress = () => {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(draftKey, JSON.stringify(data));
         setLastSaved(new Date().toLocaleTimeString());
     };
 
@@ -387,14 +475,20 @@ export default function IntakeApplicationForm({
     };
 
     const toggleService = (
-        field:
-            | 'services_needed'
-            | 'diagnosis'
-            | 'available_days'
-            | 'preferred_times',
+        field: 'services_needed' | 'diagnosis',
         value: string,
     ) => {
-        setData(field, toggleArrayValue(data[field] as string[], value));
+        const next = toggleArrayValue(data[field] as string[], value);
+
+        setData((current) => ({
+            ...current,
+            [field]: next,
+            // Un-checking "Other" must drop the free-text answer with it,
+            // otherwise a stale description still posts.
+            ...(field === 'diagnosis' && !next.includes('Other')
+                ? { diagnosis_other: '' }
+                : {}),
+        }));
     };
 
     const toggleConsentDocument = (id: number, checked: boolean) => {
@@ -413,14 +507,14 @@ export default function IntakeApplicationForm({
             consent_ids: consentIds,
         }));
 
-        post('/intake/apply', {
+        post(submitUrl, {
             preserveScroll: true,
             onSuccess: (page) => {
                 const flash = (
                     page.props as { flash?: { reference_number?: string } }
                 ).flash;
                 setReferenceNumber(flash?.reference_number ?? null);
-                localStorage.removeItem(DRAFT_STORAGE_KEY);
+                localStorage.removeItem(draftKey);
                 setPreviewOpen(false);
                 setSubmittedOpen(true);
                 reset();
@@ -430,6 +524,32 @@ export default function IntakeApplicationForm({
                 setConsentGivenFSCD1(false);
                 setConsentGivenFSCD2(false);
                 setConsentGivenFSCD3(false);
+            },
+            /*
+             * Submission happens from the preview modal, so a rejected
+             * application used to fail silently: the modal stayed open over a
+             * field error the applicant never saw. Close it and take them to
+             * the field that needs fixing.
+             */
+            onError: (validationErrors) => {
+                setPreviewOpen(false);
+
+                const [firstField] = Object.keys(validationErrors);
+
+                if (!firstField) {
+                    return;
+                }
+
+                toast.error(validationErrors[firstField]);
+
+                requestAnimationFrame(() => {
+                    document
+                        .getElementById('intake-error-summary')
+                        ?.scrollIntoView({
+                            block: 'center',
+                            behavior: 'smooth',
+                        });
+                });
             },
         });
     };
@@ -483,6 +603,10 @@ export default function IntakeApplicationForm({
                         {lastSaved}
                     </p>
                 )}
+            </div>
+
+            <div id="intake-error-summary" className="my-6">
+                <FormErrorSummary errors={errors} />
             </div>
 
             <div className="mb-6 rounded-2xl border border-primary-orange/40 bg-secondary-orange/5 p-4 sm:p-5">
@@ -848,6 +972,13 @@ export default function IntakeApplicationForm({
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-5">
+                        {isLocked('primary_parent_email') && (
+                            <p className="mb-5 rounded-[10px] bg-secondary-orange/10 p-3 text-sm text-muted-foreground">
+                                These details are taken from your account. To
+                                change them, update your profile.
+                            </p>
+                        )}
+
                         <div className="flex flex-col">
                             <Label htmlFor="primaryFullName">
                                 Full Name{' '}
@@ -864,6 +995,7 @@ export default function IntakeApplicationForm({
                                 }
                                 placeholder="Full Name"
                                 className="mt-2 rounded-[10px]"
+                                disabled={isLocked('primary_parent_name')}
                             />
                             {errors.primary_parent_name && (
                                 <p className="text-sm text-red-600">
@@ -893,6 +1025,7 @@ export default function IntakeApplicationForm({
                                     placeholder="Phone Number"
                                     className="mt-2 rounded-[10px]"
                                     maxLength={12}
+                                    disabled={isLocked('primary_parent_phone')}
                                 />
                                 {errors.primary_parent_phone && (
                                     <p className="text-sm text-red-600">
@@ -917,6 +1050,7 @@ export default function IntakeApplicationForm({
                                     }
                                     placeholder="Email"
                                     className="mt-2 rounded-[10px]"
+                                    disabled={isLocked('primary_parent_email')}
                                 />
                                 {errors.primary_parent_email && (
                                     <p className="text-sm text-red-600">
@@ -942,6 +1076,9 @@ export default function IntakeApplicationForm({
                                 }
                                 placeholder="Confirm your email"
                                 className="mt-2 rounded-[10px]"
+                                disabled={isLocked(
+                                    'primary_parent_email_confirm',
+                                )}
                             />
                             {primaryEmailMismatch && (
                                 <p className="text-sm text-red-600">
@@ -969,6 +1106,9 @@ export default function IntakeApplicationForm({
                                             value,
                                         )
                                     }
+                                    disabled={isLocked(
+                                        'primary_relationship_to_child',
+                                    )}
                                 >
                                     <SelectTrigger className="mt-2 rounded-[10px]">
                                         <SelectValue placeholder="Select Relationship" />
@@ -1005,6 +1145,9 @@ export default function IntakeApplicationForm({
                                     onValueChange={(value) =>
                                         setData('primary_contact_method', value)
                                     }
+                                    disabled={isLocked(
+                                        'primary_contact_method',
+                                    )}
                                 >
                                     <SelectTrigger className="mt-2 rounded-[10px]">
                                         <SelectValue placeholder="Select Contact Method" />
@@ -1218,21 +1361,36 @@ export default function IntakeApplicationForm({
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-5">
+                        {isLocked('emergency_contact_name') && (
+                            <p className="mb-5 rounded-[10px] bg-secondary-orange/10 p-3 text-sm text-muted-foreground">
+                                These details are taken from your account. To
+                                change them, update your profile.
+                            </p>
+                        )}
+
                         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
                                 Person to contact in case of emergency (can be
                                 same as primary contact)
                             </p>
-                            <div className="flex justify-start sm:justify-end">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="flex items-center gap-2 rounded-[10px] border border-primary text-primary"
-                                    onClick={populateContact}
-                                >
-                                    <Copy /> Copy Primary Contact
-                                </Button>
-                            </div>
+                            {/*
+                                Hidden while locked — populateContact() writes
+                                these fields programmatically, which `disabled`
+                                inputs don't prevent, so the button would be a
+                                way around the lock.
+                            */}
+                            {!isLocked('emergency_contact_name') && (
+                                <div className="flex justify-start sm:justify-end">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="flex items-center gap-2 rounded-[10px] border border-primary text-primary"
+                                        onClick={populateContact}
+                                    >
+                                        <Copy /> Copy Primary Contact
+                                    </Button>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex flex-col">
@@ -1242,6 +1400,7 @@ export default function IntakeApplicationForm({
                             </Label>
                             <Input
                                 id="emergencyFullName"
+                                disabled={isLocked('emergency_contact_name')}
                                 value={data.emergency_contact_name}
                                 onChange={(e) =>
                                     setData(
@@ -1267,6 +1426,9 @@ export default function IntakeApplicationForm({
                                 </Label>
                                 <Input
                                     id="emergencyPhone"
+                                    disabled={isLocked(
+                                        'emergency_contact_phone',
+                                    )}
                                     value={data.emergency_contact_phone}
                                     onChange={(e) =>
                                         setData(
@@ -1301,6 +1463,9 @@ export default function IntakeApplicationForm({
                                             value,
                                         )
                                     }
+                                    disabled={isLocked(
+                                        'emergency_contact_relationship',
+                                    )}
                                 >
                                     <SelectTrigger className="mt-2 rounded-[10px]">
                                         <SelectValue placeholder="Select Relationship" />
@@ -1387,6 +1552,32 @@ export default function IntakeApplicationForm({
                                 <p className="mt-1 text-sm text-red-600">
                                     {errors.diagnosis}
                                 </p>
+                            )}
+
+                            {data.diagnosis.includes('Other') && (
+                                <div className="mt-4">
+                                    <Label htmlFor="diagnosisOther">
+                                        Please specify the other diagnosis{' '}
+                                        <span className="text-red-700">*</span>
+                                    </Label>
+                                    <Input
+                                        id="diagnosisOther"
+                                        value={data.diagnosis_other}
+                                        onChange={(e) =>
+                                            setData(
+                                                'diagnosis_other',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="e.g., Cerebral Palsy"
+                                        className="mt-2 rounded-[10px]"
+                                    />
+                                    {errors.diagnosis_other && (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.diagnosis_other}
+                                        </p>
+                                    )}
+                                </div>
                             )}
                         </div>
 
@@ -1501,22 +1692,29 @@ export default function IntakeApplicationForm({
                                     <SelectValue placeholder="Select a funding" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="BDS-FSCD">
-                                        Behavioral/Development Support (BDS) -
-                                        FSCD
-                                    </SelectItem>
-                                    <SelectItem value="SS-FSCD">
-                                        Specialized Serices (SS) - FSCD
-                                    </SelectItem>
-                                    <SelectItem value="Counselling-FSCD">
-                                        Counselling - FSCD
-                                    </SelectItem>
-                                    <SelectItem value="Insurance">
-                                        Insurance
-                                    </SelectItem>
-                                    <SelectItem value="private">
-                                        Private Pay
-                                    </SelectItem>
+                                    {/*
+                                     * Driven by the shared label map so the
+                                     * applicant, the admin detail page and the
+                                     * client funding tab always word a funding
+                                     * source identically. The id gives tests a
+                                     * handle on the SS option, whose label's
+                                     * parentheses parse as CSS selector tokens.
+                                     */}
+                                    {Object.entries(FUNDING_SOURCE_LABELS).map(
+                                        ([value, label]) => (
+                                            <SelectItem
+                                                key={value}
+                                                value={value}
+                                                id={
+                                                    value === 'SS-FSCD'
+                                                        ? 'funding-ss'
+                                                        : undefined
+                                                }
+                                            >
+                                                {label}
+                                            </SelectItem>
+                                        ),
+                                    )}
                                 </SelectContent>
                             </Select>
                             {errors.funding_source && (
@@ -1648,57 +1846,59 @@ export default function IntakeApplicationForm({
                                     </p>
 
                                     <div className="grid grid-cols-1 gap-4">
-                                        {[
-                                            {
-                                                id: 'consentFSCD1',
-                                                state: consentGivenFSCD1,
-                                                setState: setConsentGivenFSCD1,
-                                                label: 'I consent to Creative Abilities Therapy Services communicating with my FSCD worker regarding services, progress, and billing',
-                                            },
-                                            {
-                                                id: 'consentFSCD2',
-                                                state: consentGivenFSCD2,
-                                                setState: setConsentGivenFSCD2,
-                                                label: 'I consent to sharing reports and session notes with the FSCD program as required',
-                                            },
-                                            {
-                                                id: 'consentFSCD3',
-                                                state: consentGivenFSCD3,
-                                                setState: setConsentGivenFSCD3,
-                                                label: 'I understand I am responsible for any costs not approved by FSCD (e.g., top-ups, cancellations)',
-                                            },
-                                        ].map(
-                                            ({
-                                                id,
-                                                state,
-                                                setState,
-                                                label,
-                                            }) => (
+                                        {fscdConsentTerms.map((terms) => {
+                                            const state =
+                                                fscdConsentState[terms.id];
+                                            const hasRead = Boolean(
+                                                fscdTermsRead[terms.id],
+                                            );
+
+                                            return (
                                                 <div
-                                                    key={id}
+                                                    key={terms.id}
                                                     className="flex items-start gap-3"
                                                 >
                                                     <input
                                                         type="checkbox"
-                                                        id={id}
-                                                        checked={state}
-                                                        className="mt-1 h-5 w-5 accent-primary"
+                                                        id={terms.id}
+                                                        checked={state.checked}
+                                                        disabled={!hasRead}
+                                                        className="mt-1 h-5 w-5 accent-primary disabled:cursor-not-allowed disabled:opacity-50"
                                                         onChange={(e) =>
-                                                            setState(
+                                                            state.setChecked(
                                                                 e.target
                                                                     .checked,
                                                             )
                                                         }
                                                     />
                                                     <label
-                                                        htmlFor={id}
-                                                        className="text-sm sm:text-base"
+                                                        htmlFor={terms.id}
+                                                        className={`text-sm sm:text-base ${hasRead ? '' : 'text-charcoal-gray'}`}
                                                     >
-                                                        {label}
+                                                        {terms.label} —{' '}
+                                                        <button
+                                                            type="button"
+                                                            className="cursor-pointer text-primary underline"
+                                                            onClick={() =>
+                                                                setOpenFscdTermsId(
+                                                                    terms.id,
+                                                                )
+                                                            }
+                                                        >
+                                                            Terms and Conditions
+                                                        </button>
+                                                        {!hasRead && (
+                                                            <span className="mt-1 block text-xs text-charcoal-gray">
+                                                                Read the terms
+                                                                to the end to
+                                                                enable this
+                                                                consent.
+                                                            </span>
+                                                        )}
                                                     </label>
                                                 </div>
-                                            ),
-                                        )}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -2065,33 +2265,35 @@ export default function IntakeApplicationForm({
 
                         <div className="mt-6">
                             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                {IntakeServicesNeeded.map((service) => (
-                                    <div
-                                        key={service}
-                                        className="flex items-start gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.services_needed.includes(
-                                                service,
-                                            )}
-                                            onChange={() =>
-                                                toggleService(
-                                                    'services_needed',
-                                                    service,
-                                                )
-                                            }
-                                            id={service}
-                                            className="mt-1 h-5 w-5 accent-primary"
-                                        />
-                                        <label
-                                            htmlFor={service}
-                                            className="text-sm sm:text-base"
+                                {intakeServicesFor(data.funding_source).map(
+                                    (service) => (
+                                        <div
+                                            key={service}
+                                            className="flex items-start gap-2"
                                         >
-                                            {service}
-                                        </label>
-                                    </div>
-                                ))}
+                                            <input
+                                                type="checkbox"
+                                                checked={data.services_needed.includes(
+                                                    service,
+                                                )}
+                                                onChange={() =>
+                                                    toggleService(
+                                                        'services_needed',
+                                                        service,
+                                                    )
+                                                }
+                                                id={service}
+                                                className="mt-1 h-5 w-5 accent-primary"
+                                            />
+                                            <label
+                                                htmlFor={service}
+                                                className="text-sm sm:text-base"
+                                            >
+                                                {service}
+                                            </label>
+                                        </div>
+                                    ),
+                                )}
                             </div>
                         </div>
                     </AccordionContent>
@@ -2192,77 +2394,33 @@ export default function IntakeApplicationForm({
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="p-5">
-                        <div className="mt-6">
-                            <Label className="font-medium">
-                                Available Days{' '}
-                                <span className="text-red-700">*</span>
-                            </Label>
-                            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                {days.map((day) => (
-                                    <div
-                                        key={day}
-                                        className="flex items-start gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.available_days.includes(
-                                                day,
-                                            )}
-                                            onChange={() =>
-                                                toggleService(
-                                                    'available_days',
-                                                    day,
-                                                )
-                                            }
-                                            id={day}
-                                            className="mt-1 h-5 w-5 accent-primary"
-                                        />
-                                        <label
-                                            htmlFor={day}
-                                            className="text-sm sm:text-base"
-                                        >
-                                            {day}
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <Label className="font-medium">
+                            Availability <span className="text-red-700">*</span>
+                        </Label>
+                        <p className="mt-1 text-sm text-charcoal-gray">
+                            Tick every time of day that works, for each day of
+                            the week.
+                        </p>
 
-                        <div className="mt-6">
-                            <Label className="font-medium">
-                                Preferred Times{' '}
-                                <span className="text-red-700">*</span>
-                            </Label>
-                            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                {times.map((time) => (
-                                    <div
-                                        key={time}
-                                        className="flex items-start gap-2"
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={data.preferred_times.includes(
-                                                time,
-                                            )}
-                                            onChange={() =>
-                                                toggleService(
-                                                    'preferred_times',
-                                                    time,
-                                                )
-                                            }
-                                            id={time}
-                                            className="mt-1 h-5 w-5 accent-primary"
-                                        />
-                                        <label
-                                            htmlFor={time}
-                                            className="text-sm sm:text-base"
-                                        >
-                                            {time}
-                                        </label>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        <AvailabilityGrid
+                            slots={data.availability_slots}
+                            onToggle={(day, time) =>
+                                setData(
+                                    'availability_slots',
+                                    toggleAvailabilitySlot(
+                                        data.availability_slots,
+                                        day,
+                                        time,
+                                    ),
+                                )
+                            }
+                        />
+
+                        {errors.availability_slots && (
+                            <p className="mt-2 text-sm text-red-600">
+                                {errors.availability_slots}
+                            </p>
+                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
@@ -2562,6 +2720,25 @@ export default function IntakeApplicationForm({
                         childsFullName: `${data.child_first_name} ${data.child_last_name}`,
                         childsDateOfBirth: data.date_of_birth,
                     }}
+                />
+            )}
+
+            {openFscdTerms && (
+                <FscdConsentTermsModal
+                    key={openFscdTerms.id}
+                    terms={openFscdTerms}
+                    open
+                    onOpenChange={(open) =>
+                        setOpenFscdTermsId(open ? openFscdTerms.id : null)
+                    }
+                    alreadyRead={Boolean(fscdTermsRead[openFscdTerms.id])}
+                    onRead={() =>
+                        setFscdTermsRead((previous) =>
+                            previous[openFscdTerms.id]
+                                ? previous
+                                : { ...previous, [openFscdTerms.id]: true },
+                        )
+                    }
                 />
             )}
 

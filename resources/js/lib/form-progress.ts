@@ -8,6 +8,11 @@ export interface FormProgressResult {
     missingFields: string[];
 }
 
+/** Guarded so this stays safe wherever `Blob` is not defined (e.g. SSR). */
+function isFileLike(value: unknown): value is Blob {
+    return typeof Blob !== 'undefined' && value instanceof Blob;
+}
+
 /**
  * @param values Current form values.
  * @param requiredFields Dot-path field names, e.g. "references.0.email", resolved against `values`.
@@ -28,9 +33,22 @@ export function computeFormProgress(
                 values as Record<string, unknown>,
             );
 
-        const isFilled = Array.isArray(value)
-            ? value.length > 0
-            : value !== undefined && value !== null && value !== '';
+        let isFilled: boolean;
+
+        if (Array.isArray(value)) {
+            isFilled = value.length > 0;
+        } else if (isFileLike(value)) {
+            // File extends Blob, and carries its data on the prototype rather
+            // than as own keys — so the object branch below would read a
+            // perfectly good upload as empty and report it still missing.
+            isFilled = value.size > 0;
+        } else if (typeof value === 'object' && value !== null) {
+            // Grid-shaped answers (e.g. availability_slots) are objects; an
+            // empty one means nothing was picked, not "answered".
+            isFilled = Object.keys(value).length > 0;
+        } else {
+            isFilled = value !== undefined && value !== null && value !== '';
+        }
 
         if (isFilled) {
             filled += 1;
@@ -74,8 +92,7 @@ const INTAKE_BASE_REQUIRED_FIELDS = [
     'funding_source',
     'services_needed',
     'currently_receiving_services',
-    'available_days',
-    'preferred_times',
+    'availability_slots',
     'referral_source',
 ];
 
@@ -95,6 +112,12 @@ export function computeIntakeProgress(
     const fundingSource = (values as Record<string, unknown>).funding_source as
         string | undefined;
     const fields = [...INTAKE_BASE_REQUIRED_FIELDS];
+
+    const diagnosis = (values as Record<string, unknown>).diagnosis;
+
+    if (Array.isArray(diagnosis) && diagnosis.includes('Other')) {
+        fields.push('diagnosis_other');
+    }
 
     if (fundingSource && FSCD_FUNDING_SOURCES.includes(fundingSource)) {
         fields.push(

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\AuditLogger;
+use App\Services\ClientContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,12 +15,17 @@ use Inertia\Response;
  * on the Client model itself — mirrors Admin\TeamMemberController::me()'s
  * pattern of resolving the acting user's own record rather than route
  * binding.
+ *
+ * A parent with several children edits whichever child the portal switcher
+ * currently has selected (Phase 17).
  */
 class ClientProfileController extends Controller
 {
+    public function __construct(private ClientContext $clientContext) {}
+
     public function show(Request $request): Response
     {
-        $client = $request->user()->clientProfile;
+        $client = $this->clientContext->current($request->user());
         abort_unless($client !== null, 404);
 
         $client->load(['originalIntake', 'documents']);
@@ -31,7 +37,7 @@ class ClientProfileController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        $client = $request->user()->clientProfile;
+        $client = $this->clientContext->current($request->user());
         abort_unless($client?->originalIntake !== null, 404);
 
         $validated = $request->validate([

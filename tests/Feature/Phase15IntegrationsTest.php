@@ -179,6 +179,37 @@ test('submitting an intake sends a confirmation and notifies admins subscribed t
         && ! $mail->hasTo($inactiveAdmin->email));
 });
 
+test('the new intake notification includes the full address in child information', function () {
+    $intake = Intake::factory()->create([
+        'street_address' => '123 Main St',
+        'address_line_2' => 'Unit 4B',
+        'city' => 'Calgary',
+        'state_province' => 'Alberta',
+        'postal_code' => 'T2N 1N4',
+    ]);
+
+    $rendered = (new IntakeSubmittedAdminNotification($intake))->render();
+
+    expect($rendered)->toContain('123 Main St');
+    expect($rendered)->toContain('Unit 4B');
+    expect($rendered)->toContain('123 Main St, Unit 4B, Calgary, Alberta, T2N 1N4');
+});
+
+test('the new intake notification omits address line 2 when it is blank', function () {
+    $intake = Intake::factory()->create([
+        'street_address' => '123 Main St',
+        'address_line_2' => null,
+        'city' => 'Calgary',
+        'state_province' => 'Alberta',
+        'postal_code' => 'T2N 1N4',
+    ]);
+
+    $rendered = (new IntakeSubmittedAdminNotification($intake))->render();
+
+    expect($rendered)->not->toContain('Address Line 2');
+    expect($rendered)->toContain('123 Main St, Calgary, Alberta, T2N 1N4');
+});
+
 test('an intake with accepted consents uploads a generated consent PDF as an intake document', function () {
     Storage::fake('public');
     Mail::fake();

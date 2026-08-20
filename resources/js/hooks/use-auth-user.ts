@@ -11,7 +11,9 @@ export function useAuthUser(): User {
     const { auth } = usePage<{ auth: Auth }>().props;
 
     if (!auth.user) {
-        throw new Error('useAuthUser() was called outside an authenticated route.');
+        throw new Error(
+            'useAuthUser() was called outside an authenticated route.',
+        );
     }
 
     return auth.user;

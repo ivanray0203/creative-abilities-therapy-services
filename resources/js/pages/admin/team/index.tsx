@@ -3,6 +3,7 @@ import { Download, Plus, UserCog, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { EmploymentStatusBadge } from '@/components/admin/team-member/badges';
+import PaginationFooter from '@/components/pagination-footer';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -57,6 +58,14 @@ export default function AdminTeamIndex({
         router.get(
             '/admin/team',
             { ...filters, search, [key]: value },
+            { preserveState: true, replace: true },
+        );
+    };
+
+    const goToPage = (page: number) => {
+        router.get(
+            '/admin/team',
+            { ...filters, search, page },
             { preserveState: true, replace: true },
         );
     };
@@ -265,6 +274,15 @@ export default function AdminTeamIndex({
                     </div>
                 </Card>
             )}
+
+            <PaginationFooter
+                currentPage={teamMembers.current_page}
+                lastPage={teamMembers.last_page}
+                perPage={teamMembers.per_page}
+                total={teamMembers.total}
+                countOnPage={teamMembers.data.length}
+                onPageChange={goToPage}
+            />
         </div>
     );
 }

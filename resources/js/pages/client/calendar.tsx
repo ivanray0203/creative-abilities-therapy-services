@@ -14,7 +14,10 @@ import { useMemo, useState } from 'react';
 import DisputeSessionModal from '@/components/client/dispute-session-modal';
 import SessionDetailModal from '@/components/client/session-detail-modal';
 import VerifySessionModal from '@/components/client/verify-session-modal';
-import { SessionStatusBadge } from '@/components/sessions/badges';
+import {
+    SessionServiceTags,
+    SessionStatusBadge,
+} from '@/components/sessions/badges';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -252,10 +255,6 @@ export default function ClientCalendar({ sessions }: ClientCalendarProps) {
                                     const therapistName = session.therapist
                                         ? `${session.therapist.first_name} ${session.therapist.last_name}`
                                         : 'Therapist';
-                                    const serviceName =
-                                        session.service?.name ||
-                                        session.service_name ||
-                                        'Service';
 
                                     return (
                                         <div
@@ -275,9 +274,10 @@ export default function ClientCalendar({ sessions }: ClientCalendarProps) {
                                                         <p className="font-medium">
                                                             {therapistName}
                                                         </p>
-                                                        <p className="text-sm text-muted-foreground">
-                                                            {serviceName}
-                                                        </p>
+                                                        <SessionServiceTags
+                                                            session={session}
+                                                            className="mt-1"
+                                                        />
                                                     </div>
                                                 </div>
                                                 <SessionStatusBadge

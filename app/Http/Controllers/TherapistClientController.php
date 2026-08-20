@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Models\ClientService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -22,11 +23,7 @@ class TherapistClientController extends Controller
         $status = (string) $request->query('status', 'active');
 
         $clients = Client::query()
-            ->where(function (Builder $query) use ($therapistId): void {
-                $query->where('primary_therapist_id', $therapistId)
-                    ->orWhere('assigned_therapist_id', $therapistId)
-                    ->orWhereHas('careTeam', fn (Builder $inner) => $inner->where('users.id', $therapistId));
-            })
+            ->forTherapist($therapistId)
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->whereHas('originalIntake', function (Builder $inner) use ($search): void {
                     $inner->where('child_first_name', 'like', "%{$search}%")
@@ -37,7 +34,19 @@ class TherapistClientController extends Controller
             ->when($status === 'active', fn (Builder $query) => $query->where('status', 'active'))
             ->when($status === 'inactive', fn (Builder $query) => $query->whereIn('status', ['inactive', 'paused', 'completed', 'archive']))
             ->with(['originalIntake', 'clientServices.service'])
-            ->distinct()
+            // Drives the row's "Create Session" action: a client whose
+            // services this therapist has all booked has nothing left to
+            // schedule, and the session form would not offer them anyway.
+            ->withExists(['clientServices as has_bookable_service' => function (Builder $services) use ($therapistId): void {
+                $services->where('therapist_id', $therapistId)->whereIn(
+                    'client_services.id',
+                    ClientService::query()->select('id')->awaitingSchedule(),
+                );
+            }])
+            // No `distinct()`: `forTherapist` scopes with subqueries rather
+            // than a join, so no row is duplicated — and `distinct` makes
+            // paginate()'s count disagree with the rows it returns.
+            ->latest('id')
             ->paginate(15)
             ->withQueryString();
 

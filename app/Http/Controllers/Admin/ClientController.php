@@ -7,10 +7,13 @@ use App\Http\Requests\Admin\UpdateClientRequest;
 use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
+use App\Models\IntakeTherapistApproval;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
+use App\Services\PdfService;
+use App\Support\ClientProgress;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,6 +23,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin client pipeline (reference: cats-frontend/src/pages/admin/ClientsPage.tsx
@@ -98,7 +102,7 @@ class ClientController extends Controller
     public function show(Client $client): Response
     {
         $client->load([
-            'originalIntake',
+            'originalIntake.therapistReviews.therapist',
             'assignedTherapist',
             'primaryTherapist',
             'careTeam',
@@ -110,12 +114,67 @@ class ClientController extends Controller
 
         return Inertia::render('admin/clients/show', [
             'client' => $client,
+            'declinedServices' => $this->declinedServices($client),
+            'progress' => ClientProgress::for($client),
             'therapists' => $this->therapists(),
             'services' => ServiceOffering::query()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
         ]);
+    }
+
+    /**
+     * Services a therapist refused, so they can be picked up again.
+     *
+     * A refusal leaves no ClientService behind, and the intake drops off the
+     * admin list once the child is promoted — without this the service would
+     * sit in the Overview's "requested" list, indistinguishable from one that
+     * was never sent to anyone.
+     *
+     * @return array<int, array{service: string, therapist_id: int|null, therapist: string|null, notes: string|null, decided_at: string|null}>
+     */
+    private function declinedServices(Client $client): array
+    {
+        $intake = $client->originalIntake;
+
+        if ($intake === null) {
+            return [];
+        }
+
+        return $intake->therapistReviews
+            ->where('status', 'rejected')
+            ->filter(fn (IntakeTherapistApproval $review): bool => $review->service !== null)
+            ->map(fn (IntakeTherapistApproval $review): array => [
+                'service' => (string) $review->service,
+                // The id, not just the name: the reassign picker drops the
+                // therapist who declined, and matching on a display name
+                // breaks the moment two people share one.
+                'therapist_id' => $review->therapist_id,
+                'therapist' => $review->therapist?->full_name,
+                'notes' => $review->notes,
+                'decided_at' => $review->decided_at?->toDateString(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * The client page as a PDF — Overview, Sessions, Funding, Notes and
+     * Therapist in one document, for case files and referrals.
+     */
+    public function exportPdf(Client $client, PdfService $pdfService): StreamedResponse
+    {
+        $pdf = $pdfService->clientProfile($client);
+        $name = Str::slug($client->displayName());
+
+        AuditLogger::log('Exported client profile', 'Clients', "Exported client #{$client->id} as PDF");
+
+        return response()->streamDownload(
+            fn () => print ($pdf),
+            "{$name}-profile.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     public function edit(Client $client): Response
@@ -251,7 +310,7 @@ class ClientController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'Client', $this->clientFolderName($client));
+        $uploaded = $drive->upload($request->file('file'), 'client', $this->clientFolderName($client));
 
         $client->documents()->create([
             'title' => $validated['name'] ?? $request->file('file')->getClientOriginalName(),
@@ -281,8 +340,9 @@ class ClientController extends Controller
     private function clientFolderName(Client $client): string
     {
         $intake = $client->originalIntake;
+        $name = trim("{$intake?->child_first_name} {$intake?->child_last_name}");
 
-        return trim("Client-{$client->id}-{$intake?->child_first_name}-{$intake?->child_last_name}", '-');
+        return trim("{$intake?->id}_{$name}", '_');
     }
 
     public function addNote(Request $request, Client $client): RedirectResponse

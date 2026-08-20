@@ -95,7 +95,11 @@ export const TeamsData: TeamMemberEntry[] = [
         photo: '',
         description:
             'Dr. Brown provides behavioral therapy, emotional support, and counseling for children and families. He focuses on fostering resilience and positive social-emotional development.',
-        credentials: ['PhD in Child Psychology', 'Registered Psychologist with CPA', 'Certified in Cognitive Behavioral Therapy'],
+        credentials: [
+            'PhD in Child Psychology',
+            'Registered Psychologist with CPA',
+            'Certified in Cognitive Behavioral Therapy',
+        ],
         email: 'michael.brown@example.com',
     },
     {
@@ -108,7 +112,10 @@ export const TeamsData: TeamMemberEntry[] = [
         photo: '',
         description:
             'Sophia assists with speech therapy sessions, implementing activities to improve communication and language skills. She is skilled in augmentative communication tools.',
-        credentials: ['Diploma in Speech-Language Pathology Assistance', 'Certified in Early Childhood Communication'],
+        credentials: [
+            'Diploma in Speech-Language Pathology Assistance',
+            'Certified in Early Childhood Communication',
+        ],
         email: 'sophia.lee@example.com',
     },
 ];
@@ -139,6 +146,7 @@ export const Values: ValuePoint[] = [
         id: 3,
         icon: 'GraduationCap',
         title: 'Continuous Learning',
-        description: 'We stay current with best practices through ongoing professional development and training.',
+        description:
+            'We stay current with best practices through ongoing professional development and training.',
     },
 ];

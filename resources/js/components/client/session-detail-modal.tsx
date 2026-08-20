@@ -1,6 +1,9 @@
 import { AlertCircle, Calendar, Clock, MapPin, UserCog } from 'lucide-react';
 
-import { SessionStatusBadge } from '@/components/sessions/badges';
+import {
+    SessionServiceTags,
+    SessionStatusBadge,
+} from '@/components/sessions/badges';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -29,7 +32,6 @@ export default function SessionDetailModal({
     const therapistName = session.therapist
         ? `${session.therapist.first_name} ${session.therapist.last_name}`
         : '-';
-    const serviceName = session.service?.name || session.service_name || '-';
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -37,24 +39,23 @@ export default function SessionDetailModal({
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <DialogTitle className="text-xl font-bold">
-                            {serviceName}
+                            Session Details
                         </DialogTitle>
                         <SessionStatusBadge status={session.status} />
                     </div>
+                    <SessionServiceTags session={session} className="mt-2" />
                 </DialogHeader>
 
                 <div className="grid grid-cols-2 gap-5 text-sm">
                     <div className="col-span-2 flex items-center gap-3">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <p>
-                            {formatScheduledDate(session.scheduled_start)}
-                        </p>
+                        <p>{formatScheduledDate(session.scheduled_start)}</p>
                     </div>
                     <div className="flex items-center gap-3">
                         <Clock className="h-4 w-4 text-muted-foreground" />
                         <p>
-                            {formatScheduledTime(session.scheduled_start)}{' '}
-                            – {formatScheduledTime(session.scheduled_end)}
+                            {formatScheduledTime(session.scheduled_start)} –{' '}
+                            {formatScheduledTime(session.scheduled_end)}
                         </p>
                     </div>
                     <div className="flex items-center gap-3">

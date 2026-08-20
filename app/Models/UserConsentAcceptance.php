@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\UserConsentAcceptanceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['document_id', 'user_id', 'accepted_at', 'revoked_at', 'is_revoked'])]
 class UserConsentAcceptance extends Model
 {
-    /** @use HasFactory<\Database\Factories\UserConsentAcceptanceFactory> */
+    /** @use HasFactory<UserConsentAcceptanceFactory> */
     use HasFactory;
 
     protected function casts(): array

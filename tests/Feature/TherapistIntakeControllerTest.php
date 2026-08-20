@@ -147,3 +147,121 @@ test('ScheduleMatcher reports none, partial, and full overlap levels', function 
     $full = ScheduleMatcher::match(['Monday'], ['Mornings (8am-11am)'], $availability);
     expect($full['matchLevel'])->toBe('full');
 });
+
+/**
+ * Phase 18 — before this index existed, the therapist dashboard was the only
+ * route to an assigned review, and it applies an extra
+ * `latestHistoryStatus() === 'sent'` filter. Anything that filter hid was
+ * unreachable.
+ *
+ * @see tasks/18-scheduling-conflicts-review-queue-authorization.md
+ */
+test('the review index lists intakes assigned to this therapist only', function () {
+    $therapist = therapistUser();
+    $other = therapistUser();
+
+    $mine = Intake::factory()->create();
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $mine->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'pending',
+    ]);
+
+    $theirs = Intake::factory()->create();
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $theirs->id,
+        'therapist_id' => $other->id,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($therapist)->get('/therapist/intake')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('therapist/intake/index')
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $mine->id)
+        );
+});
+
+test('the review index shows assignments the dashboard sent-filter would hide', function () {
+    $therapist = therapistUser();
+
+    $intake = Intake::factory()->create();
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'pending',
+    ]);
+
+    // No IntakeTherapistApprovalHistory row at all, so latestHistoryStatus()
+    // is null and the dashboard block would drop this intake entirely.
+    $this->actingAs($therapist)->get('/therapist/intake')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $intake->id)
+        );
+});
+
+test('the review index separates awaiting-me from decided', function () {
+    $therapist = therapistUser();
+
+    $awaiting = Intake::factory()->create();
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $awaiting->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'pending',
+    ]);
+
+    $decided = Intake::factory()->create();
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $decided->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs($therapist)->get('/therapist/intake?status=pending')
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $awaiting->id)
+        );
+
+    $this->actingAs($therapist)->get('/therapist/intake?status=decided')
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $decided->id)
+        );
+
+    $this->actingAs($therapist)->get('/therapist/intake?status=all')
+        ->assertInertia(fn ($page) => $page->has('intakes.data', 2));
+});
+
+test('the review index can be searched by child name', function () {
+    $therapist = therapistUser();
+
+    $match = Intake::factory()->create(['child_first_name' => 'Zephyr']);
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $match->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'pending',
+    ]);
+
+    $miss = Intake::factory()->create(['child_first_name' => 'Aurora']);
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $miss->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($therapist)->get('/therapist/intake?search=Zephyr')
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $match->id)
+        );
+});
+
+test('a client cannot reach the therapist review index', function () {
+    $this->actingAs(clientWithUser()->user)
+        ->get('/therapist/intake')
+        ->assertRedirect('/client/calendar');
+});

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\MessageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['sender_id', 'recipient_id', 'subject', 'body', 'is_read', 'sent_at'])]
 class Message extends Model
 {
-    /** @use HasFactory<\Database\Factories\MessageFactory> */
+    /** @use HasFactory<MessageFactory> */
     use HasFactory;
 
     protected function casts(): array

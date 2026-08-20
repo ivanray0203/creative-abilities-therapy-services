@@ -40,9 +40,8 @@ export default function DeleteCareerModal({
                 </DialogHeader>
 
                 <p className="text-sm text-muted-foreground">
-                    Are you sure you want to delete{' '}
-                    <strong>{position}</strong>? This action can&apos;t be
-                    reversed.
+                    Are you sure you want to delete <strong>{position}</strong>?
+                    This action can&apos;t be reversed.
                 </p>
 
                 <DialogFooter className="mt-6">

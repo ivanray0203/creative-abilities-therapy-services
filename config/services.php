@@ -45,10 +45,19 @@ return [
     | fall back to local disk storage (GoogleDriveService binding). Outbound
     | mail is plain SMTP (config/mail.php) through the Mailcow-provisioned
     | mailbox — no separate Gmail API transport.
+    |
+    | Google Drive authenticates via OAuth as a real Google account (not a
+    | service account — those have no storage quota outside a Shared Drive,
+    | which requires Google Workspace). client_id/client_secret come from an
+    | OAuth Client ID created in Google Cloud Console; the refresh token is
+    | obtained once via Admin\GoogleDriveConnectionController and cached at
+    | token_path.
     */
 
     'google_drive' => [
-        'credentials_path' => env('GOOGLE_DRIVE_CREDENTIALS_PATH'),
+        'client_id' => env('GOOGLE_DRIVE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_DRIVE_CLIENT_SECRET'),
+        'token_path' => storage_path('app/google-drive-token.json'),
         'shared_drive_id' => env('SHARED_DRIVE_ID'),
     ],
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\ContactFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable(['contact'])]
 class Contact extends Model
 {
-    /** @use HasFactory<\Database\Factories\ContactFactory> */
+    /** @use HasFactory<ContactFactory> */
     use HasFactory;
 
     protected function casts(): array

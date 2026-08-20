@@ -17,5 +17,11 @@ interface DriveStorage
      */
     public function upload(UploadedFile $file, string $targetType, string $targetName): array;
 
+    /**
+     * The raw bytes of a stored file, so the app can serve it under its own
+     * origin. Null when the file cannot be read.
+     */
+    public function get(string $fileId): ?string;
+
     public function delete(?string $fileId): void;
 }

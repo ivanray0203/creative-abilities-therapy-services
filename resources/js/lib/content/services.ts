@@ -11,11 +11,31 @@ export interface JourneyStep {
 }
 
 export const Journey: JourneyStep[] = [
-    { id: 1, title: 'Intake', desc: 'Complete out online form', icon: 'ReceiptText' },
-    { id: 2, title: 'Observation', desc: 'Informal Assesment', icon: 'CheckCircle' },
-    { id: 3, title: 'Plan', desc: 'Individualizes service plan', icon: 'GraduationCap' },
+    {
+        id: 1,
+        title: 'Intake',
+        desc: 'Complete out online form',
+        icon: 'ReceiptText',
+    },
+    {
+        id: 2,
+        title: 'Observation',
+        desc: 'Informal Assesment',
+        icon: 'CheckCircle',
+    },
+    {
+        id: 3,
+        title: 'Plan',
+        desc: 'Individualizes service plan',
+        icon: 'GraduationCap',
+    },
     { id: 4, title: 'Therapy', desc: 'Regular sessions begin', icon: 'Heart' },
-    { id: 5, title: 'Progress', desc: 'Ongoing review & growth', icon: 'Sparkle' },
+    {
+        id: 5,
+        title: 'Progress',
+        desc: 'Ongoing review & growth',
+        icon: 'Sparkle',
+    },
 ];
 
 export interface RegulatedBody {
@@ -26,10 +46,30 @@ export interface RegulatedBody {
 }
 
 export const Regulated: RegulatedBody[] = [
-    { id: 1, title: 'ACSLPA', desc: 'Alberta College of Speech-Language Pathologists', icon: 'Activity' },
-    { id: 2, title: 'CAP', desc: 'College of Alberta Psychologists', icon: 'MessageCircle' },
-    { id: 3, title: 'ACOT', desc: 'Alberta College of Occupational Therapists', icon: 'Brain' },
-    { id: 4, title: 'CPTA', desc: 'College of Physiotherapist of Alberta ', icon: 'Heart' },
+    {
+        id: 1,
+        title: 'ACSLPA',
+        desc: 'Alberta College of Speech-Language Pathologists',
+        icon: 'Activity',
+    },
+    {
+        id: 2,
+        title: 'CAP',
+        desc: 'College of Alberta Psychologists',
+        icon: 'MessageCircle',
+    },
+    {
+        id: 3,
+        title: 'ACOT',
+        desc: 'Alberta College of Occupational Therapists',
+        icon: 'Brain',
+    },
+    {
+        id: 4,
+        title: 'CPTA',
+        desc: 'College of Physiotherapist of Alberta ',
+        icon: 'Heart',
+    },
 ];
 
 export interface FundingSourceInfo {
@@ -50,7 +90,8 @@ export const Funding: FundingSourceInfo[] = [
         id: 2,
         title: 'Private Insurance',
         desc: 'Most extended health benefit plans cover therapy services with proper documentation.',
-        sub_desc: 'We provide detailed invoices for insurance submission and direct billing when available.',
+        sub_desc:
+            'We provide detailed invoices for insurance submission and direct billing when available.',
     },
 ];
 
@@ -63,10 +104,34 @@ export interface ResourceLink {
 }
 
 export const Resources: ResourceLink[] = [
-    { id: 1, title: 'Services Brochure', desc: 'Complete overview of all therapy services', path: '/assets', icon: 'ReceiptText' },
-    { id: 2, title: 'Intake Guide', desc: 'What to expect during intake', path: '/assets', icon: 'CircleCheck' },
-    { id: 3, title: 'FSCD Application Help', desc: 'Step-by-step funding guide', path: '/assets', icon: 'GraduationCap' },
-    { id: 4, title: 'Parent Resources', desc: 'Tips for supporting your child', path: '/assets', icon: 'Heart' },
+    {
+        id: 1,
+        title: 'Services Brochure',
+        desc: 'Complete overview of all therapy services',
+        path: '/assets',
+        icon: 'ReceiptText',
+    },
+    {
+        id: 2,
+        title: 'Intake Guide',
+        desc: 'What to expect during intake',
+        path: '/assets',
+        icon: 'CircleCheck',
+    },
+    {
+        id: 3,
+        title: 'FSCD Application Help',
+        desc: 'Step-by-step funding guide',
+        path: '/assets',
+        icon: 'GraduationCap',
+    },
+    {
+        id: 4,
+        title: 'Parent Resources',
+        desc: 'Tips for supporting your child',
+        path: '/assets',
+        icon: 'Heart',
+    },
 ];
 
 export interface WhyPoint {

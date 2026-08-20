@@ -11,7 +11,12 @@ use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ClientContext;
+use App\Services\SessionNotifier;
+use Carbon\CarbonInterface;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -60,7 +65,7 @@ class SessionController extends Controller
             });
 
         $sessions = (clone $filtered)
-            ->with(['client.originalIntake', 'therapist', 'service'])
+            ->with(['client.originalIntake', 'therapist', 'service', 'clientServices.service'])
             ->orderBy('scheduled_start')
             ->paginate(20)
             ->withQueryString();
@@ -85,17 +90,30 @@ class SessionController extends Controller
             'isAdmin' => $isAdmin,
             'therapists' => $isAdmin ? $this->therapists() : [],
             'services' => $this->services(),
-            'clients' => $this->clientOptions(),
+            'clients' => $this->clientOptions($user),
         ]);
     }
 
     public function create(Request $request): Response
     {
+        $clients = $this->clientOptions($request->user());
+
+        /*
+         * The caseload page links here per client. Only honour the hint when
+         * that client is genuinely selectable — otherwise the form would open
+         * showing a name that isn't in its own dropdown.
+         */
+        $requestedClientId = $request->integer('client_id');
+        $preselectedClientId = $clients->contains('id', $requestedClientId)
+            ? $requestedClientId
+            : null;
+
         return Inertia::render('sessions/create', [
             'isAdmin' => $request->user()->isAdmin(),
             'therapists' => $request->user()->isAdmin() ? $this->therapists() : [],
             'services' => $this->services(),
-            'clients' => $this->clientOptions(),
+            'clients' => $clients,
+            'preselectedClientId' => $preselectedClientId,
         ]);
     }
 
@@ -110,7 +128,11 @@ class SessionController extends Controller
             'status' => 'scheduled',
         ]);
 
+        $session->clientServices()->sync($this->linkedClientServiceIds($validated));
+
         AuditLogger::log('Scheduled session', 'System', "Scheduled session #{$session->id}");
+
+        SessionNotifier::scheduled($session);
 
         return to_route($this->routeName($request, 'sessions.index'))->with('success', 'Session scheduled successfully.');
     }
@@ -120,11 +142,11 @@ class SessionController extends Controller
         $this->assertOwnsOrAdmin($session, $request->user());
 
         return Inertia::render('sessions/edit', [
-            'session' => $session,
+            'session' => $session->load('clientServices:id'),
             'isAdmin' => $request->user()->isAdmin(),
             'therapists' => $request->user()->isAdmin() ? $this->therapists() : [],
             'services' => $this->services(),
-            'clients' => $this->clientOptions(),
+            'clients' => $this->clientOptions($request->user(), $session),
         ]);
     }
 
@@ -135,12 +157,20 @@ class SessionController extends Controller
         $validated = $request->validated();
         $therapistId = $request->user()->isAdmin() ? (int) $validated['therapist_id'] : $session->therapist_id;
 
+        $previousStart = $session->scheduled_start;
+
         $session->update([
             ...$this->scheduleAttributes($validated),
             'therapist_id' => $therapistId,
         ]);
 
+        $session->clientServices()->sync($this->linkedClientServiceIds($validated));
+
         AuditLogger::log('Updated session', 'System', "Updated session #{$session->id}");
+
+        if ($this->wasRescheduled($session, $previousStart)) {
+            SessionNotifier::rescheduled($session, $previousStart);
+        }
 
         return to_route($this->routeName($request, 'sessions.index'))->with('success', 'Session updated successfully.');
     }
@@ -170,6 +200,8 @@ class SessionController extends Controller
         ]);
 
         AuditLogger::log('Cancelled session', 'System', "Cancelled session #{$session->id}", 'warning');
+
+        SessionNotifier::cancelled($session);
 
         return back()->with('success', 'Session cancelled.');
     }
@@ -222,7 +254,7 @@ class SessionController extends Controller
      * No dedicated start/end action exists in the reference either — it's a
      * raw PATCH from the frontend. Kept as small dedicated actions here
      * rather than folding into update()/UpdateSessionRequest, which
-     * validates date/duration/location fields irrelevant to a status flip.
+     * validates date/time/location fields irrelevant to a status flip.
      */
     public function startSession(Request $request, ScheduleSession $session): RedirectResponse
     {
@@ -280,10 +312,25 @@ class SessionController extends Controller
             'role' => ['required', 'in:client,therapist'],
         ]);
 
-        $column = $validated['role'] === 'client' ? 'client_id' : 'therapist_id';
+        $user = $request->user();
+        $subjectId = (int) $validated['user_id'];
+
+        if ($validated['role'] === 'client') {
+            $this->assertCanReadClientDiary($user, $subjectId);
+            $column = 'client_id';
+        } else {
+            $this->assertCanReadTherapistDiary($user, $subjectId);
+            $column = 'therapist_id';
+        }
 
         return response()->json(
-            ScheduleSession::query()->where($column, $validated['user_id'])->orderBy('scheduled_start')->get(),
+            ScheduleSession::query()
+                ->where($column, $subjectId)
+                // The complaint and invoice session pickers label each option
+                // with every service the visit covers.
+                ->with(['service', 'clientServices.service'])
+                ->orderBy('scheduled_start')
+                ->get(),
         );
     }
 
@@ -294,6 +341,8 @@ class SessionController extends Controller
             'service_id' => ['required', 'integer'],
         ]);
 
+        $this->assertCanReadClientDiary($request->user(), (int) $validated['user_id']);
+
         return response()->json(
             ScheduleSession::query()
                 ->where('client_id', $validated['user_id'])
@@ -303,11 +352,12 @@ class SessionController extends Controller
         );
     }
 
-    public function byClientService(ClientService $clientService): JsonResponse
+    public function byClientService(Request $request, ClientService $clientService): JsonResponse
     {
+        $this->assertCanReadClientDiary($request->user(), (int) $clientService->client_id);
+
         return response()->json(
-            ScheduleSession::query()
-                ->where('linked_client_service_id', $clientService->id)
+            $clientService->sessions()
                 ->orderBy('scheduled_start')
                 ->get(),
         );
@@ -331,8 +381,7 @@ class SessionController extends Controller
         $search = trim((string) $request->query('search', ''));
         $status = (string) $request->query('status', 'all');
 
-        $sessions = ScheduleSession::query()
-            ->where('linked_client_service_id', $clientService->id)
+        $sessions = $clientService->sessions()
             ->with('therapist')
             ->when($status !== 'all', fn (Builder $query) => $query->where('status', $status))
             ->when($search !== '', fn (Builder $query) => $query->where('location', 'like', "%{$search}%"))
@@ -348,39 +397,80 @@ class SessionController extends Controller
         ]);
     }
 
-    private function assertOwnsOrAdmin(ScheduleSession $session, User $user): void
-    {
-        if (! $user->isAdmin() && $session->therapist_id !== $user->id) {
-            abort(404);
-        }
-    }
-
-    private function assertOwnsAsClient(ScheduleSession $session, User $user): void
-    {
-        if ($session->client_id !== $user->clientProfile?->id) {
-            abort(404);
-        }
-    }
+    /*
+     * The rules themselves live in ScheduleSessionPolicy (Phase 18). These
+     * wrappers stay so call sites read the same, and so a denial keeps
+     * returning 404 rather than the 403 `authorize()` would raise — this app
+     * deliberately doesn't confirm that someone else's record exists.
+     */
 
     /**
-     * Admin can act on any session; a therapist or client may only act on a
-     * session they're actually part of.
+     * These lookup endpoints take an id straight from the query string, so
+     * the role guard alone would let any therapist read another's caseload —
+     * and any parent read another family's diary. Ownership has to be
+     * checked against the caller, not just their role.
      */
-    private function assertParticipant(ScheduleSession $session, User $user): void
+    private function assertCanReadClientDiary(User $user, int $clientId): void
     {
         if ($user->isAdmin()) {
             return;
         }
 
-        if ($user->isTherapist() && $session->therapist_id === $user->id) {
+        if ($user->isTherapist()) {
+            abort_unless(
+                Client::query()->whereKey($clientId)->forTherapist($user->id)->exists(),
+                404,
+            );
+
             return;
         }
 
-        if ($user->isClient() && $session->client_id === $user->clientProfile?->id) {
-            return;
+        abort_unless(app(ClientContext::class)->owns($user, $clientId), 404);
+    }
+
+    private function assertCanReadTherapistDiary(User $user, int $therapistId): void
+    {
+        // A therapist may only read their own diary; a parent, none at all.
+        abort_unless(
+            $user->isAdmin() || ($user->isTherapist() && $user->id === $therapistId),
+            404,
+        );
+    }
+
+    private function assertOwnsOrAdmin(ScheduleSession $session, User $user): void
+    {
+        abort_unless($user->can('manage', $session), 404);
+    }
+
+    private function assertOwnsAsClient(ScheduleSession $session, User $user): void
+    {
+        abort_unless($user->can('verify', $session), 404);
+    }
+
+    private function assertParticipant(ScheduleSession $session, User $user): void
+    {
+        abort_unless($user->can('dispute', $session), 404);
+    }
+
+    /**
+     * `update()` also handles edits that leave the appointment where it is —
+     * retitling the notes, relinking a service. Only a genuine move of the
+     * start time, or a handover to a different therapist, is worth emailing
+     * the parent about; anything looser turns every save into inbox noise.
+     */
+    private function wasRescheduled(ScheduleSession $session, ?CarbonInterface $previousStart): bool
+    {
+        if ($session->wasChanged('therapist_id')) {
+            return true;
         }
 
-        abort(404);
+        $currentStart = $session->scheduled_start;
+
+        if ($previousStart === null || $currentStart === null) {
+            return $previousStart !== $currentStart;
+        }
+
+        return ! $previousStart->equalTo($currentStart);
     }
 
     /**
@@ -390,25 +480,67 @@ class SessionController extends Controller
     private function scheduleAttributes(array $validated): array
     {
         $start = Carbon::parse("{$validated['date']} {$validated['start_time']}");
-        $minutes = $this->durationMinutes($validated['duration']);
+        $end = Carbon::parse("{$validated['date']} {$validated['end_time']}");
+        $linkedIds = $this->linkedClientServiceIds($validated);
 
         return [
             'client_id' => $validated['client_id'],
-            'linked_client_service_id' => $validated['linked_client_service_id'] ?? null,
-            'service_id' => $validated['service_id'] ?? null,
+            'service_id' => $validated['service_id'] ?? $this->leadServiceIdOf($linkedIds),
             'location' => $validated['location'] ?? null,
-            'duration' => $validated['duration'],
+            // Still stored, just derived rather than picked: ClientProgress
+            // and the session emails both read it.
+            'duration' => (int) $start->diffInMinutes($end),
             'notes' => $validated['notes'] ?? null,
             'scheduled_start' => $start,
-            'scheduled_end' => (clone $start)->addMinutes($minutes),
+            'scheduled_end' => $end,
         ];
     }
 
-    private function durationMinutes(string $duration): int
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<int, int>
+     */
+    private function linkedClientServiceIds(array $validated): array
     {
-        preg_match('/\d+/', $duration, $matches);
+        $ids = $validated['linked_client_service_ids'] ?? [];
 
-        return isset($matches[0]) ? (int) $matches[0] : 60;
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        $unique = [];
+
+        foreach ($ids as $id) {
+            $unique[(int) $id] = true;
+        }
+
+        return array_keys($unique);
+    }
+
+    /**
+     * A session covering several availed services still carries one
+     * `service_id`, used by the list filters and as the invoice fallback, so
+     * the first one picked stands for the visit. Therapists don't get a
+     * separate "Service" field — the availed services they chose already say
+     * what's being delivered — so it's resolved here rather than posted.
+     *
+     * @param  array<int, int>  $clientServiceIds
+     */
+    private function leadServiceIdOf(array $clientServiceIds): ?int
+    {
+        if ($clientServiceIds === []) {
+            return null;
+        }
+
+        $services = ClientService::query()->findMany($clientServiceIds)->keyBy('id');
+
+        foreach ($clientServiceIds as $id) {
+            if ($services->has($id)) {
+                return $services->get($id)->service_id;
+            }
+        }
+
+        return null;
     }
 
     private function routeName(Request $request, string $suffix): string
@@ -439,13 +571,75 @@ class SessionController extends Controller
     }
 
     /**
+     * Clients selectable in the session form.
+     *
+     * Therapists only ever see their own caseload — the matching server-side
+     * guard lives in StoreSessionRequest so a hand-crafted `client_id` can't
+     * bypass it — and within that, only the clients who still have an availed
+     * service of theirs left to book. A child whose services under this
+     * therapist have all been scheduled (or already delivered) drops off the
+     * list, while the same child stays visible to another therapist holding
+     * an unscheduled service for them.
+     *
+     * The session being edited is always kept in the list, otherwise
+     * reopening a booked session would render an empty client field.
+     *
      * @return Collection<int, Client>
      */
-    private function clientOptions(): Collection
+    private function clientOptions(User $user, ?ScheduleSession $session = null): Collection
     {
+        $isAdmin = $user->isAdmin();
+
+        $bookableClientIds = ClientService::query()
+            ->select('client_id')
+            ->where('therapist_id', $user->id)
+            ->awaitingSchedule();
+
         return Client::query()
-            ->with('originalIntake:id,child_first_name,child_last_name,available_days,preferred_times')
-            ->get(['id', 'original_intake_id'])
-            ->load('clientServices.service');
+            ->when(! $isAdmin, function (Builder $query) use ($bookableClientIds, $user, $session): void {
+                $query->forTherapist($user->id)
+                    ->where(function (Builder $selectable) use ($bookableClientIds, $session): void {
+                        $selectable->whereIn('clients.id', $bookableClientIds);
+
+                        if ($session?->client_id !== null) {
+                            $selectable->orWhere('clients.id', $session->client_id);
+                        }
+                    });
+            })
+            ->with([
+                'originalIntake:id,child_first_name,child_last_name,available_days,preferred_times',
+                'clientServices' => $this->selectableClientServices($user, $session),
+            ])
+            ->get(['id', 'original_intake_id']);
+    }
+
+    /**
+     * Eager-load constraint keeping the form's "Client Service" dropdown in
+     * step with the client one: a therapist only picks from their own availed
+     * services that are still awaiting a booking, plus whichever ones the
+     * session being edited is already linked to.
+     *
+     * @return Closure(Relation<*, *, *>): void
+     */
+    private function selectableClientServices(User $user, ?ScheduleSession $session): Closure
+    {
+        $bookableIds = ClientService::query()->select('id')->awaitingSchedule();
+
+        $alreadyLinkedIds = $session?->clientServices()->pluck('client_services.id')->all() ?? [];
+
+        if ($alreadyLinkedIds !== []) {
+            $bookableIds->orWhereIn('id', $alreadyLinkedIds);
+        }
+
+        return function (Relation $services) use ($bookableIds, $user): void {
+            $services->with('service');
+
+            if ($user->isAdmin()) {
+                return;
+            }
+
+            $services->where('therapist_id', $user->id)
+                ->whereIn('client_services.id', $bookableIds);
+        };
     }
 }

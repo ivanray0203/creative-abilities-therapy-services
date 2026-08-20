@@ -14,12 +14,18 @@ export default function CookieConsent() {
         const consent = localStorage.getItem('cookieConsent');
 
         if (!consent) {
+            // localStorage only exists client-side, so this can't be computed during render (SSR) —
+            // an effect is the correct place to read it.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setShowBanner(true);
         }
     }, []);
 
     const handleConsent = (accepted: boolean) => {
-        localStorage.setItem('cookieConsent', accepted ? 'accepted' : 'declined');
+        localStorage.setItem(
+            'cookieConsent',
+            accepted ? 'accepted' : 'declined',
+        );
 
         if (!accepted) {
             localStorage.clear();
@@ -36,7 +42,9 @@ export default function CookieConsent() {
             }
 
             if ('caches' in window) {
-                caches.keys().then((keys) => keys.forEach((key) => caches.delete(key)));
+                caches
+                    .keys()
+                    .then((keys) => keys.forEach((key) => caches.delete(key)));
             }
         }
 
@@ -62,18 +70,31 @@ export default function CookieConsent() {
             </h1>
 
             <p className="text-sm text-gray-800 sm:text-base">
-                We use cookies to ensure our website works properly and to improve your experience. By clicking "Accept", you agree to
-                our use of cookies.{' '}
-                <a href="/cookiepolicy" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                We use cookies to ensure our website works properly and to
+                improve your experience. By clicking "Accept", you agree to our
+                use of cookies.{' '}
+                <a
+                    href="/cookiepolicy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline"
+                >
                     Learn more
                 </a>
             </p>
 
             <div className="flex flex-wrap justify-end gap-3">
-                <Button variant="outline" className="rounded-[5px] border-primary text-primary" onClick={() => handleConsent(false)}>
+                <Button
+                    variant="outline"
+                    className="rounded-[5px] border-primary text-primary"
+                    onClick={() => handleConsent(false)}
+                >
                     Decline
                 </Button>
-                <Button className="rounded-[5px] bg-primary text-white" onClick={() => handleConsent(true)}>
+                <Button
+                    className="rounded-[5px] bg-primary text-white"
+                    onClick={() => handleConsent(true)}
+                >
                     Accept
                 </Button>
             </div>

@@ -98,7 +98,9 @@ export default function TherapistIntakeShow({
 
     return (
         <>
-            <Head title={`${intake.child_first_name} ${intake.child_last_name}`} />
+            <Head
+                title={`${intake.child_first_name} ${intake.child_last_name}`}
+            />
 
             <div className="space-y-4 p-2 md:p-6">
                 <div className="flex items-center justify-between">
@@ -106,8 +108,7 @@ export default function TherapistIntakeShow({
                         href="/therapist"
                         className="hidden items-center gap-2 text-sm text-muted-foreground hover:text-foreground md:flex"
                     >
-                        <ArrowLeftIcon className="h-4 w-4" /> Back to
-                        Dashboard
+                        <ArrowLeftIcon className="h-4 w-4" /> Back to Dashboard
                     </Link>
                     {pendingReviews.length > 0 && (
                         <Badge className="rounded-[5px] bg-yellow-100 text-yellow-800">
@@ -169,12 +170,13 @@ export default function TherapistIntakeShow({
                                 >
                                     {matchStyle.label}
                                 </p>
-                                <p className={`mt-1 text-xs ${matchStyle.text}`}>
+                                <p
+                                    className={`mt-1 text-xs ${matchStyle.text}`}
+                                >
                                     {scheduleMatch.matchLevel === 'none' &&
                                         'No alignment found'}
                                     {scheduleMatch.matchLevel !== 'none' &&
-                                        scheduleMatch.matched_days.length >
-                                            0 &&
+                                        scheduleMatch.matched_days.length > 0 &&
                                         `Aligned: ${scheduleMatch.matched_days.join(', ')}`}
                                 </p>
                             </div>
@@ -204,8 +206,7 @@ export default function TherapistIntakeShow({
                             <Heart className="h-6 w-6 text-cyan-800" />
                             <div>
                                 <p className="text-sm text-muted-foreground">
-                                    Your Assigned Services vs Your
-                                    Specialties:
+                                    Your Assigned Services vs Your Specialties:
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     {myServices.map((service) => {
@@ -254,8 +255,8 @@ export default function TherapistIntakeShow({
                             <Card className="rounded-[10px]">
                                 <CardContent className="p-5">
                                     <p className="flex items-center gap-3">
-                                        <User className="text-cyan-600" />{' '}
-                                        Child Information
+                                        <User className="text-cyan-600" /> Child
+                                        Information
                                     </p>
                                     <div className="mt-10 grid grid-cols-2 gap-5">
                                         <div>
@@ -334,15 +335,11 @@ export default function TherapistIntakeShow({
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <Mail className="h-4 w-4 text-muted-foreground" />
-                                            <p>
-                                                {intake.primary_parent_email}
-                                            </p>
+                                            <p>{intake.primary_parent_email}</p>
                                         </div>
                                         <div className="flex items-center gap-3">
                                             <Phone className="h-4 w-4 text-muted-foreground" />
-                                            <p>
-                                                {intake.primary_parent_phone}
-                                            </p>
+                                            <p>{intake.primary_parent_phone}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -362,16 +359,14 @@ export default function TherapistIntakeShow({
                                         </p>
                                         <div className="mt-3 flex flex-wrap gap-3">
                                             {intake.diagnosis?.length ? (
-                                                intake.diagnosis.map(
-                                                    (diag) => (
-                                                        <p
-                                                            key={diag}
-                                                            className="rounded-[5px] bg-gray-500 p-1 text-sm text-white"
-                                                        >
-                                                            {diag}
-                                                        </p>
-                                                    ),
-                                                )
+                                                intake.diagnosis.map((diag) => (
+                                                    <p
+                                                        key={diag}
+                                                        className="rounded-[5px] bg-gray-500 p-1 text-sm text-white"
+                                                    >
+                                                        {diag}
+                                                    </p>
+                                                ))
                                             ) : (
                                                 <p className="text-sm text-muted-foreground">
                                                     No diagnosis
@@ -479,7 +474,9 @@ export default function TherapistIntakeShow({
                                                                 detail.therapist_from
                                                             }
                                                             –
-                                                            {detail.therapist_to}
+                                                            {
+                                                                detail.therapist_to
+                                                            }
                                                             )
                                                         </div>
                                                     ),

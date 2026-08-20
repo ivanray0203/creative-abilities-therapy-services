@@ -45,24 +45,42 @@ export const tempServices: FallbackService[] = [
         duration_minutes: 60,
         base_price: 120,
         is_active: true,
-        benefits: ['Improved daily functioning', 'Enhanced independence', 'Better quality of life'],
+        benefits: [
+            'Improved daily functioning',
+            'Enhanced independence',
+            'Better quality of life',
+        ],
         offerings: ['In-person sessions', 'Telehealth sessions', 'Home visits'],
-        approaches: ['Personalized activity-based therapy', 'Adaptive techniques', 'Goal-oriented exercises'],
-        outcomes: ['Increased independence', 'Enhanced motor skills', 'Improved self-confidence'],
+        approaches: [
+            'Personalized activity-based therapy',
+            'Adaptive techniques',
+            'Goal-oriented exercises',
+        ],
+        outcomes: [
+            'Increased independence',
+            'Enhanced motor skills',
+            'Improved self-confidence',
+        ],
         ages: '4-18 years',
-        signs_to_look_for: 'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
-        conditions: 'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
+        signs_to_look_for:
+            'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
+        conditions:
+            'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
         frequency: '1-2 sessions/months',
         location: 'Home/Community',
-        tags: ['Sensory Processing', 'Fine Motor Skills', 'Self-Care', 'Daily-Living'],
+        tags: [
+            'Sensory Processing',
+            'Fine Motor Skills',
+            'Self-Care',
+            'Daily-Living',
+        ],
         main_tag: 'ACOT Regulated',
         duration: '45-60 min',
         description_highlight: null,
         area_of_focus: [
             {
                 title: 'Sensory Processing',
-                desc:
-                    'Helping children understand, organize, and respond to sensory information in their environment so they feel regulated and ready to participate.Fine Motor Skills: Building hand strength, coordination, and control for activities like',
+                desc: 'Helping children understand, organize, and respond to sensory information in their environment so they feel regulated and ready to participate.Fine Motor Skills: Building hand strength, coordination, and control for activities like',
             },
             {
                 title: 'Fine Motor Skills',
@@ -70,8 +88,7 @@ export const tempServices: FallbackService[] = [
             },
             {
                 title: 'Adaptive Skills',
-                desc:
-                    'Helping children develop independence in daily activities such as dressing, play, writing, cutting, sensory regulation, toilet training, and feeding. We support children in learning routines and self-help skills that build confidence and independence in everyday tasks.',
+                desc: 'Helping children develop independence in daily activities such as dressing, play, writing, cutting, sensory regulation, toilet training, and feeding. We support children in learning routines and self-help skills that build confidence and independence in everyday tasks.',
             },
         ],
     },
@@ -79,22 +96,42 @@ export const tempServices: FallbackService[] = [
         id: 2,
         name: 'Speech-Language Therapy Services',
         code: 'SLTS-202',
-        short_description: 'Restores mobility and function through movement and exercises.',
+        short_description:
+            'Restores mobility and function through movement and exercises.',
         description:
             'Our Speech Language Pathologists (SLPs) provide individualized therapy to help children build strong communication and oral motor skills. We support children with speech sounds, understanding and using language, social communication, and feeding or swallowing concerns related to oral motor skills.',
         duration_minutes: 45,
         base_price: 100,
         is_active: true,
         benefits: ['Reduced pain', 'Improved mobility', 'Faster recovery'],
-        offerings: ['One-on-one sessions', 'Group therapy', 'Telehealth consultations'],
-        approaches: ['Manual therapy', 'Strength training', 'Stretching and mobility exercises'],
-        outcomes: ['Pain reduction', 'Enhanced mobility', 'Improved posture and balance'],
+        offerings: [
+            'One-on-one sessions',
+            'Group therapy',
+            'Telehealth consultations',
+        ],
+        approaches: [
+            'Manual therapy',
+            'Strength training',
+            'Stretching and mobility exercises',
+        ],
+        outcomes: [
+            'Pain reduction',
+            'Enhanced mobility',
+            'Improved posture and balance',
+        ],
         ages: '4-18 years',
-        signs_to_look_for: 'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
-        conditions: 'Speech delays, language disorders, articulation challenges, stuttering, autism spectrum, hearing impairments',
+        signs_to_look_for:
+            'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
+        conditions:
+            'Speech delays, language disorders, articulation challenges, stuttering, autism spectrum, hearing impairments',
         frequency: '1-2 sessions/months',
         location: 'Home/Community/Online',
-        tags: ['Articulation', 'Language Development', 'Social Communication', 'Swallowing'],
+        tags: [
+            'Articulation',
+            'Language Development',
+            'Social Communication',
+            'Swallowing',
+        ],
         main_tag: 'ACSLPA Registered',
         duration: '60-90min',
         description_highlight: null,
@@ -117,22 +154,42 @@ export const tempServices: FallbackService[] = [
         id: 3,
         name: 'Physiotherapy',
         code: 'P-303',
-        short_description: 'Improves communication, speech, and swallowing functions.',
+        short_description:
+            'Improves communication, speech, and swallowing functions.',
         description:
             'Our Physiotherapists (PTs) work with children to improve movement, balance, and coordination. With personalized exercises and interventions, we help children gain physical strength and functional mobility. Our physiotherapy services also support gross motor development, strength, balance, coordination, and mobility, including walking, running, and wheelchair use.',
         duration_minutes: 30,
         base_price: 90,
         is_active: true,
-        benefits: ['Better communication skills', 'Enhanced social interaction', 'Improved swallowing function'],
+        benefits: [
+            'Better communication skills',
+            'Enhanced social interaction',
+            'Improved swallowing function',
+        ],
         offerings: ['In-person sessions', 'Online therapy', 'Parent coaching'],
-        approaches: ['Articulation exercises', 'Language therapy', 'Swallowing therapy'],
-        outcomes: ['Clearer speech', 'Improved language comprehension', 'Better feeding and swallowing'],
+        approaches: [
+            'Articulation exercises',
+            'Language therapy',
+            'Swallowing therapy',
+        ],
+        outcomes: [
+            'Clearer speech',
+            'Improved language comprehension',
+            'Better feeding and swallowing',
+        ],
         ages: '4-18 years',
-        signs_to_look_for: 'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
-        conditions: 'Cerebral palsy, muscular dystrophy, developmental coordination disorder, sports injuries, postural issues',
+        signs_to_look_for:
+            'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
+        conditions:
+            'Cerebral palsy, muscular dystrophy, developmental coordination disorder, sports injuries, postural issues',
         frequency: '1-2 sessions/month',
         location: 'Home/Community',
-        tags: ['Gross Motor Skills', 'Balance & Coordination', 'Strength Building', 'Mobility'],
+        tags: [
+            'Gross Motor Skills',
+            'Balance & Coordination',
+            'Strength Building',
+            'Mobility',
+        ],
         main_tag: 'CPTA Registered',
         duration: '60-90 min',
         description_highlight: null,
@@ -155,30 +212,49 @@ export const tempServices: FallbackService[] = [
         id: 4,
         name: 'Behavioural Consulting, Counselling, and Psychological Services',
         code: 'BCCPS-303',
-        short_description: 'Improves communication, speech, and swallowing functions.',
+        short_description:
+            'Improves communication, speech, and swallowing functions.',
         description:
             'Our team of Behavioural Consultants, Psychologists, and Counsellors provides compassionate and individualized support for children and families experiencing emotional and behavioural challenges. We offer assessments and strategies for emotional regulation, behavior management, learning, and mental health needs. We also support children and families experiencing anxiety, stress, grief, adjustment concerns, or challenges with emotional well-being.',
         duration_minutes: 30,
         base_price: 90,
         is_active: true,
-        benefits: ['Better communication skills', 'Enhanced social interaction', 'Improved swallowing function'],
+        benefits: [
+            'Better communication skills',
+            'Enhanced social interaction',
+            'Improved swallowing function',
+        ],
         offerings: ['In-person sessions', 'Online therapy', 'Parent coaching'],
-        approaches: ['Articulation exercises', 'Language therapy', 'Swallowing therapy'],
-        outcomes: ['Clearer speech', 'Improved language comprehension', 'Better feeding and swallowing'],
+        approaches: [
+            'Articulation exercises',
+            'Language therapy',
+            'Swallowing therapy',
+        ],
+        outcomes: [
+            'Clearer speech',
+            'Improved language comprehension',
+            'Better feeding and swallowing',
+        ],
         ages: '4-18 years (and families)',
-        signs_to_look_for: 'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
-        conditions: 'ADHD, anxiety, depression, autism spectrum, ODD, trauma, behavioural challenges',
+        signs_to_look_for:
+            'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
+        conditions:
+            'ADHD, anxiety, depression, autism spectrum, ODD, trauma, behavioural challenges',
         frequency: '1-2 sessions/month',
         location: 'Home/Community/Online',
-        tags: ['Emotional Regulation', 'ADHD Support', 'Anxiety & Depression', 'Behaviour Management'],
+        tags: [
+            'Emotional Regulation',
+            'ADHD Support',
+            'Anxiety & Depression',
+            'Behaviour Management',
+        ],
         main_tag: 'CAP Registered',
         duration: '60-90 min',
         description_highlight: null,
         area_of_focus: [
             {
                 title: 'Behavioural Management',
-                desc:
-                    'We support children in developing positive behaviour strategies, improving self-control, and strengthening social interaction skills.',
+                desc: 'We support children in developing positive behaviour strategies, improving self-control, and strengthening social interaction skills.',
             },
             {
                 title: 'Emotional Regulation',
@@ -186,8 +262,7 @@ export const tempServices: FallbackService[] = [
             },
             {
                 title: 'Individual and Family Counselling',
-                desc:
-                    'We offer one-on-one counselling to support children’s emotional growth and provide family counselling to strengthen communication, connection, and overall family well-being.',
+                desc: 'We offer one-on-one counselling to support children’s emotional growth and provide family counselling to strengthen communication, connection, and overall family well-being.',
             },
         ],
     },
@@ -195,22 +270,42 @@ export const tempServices: FallbackService[] = [
         id: 5,
         name: 'Behavioural Developmental Aide Services',
         code: 'BDAS-303',
-        short_description: 'Improves communication, speech, and swallowing functions.',
+        short_description:
+            'Improves communication, speech, and swallowing functions.',
         description:
             'Our Behavioural Developmental Aides provide a nurturing and inclusive environment that supports the development of essential social, play, and daily living skills. They work closely with children in supportive settings that allow them to explore, interact, and learn through guided play and structured activities.',
         duration_minutes: 30,
         base_price: 90,
         is_active: true,
-        benefits: ['Better communication skills', 'Enhanced social interaction', 'Improved swallowing function'],
+        benefits: [
+            'Better communication skills',
+            'Enhanced social interaction',
+            'Improved swallowing function',
+        ],
         offerings: ['In-person sessions', 'Online therapy', 'Parent coaching'],
-        approaches: ['Articulation exercises', 'Language therapy', 'Swallowing therapy'],
-        outcomes: ['Clearer speech', 'Improved language comprehension', 'Better feeding and swallowing'],
+        approaches: [
+            'Articulation exercises',
+            'Language therapy',
+            'Swallowing therapy',
+        ],
+        outcomes: [
+            'Clearer speech',
+            'Improved language comprehension',
+            'Better feeding and swallowing',
+        ],
         ages: 'Ages: 4-18 years',
-        signs_to_look_for: 'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
-        conditions: 'All developmental abilities, autism spectrum, social skill challenges, play skill delays',
+        signs_to_look_for:
+            'Sensory processing disorders, developmental delays, autism spectrum, ADHD, fine motor challenges',
+        conditions:
+            'All developmental abilities, autism spectrum, social skill challenges, play skill delays',
         frequency: '3-5 sessions/week',
         location: 'Home/Community',
-        tags: ['Play-Based Learning', 'Social Skills', 'Developmental Milestones', 'Inclusive Environment'],
+        tags: [
+            'Play-Based Learning',
+            'Social Skills',
+            'Developmental Milestones',
+            'Inclusive Environment',
+        ],
         main_tag: 'Nurturing Growth',
         duration: '60-180 min',
         description_highlight: null,
@@ -229,8 +324,7 @@ export const tempServices: FallbackService[] = [
             },
             {
                 title: 'Goal-Based Support',
-                desc:
-                    "Working directly with your child under a professional's guidance to practice goals such as communication, social skills, routines, and behavior strategies.",
+                desc: "Working directly with your child under a professional's guidance to practice goals such as communication, social skills, routines, and behavior strategies.",
             },
         ],
     },

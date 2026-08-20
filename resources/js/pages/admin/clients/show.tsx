@@ -1,5 +1,5 @@
 import { Head, Link } from '@inertiajs/react';
-import { Edit, Plus, Trash, UserCog } from 'lucide-react';
+import { Edit, Plus, Printer, Trash, UserCog } from 'lucide-react';
 import { useState } from 'react';
 
 import AddClientServiceModal from '@/components/admin/add-client-service-modal';
@@ -17,11 +17,13 @@ import DeleteClientModal from '@/components/admin/delete-client-modal';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
-import type { Client, ServiceOffering } from '@/types/client';
-import type { TherapistOption } from '@/types/intake';
+import type { Client, ClientProgress, ServiceOffering } from '@/types/client';
+import type { DeclinedService, TherapistOption } from '@/types/intake';
 
 interface ClientShowProps {
     client: Client;
+    declinedServices: DeclinedService[];
+    progress: ClientProgress;
     therapists: TherapistOption[];
     services: ServiceOffering[];
 }
@@ -29,6 +31,8 @@ interface ClientShowProps {
 /** Admin client detail page, ported from cats-frontend/src/pages/admin/ClientDetailPage.tsx. */
 export default function AdminClientShow({
     client,
+    declinedServices,
+    progress,
     therapists,
     services,
 }: ClientShowProps) {
@@ -83,6 +87,20 @@ export default function AdminClientShow({
                                 <Edit /> Edit
                             </Link>
                         </Button>
+                        {/*
+                         * A file download, so a plain anchor rather than an
+                         * Inertia <Link> — a router visit would try to parse
+                         * the PDF as a page response.
+                         */}
+                        <Button
+                            variant="outline"
+                            className="rounded-[10px]"
+                            asChild
+                        >
+                            <a href={`/admin/clients/${client.id}/pdf`}>
+                                <Printer /> Export PDF
+                            </a>
+                        </Button>
                         <Button
                             variant="destructive"
                             className="rounded-[10px]"
@@ -106,7 +124,11 @@ export default function AdminClientShow({
                     </TabsList>
 
                     <TabsContent value="overview">
-                        <OverviewTab client={client} />
+                        <OverviewTab
+                            client={client}
+                            declinedServices={declinedServices}
+                            therapists={therapists}
+                        />
                     </TabsContent>
                     <TabsContent value="sessions">
                         <SessionsTab client={client} />
@@ -124,7 +146,7 @@ export default function AdminClientShow({
                         <NotesTab client={client} />
                     </TabsContent>
                     <TabsContent value="progress">
-                        <ProgressTab />
+                        <ProgressTab progress={progress} />
                     </TabsContent>
                     <TabsContent value="therapist">
                         <TherapistTab client={client} therapists={therapists} />

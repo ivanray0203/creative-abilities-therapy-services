@@ -6,22 +6,29 @@ use App\Http\Controllers\Admin\CalendarController;
 use App\Http\Controllers\Admin\CareerController as AdminCareerController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\GoogleDriveConnectionController;
 use App\Http\Controllers\Admin\IntakeController;
+use App\Http\Controllers\Admin\InvoiceServiceController;
 use App\Http\Controllers\Admin\ProfileController;
+use App\Http\Controllers\Admin\ProgramController as AdminProgramController;
 use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Admin\ServiceOfferingController;
 use App\Http\Controllers\Admin\TeamMemberController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\BillingItemController;
+use App\Http\Controllers\Client\IntakeController as ClientIntakeController;
 use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\ConsentAcceptanceController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Public\CareerApplicationController;
 use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Public\CheckEmailController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\IntakeApplicationController;
-use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\Public\ProgramController;
+use App\Http\Controllers\Public\ProgramRegistrationController;
 use App\Http\Controllers\Public\ServiceController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TherapistClientController;
@@ -36,6 +43,12 @@ Route::inertia('team', 'public/team')->name('public.team');
 Route::inertia('team/founder', 'public/founder')->name('public.founder');
 Route::get('services', [ServiceController::class, 'index'])->name('public.services');
 Route::get('servicesDetails/{service}', [ServiceController::class, 'show'])->name('public.service-detail');
+Route::get('programs', [ProgramController::class, 'index'])->name('public.programs');
+Route::get('programs/{program}', [ProgramController::class, 'show'])->name('public.program-detail');
+// Throttled like the other public write endpoints: this one is unauthenticated.
+Route::post('programs/{program}/register', [ProgramRegistrationController::class, 'store'])
+    ->middleware('throttle:10,1')
+    ->name('public.programs.register');
 Route::inertia('fscd', 'public/fscd')->name('public.fscd');
 Route::get('careers', [CareerController::class, 'index'])->name('public.careers');
 Route::get('careers/apply/{career?}', [CareerApplicationController::class, 'create'])->name('public.careers.apply');
@@ -50,7 +63,11 @@ Route::post('contacts', [ContactController::class, 'store'])->name('public.conta
 
 Route::get('intake/apply', [IntakeApplicationController::class, 'create'])->name('public.intake.create');
 Route::post('intake/apply', [IntakeApplicationController::class, 'store'])->name('public.intake.store');
-Route::get('check-email', CheckEmailController::class)->name('public.check-email');
+// Throttled: this endpoint confirms whether an address is registered, so an
+// unlimited version would let anyone enumerate clients and applicants.
+Route::get('check-email', CheckEmailController::class)
+    ->middleware('throttle:10,1')
+    ->name('public.check-email');
 
 Route::get('therapists', TherapistListController::class)->middleware('auth')->name('therapists.index');
 
@@ -71,6 +88,9 @@ Route::middleware(['auth', 'role:admin'])
     ->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
         Route::get('calendar', [CalendarController::class, 'index'])->name('admin.calendar');
+
+        Route::get('google-drive/connect', [GoogleDriveConnectionController::class, 'connect'])->name('admin.google-drive.connect');
+        Route::get('google-drive/callback', [GoogleDriveConnectionController::class, 'callback'])->name('admin.google-drive.callback');
 
         Route::get('intake', [IntakeController::class, 'index'])->name('admin.intake.index');
         Route::get('intake/create', [IntakeController::class, 'create'])->name('admin.intake.create');
@@ -94,6 +114,7 @@ Route::middleware(['auth', 'role:admin'])
 
         Route::get('clients', [ClientController::class, 'index'])->name('admin.client.index');
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('admin.client.show');
+        Route::get('clients/{client}/pdf', [ClientController::class, 'exportPdf'])->name('admin.client.export-pdf');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('admin.client.edit');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('admin.client.update');
         Route::delete('clients/{client}', [ClientController::class, 'destroy'])->name('admin.client.destroy');
@@ -122,18 +143,26 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('sessions/{session}/cancel', [SessionController::class, 'cancel'])->name('admin.sessions.cancel');
         Route::post('sessions/{session}/dispute', [SessionController::class, 'dispute'])->name('admin.sessions.dispute');
 
-        Route::get('services', [ServiceOfferingController::class, 'index'])->name('admin.services.index');
+        Route::get('services', [InvoiceServiceController::class, 'index'])->name('admin.services.index');
+        Route::patch('services/{invoiceService}/rates', [InvoiceServiceController::class, 'updateRates'])->name('admin.services.update-rates');
         Route::get('services/add', [ServiceOfferingController::class, 'create'])->name('admin.services.create');
         Route::post('services', [ServiceOfferingController::class, 'store'])->name('admin.services.store');
         Route::get('services/edit/{service}', [ServiceOfferingController::class, 'edit'])->name('admin.services.edit');
         Route::put('services/{service}', [ServiceOfferingController::class, 'update'])->name('admin.services.update');
 
+        Route::get('billing', [BillingItemController::class, 'index'])->name('admin.billing.index');
+        Route::get('billing/create', [BillingItemController::class, 'create'])->name('admin.billing.create');
+        Route::post('billing', [BillingItemController::class, 'store'])->name('admin.billing.store');
+        Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('admin.billing.destroy');
+
         Route::get('invoices', [InvoiceController::class, 'index'])->name('admin.invoices.index');
         Route::get('invoices/create', [InvoiceController::class, 'create'])->name('admin.invoices.create');
         Route::post('invoices', [InvoiceController::class, 'store'])->name('admin.invoices.store');
         Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('admin.invoices.generate-from-session');
+        Route::post('invoices/generate-from-billing', [InvoiceController::class, 'generateFromBilling'])->name('admin.invoices.generate-from-billing');
         Route::get('invoices/therapist/{user}', [InvoiceController::class, 'byTherapist'])->name('admin.invoices.by-therapist');
         Route::get('invoices/client/{client}', [InvoiceController::class, 'byClient'])->name('admin.invoices.by-client');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('admin.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('admin.invoices.show');
         Route::get('invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('admin.invoices.edit');
         Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])->name('admin.invoices.update');
@@ -153,10 +182,12 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('team/add', [TeamMemberController::class, 'create'])->name('admin.team.create');
         Route::post('team', [TeamMemberController::class, 'store'])->name('admin.team.store');
         Route::get('team/edit/{teamMember}', [TeamMemberController::class, 'edit'])->name('admin.team.edit');
+        Route::get('team/{teamMember}/pdf', [TeamMemberController::class, 'exportPdf'])->name('admin.team.export-pdf');
         Route::get('team/{teamMember}', [TeamMemberController::class, 'show'])->name('admin.team.show');
         Route::put('team/{teamMember}', [TeamMemberController::class, 'update'])->name('admin.team.update');
         Route::delete('team/{teamMember}', [TeamMemberController::class, 'destroy'])->name('admin.team.destroy');
         Route::patch('team/{teamMember}/access', [TeamMemberController::class, 'updateAccess'])->name('admin.team.update-access');
+        Route::patch('team/{teamMember}/rates', [TeamMemberController::class, 'updateRates'])->name('admin.team.update-rates');
         Route::post('team/{teamMember}/documents', [TeamMemberController::class, 'uploadDocument'])->name('admin.team.documents.store');
         Route::delete('team/documents/{document}', [TeamMemberController::class, 'deleteDocument'])->name('admin.team.documents.destroy');
 
@@ -166,6 +197,16 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('careers/edit/{career}', [AdminCareerController::class, 'edit'])->name('admin.careers.edit');
         Route::put('careers/{career}', [AdminCareerController::class, 'update'])->name('admin.careers.update');
         Route::delete('careers/{career}', [AdminCareerController::class, 'destroy'])->name('admin.careers.destroy');
+
+        Route::get('programs', [AdminProgramController::class, 'index'])->name('admin.programs.index');
+        Route::get('programs/add', [AdminProgramController::class, 'create'])->name('admin.programs.create');
+        Route::post('programs', [AdminProgramController::class, 'store'])->name('admin.programs.store');
+        Route::get('programs/edit/{program}', [AdminProgramController::class, 'edit'])->name('admin.programs.edit');
+        Route::get('programs/{program}', [AdminProgramController::class, 'show'])->name('admin.programs.show');
+        Route::put('programs/{program}', [AdminProgramController::class, 'update'])->name('admin.programs.update');
+        Route::delete('programs/{program}', [AdminProgramController::class, 'destroy'])->name('admin.programs.destroy');
+        Route::put('programs/{program}/registrations/{registration}', [AdminProgramController::class, 'updateRegistrationStatus'])
+            ->name('admin.programs.registrations.update');
 
         Route::get('users/admin-list', [UserController::class, 'adminList'])->name('admin.users.admin-list');
         Route::patch('users/{user}/admin-update', [UserController::class, 'adminUpdate'])->name('admin.users.admin-update');
@@ -184,10 +225,10 @@ Route::middleware(['auth', 'role:therapist'])
     ->prefix('therapist')
     ->group(function () {
         Route::get('/', [TherapistDashboardController::class, 'index'])->name('therapist.home');
-        Route::inertia('reports', 'therapist/reports')->name('therapist.reports');
 
         Route::get('clients', [TherapistClientController::class, 'index'])->name('therapist.clients.index');
 
+        Route::get('intake', [TherapistIntakeController::class, 'index'])->name('therapist.intake.index');
         Route::get('intake/{intake}', [TherapistIntakeController::class, 'show'])->name('therapist.intake.show');
         Route::post('intake/{intake}/therapist-approve', [IntakeController::class, 'therapistApprove'])->name('therapist.intake.therapist-approve');
         Route::post('intake/{intake}/therapist-reject', [IntakeController::class, 'therapistReject'])->name('therapist.intake.therapist-reject');
@@ -207,10 +248,17 @@ Route::middleware(['auth', 'role:therapist'])
         Route::post('sessions/{session}/start', [SessionController::class, 'startSession'])->name('therapist.sessions.start');
         Route::post('sessions/{session}/end', [SessionController::class, 'endSession'])->name('therapist.sessions.end');
 
+        Route::get('billing', [BillingItemController::class, 'index'])->name('therapist.billing.index');
+        Route::get('billing/create', [BillingItemController::class, 'create'])->name('therapist.billing.create');
+        Route::post('billing', [BillingItemController::class, 'store'])->name('therapist.billing.store');
+        Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('therapist.billing.destroy');
+
         Route::get('invoices', [InvoiceController::class, 'index'])->name('therapist.invoices.index');
         Route::get('invoices/create', [InvoiceController::class, 'create'])->name('therapist.invoices.create');
         Route::post('invoices', [InvoiceController::class, 'store'])->name('therapist.invoices.store');
         Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('therapist.invoices.generate-from-session');
+        Route::post('invoices/generate-from-billing', [InvoiceController::class, 'generateFromBilling'])->name('therapist.invoices.generate-from-billing');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('therapist.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('therapist.invoices.show');
         Route::get('invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('therapist.invoices.edit');
         Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])->name('therapist.invoices.update');
@@ -230,11 +278,17 @@ Route::middleware(['auth', 'role:client'])
     ->prefix('client')
     ->group(function () {
         Route::get('/calendar', [ClientDashboardController::class, 'calendar'])->name('client.home');
-        Route::inertia('dashboard', 'client/dashboard')->name('client.dashboard');
-        Route::inertia('reports', 'client/reports')->name('client.reports');
+
+        Route::post('select-child', [ClientDashboardController::class, 'selectChild'])->name('client.select-child');
+
+        Route::get('intake', [ClientIntakeController::class, 'index'])->name('client.intake.index');
+        Route::get('intake/create', [ClientIntakeController::class, 'create'])->name('client.intake.create');
+        Route::post('intake', [ClientIntakeController::class, 'store'])->name('client.intake.store');
 
         Route::get('invoices', [InvoiceController::class, 'index'])->name('client.invoices.index');
+        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('client.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('client.invoices.show');
+        Route::post('invoices/{invoice}/sign', [InvoiceController::class, 'sign'])->name('client.invoices.sign');
 
         Route::get('sessions/by-user', [SessionController::class, 'byUser'])->name('client.sessions.by-user');
         Route::post('sessions/{session}/verify', [SessionController::class, 'verify'])->name('client.sessions.verify');

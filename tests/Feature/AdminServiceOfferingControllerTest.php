@@ -1,10 +1,10 @@
 <?php
 
+use App\Models\InvoiceService;
 use App\Models\ServiceOffering;
 
-test('the services list is paginated and scoped to the selected type', function () {
-    ServiceOffering::factory()->count(20)->create(['type' => 'general_service']);
-    ServiceOffering::factory()->count(2)->create(['type' => 'specific_service']);
+test('the services list is the invoice rate card, paginated in sheet order', function () {
+    InvoiceService::factory()->count(20)->create();
 
     $response = $this->actingAs(adminUser())->get('/admin/services');
 
@@ -14,14 +14,22 @@ test('the services list is paginated and scoped to the selected type', function 
         ->has('services.data', 15)
         ->where('services.total', 20)
         ->where('services.current_page', 1)
-        ->where('stats.general_service', 20)
-        ->where('stats.specific_service', 2)
-        ->where('filters.type', 'general_service')
+        ->where('filters.search', '')
+        ->where('filters.discipline', 'all')
     );
 
-    $secondPage = $this->actingAs(adminUser())->get('/admin/services?type=general_service&page=2');
+    $secondPage = $this->actingAs(adminUser())->get('/admin/services?page=2');
     $secondPage->assertInertia(fn ($page) => $page->has('services.data', 5));
+});
 
-    $specificResponse = $this->actingAs(adminUser())->get('/admin/services?type=specific_service');
-    $specificResponse->assertInertia(fn ($page) => $page->has('services.data', 2));
+test('the services list no longer shows the service offering catalog', function () {
+    ServiceOffering::factory()->count(6)->create(['type' => 'general_service']);
+    InvoiceService::factory()->count(2)->create();
+
+    $this->actingAs(adminUser())->get('/admin/services')
+        ->assertInertia(fn ($page) => $page
+            ->where('services.total', 2)
+            ->missing('stats')
+            ->missing('filters.type')
+        );
 });

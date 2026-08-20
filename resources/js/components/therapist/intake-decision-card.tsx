@@ -20,9 +20,7 @@ export default function IntakeDecisionCard({
     intakeId: number;
     service: string | null;
 }) {
-    const [decision, setDecision] = useState<'accept' | 'decline' | null>(
-        null,
-    );
+    const [decision, setDecision] = useState<'accept' | 'decline' | null>(null);
     const [reason, setReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
@@ -37,13 +35,19 @@ export default function IntakeDecisionCard({
             router.post(
                 `/therapist/intake/${intakeId}/therapist-approve`,
                 { service },
-                { onFinish: () => setSubmitting(false) },
+                {
+                    preserveScroll: true,
+                    onFinish: () => setSubmitting(false),
+                },
             );
         } else {
             router.post(
                 `/therapist/intake/${intakeId}/therapist-reject`,
                 { service, notes: reason },
-                { onFinish: () => setSubmitting(false) },
+                {
+                    preserveScroll: true,
+                    onFinish: () => setSubmitting(false),
+                },
             );
         }
     };

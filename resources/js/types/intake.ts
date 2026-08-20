@@ -105,6 +105,8 @@ export interface Intake {
     funding_source_info: IntakeFundingSourceInfo | null;
     available_days: string[] | null;
     preferred_times: string[] | null;
+    /** Day -> times-of-day grid; `available_days`/`preferred_times` are derived from it. */
+    availability_slots: Record<string, string[]> | null;
     primary_parent_name: string;
     primary_parent_phone: string | null;
     primary_parent_email: string | null;
@@ -154,4 +156,17 @@ export interface Paginated<T> {
     last_page: number;
     per_page: number;
     total: number;
+}
+
+/**
+ * A service a therapist refused. Surfaced on the admin client Overview so a
+ * refusal after promotion does not go unnoticed — the intake itself is off
+ * the admin list by then.
+ */
+export interface DeclinedService {
+    service: string;
+    therapist_id: number | null;
+    therapist: string | null;
+    notes: string | null;
+    decided_at: string | null;
 }

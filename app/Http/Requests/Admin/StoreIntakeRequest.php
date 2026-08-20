@@ -62,6 +62,7 @@ class StoreIntakeRequest extends FormRequest
             'receiving_services_desc' => ['nullable', 'string'],
             'diagnosis' => ['array'],
             'diagnosis.*' => ['string'],
+            'diagnosis_other' => ['nullable', 'string', 'max:255'],
             'has_medical_conditions' => ['boolean'],
             'languages_spoken_at_home' => ['nullable', 'string', 'max:255'],
             'require_interpreter' => ['boolean'],
@@ -71,10 +72,9 @@ class StoreIntakeRequest extends FormRequest
             'admin_addition_informations' => ['nullable', 'string', 'max:255'],
 
             'funding_source' => ['required', Rule::in([...self::FSCD_SOURCES, 'Insurance', 'private'])],
-            'available_days' => ['array'],
-            'available_days.*' => ['string'],
-            'preferred_times' => ['array'],
-            'preferred_times.*' => ['string'],
+            'availability_slots' => ['array'],
+            'availability_slots.*' => ['array'],
+            'availability_slots.*.*' => ['string'],
 
             'primary_parent_name' => ['required', 'string', 'max:255'],
             'primary_parent_phone' => ['required', 'string', 'max:20'],

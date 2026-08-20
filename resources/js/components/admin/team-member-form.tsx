@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Eye, EyeOff, Plus, Save, X } from 'lucide-react';
+import { Eye, EyeOff, Plus, Printer, Save, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -175,6 +175,25 @@ export default function TeamMemberForm({
 
     return (
         <div className="grid grid-cols-1 gap-5 p-6">
+            {/*
+             * Personnel files still get kept on paper, so the whole record is
+             * exportable. A plain link, not a router visit — the response is a
+             * file download rather than an Inertia page.
+             */}
+            {isEdit && teamMember && (
+                <div className="flex justify-end">
+                    <Button
+                        variant="outline"
+                        className="rounded-[10px]"
+                        asChild
+                    >
+                        <a href={`/admin/team/${teamMember.id}/pdf`}>
+                            <Printer /> Export PDF
+                        </a>
+                    </Button>
+                </div>
+            )}
+
             <Card className="rounded-[10px]">
                 <CardContent className="grid grid-cols-1 gap-5 p-5 md:grid-cols-2">
                     <p className="font-bold text-primary md:col-span-2">

@@ -18,7 +18,7 @@ class ScheduleMatcher
      */
     private const TIME_RANGES = [
         'Mornings (8am-11am)' => ['08:00', '11:00'],
-        'Afternoon (1pm-3pm)' => ['13:00', '15:00'],
+        'Afternoons (12pm-3pm)' => ['12:00', '15:00'],
         'Evenings (4pm-7pm)' => ['16:00', '19:00'],
     ];
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreIntakeRequest;
 use App\Http\Requests\Admin\UpdateIntakeRequest;
+use App\Mail\IntakeAssignedToTherapistMail;
 use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Intake;
@@ -14,10 +15,10 @@ use App\Models\IntakeTherapistApprovalHistory;
 use App\Models\ServiceOffering;
 use App\Models\TeamMember;
 use App\Models\User;
-use App\Mail\IntakeAssignedToTherapistMail;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\IntakeApprovalService;
+use App\Services\IntakeSubmissionService;
 use App\Services\ReferenceNumberGenerator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -66,6 +67,20 @@ class IntakeController extends Controller
     {
         $baseQuery = Intake::query()->where('approved_as_client', false);
 
+        /*
+         * A promoted intake normally leaves this list — the child is a client
+         * now. One a therapist refused a service on is the exception: the
+         * refusal is still outstanding work, and dropping the row would leave
+         * nowhere to pick it up from. The stats stay on the intake pipeline
+         * proper, so these don't inflate the pending counts.
+         */
+        $listQuery = Intake::query()->where(function (Builder $query): void {
+            $query->where('approved_as_client', false)
+                ->orWhereHas('therapistReviews', function (Builder $reviews): void {
+                    $reviews->where('status', 'rejected');
+                });
+        });
+
         $stats = [
             'pending' => (clone $baseQuery)->where('status', 'pending')->count(),
             'under_review' => (clone $baseQuery)->where('status', 'under_review')->count(),
@@ -79,7 +94,7 @@ class IntakeController extends Controller
         $search = trim((string) $request->query('search', ''));
         $funding = (string) $request->query('funding', 'all');
 
-        $intakes = (clone $baseQuery)
+        $intakes = $listQuery
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $inner) use ($search): void {
                     $inner->where('child_first_name', 'like', "%{$search}%")
@@ -257,8 +272,18 @@ class IntakeController extends Controller
 
     public function sendToTherapist(Request $request, Intake $intake): RedirectResponse
     {
+        /*
+         * A null service means "the whole intake", which is only meaningful
+         * for an intake that lists none. Accepting it for the rest let a
+         * caller that forgot the field silently create a second, parallel
+         * review instead of routing the service it meant to.
+         */
+        $listedServices = $intake->services_needed ?? [];
+
         $validated = $request->validate([
-            'service' => ['nullable', 'string'],
+            'service' => $listedServices === []
+                ? ['nullable', 'string']
+                : ['required', 'string', Rule::in($listedServices)],
             'therapist_id' => ['required', 'integer', 'exists:users,id'],
         ]);
 
@@ -447,7 +472,7 @@ class IntakeController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'IntakeDocuments', $this->intakeFolderName($intake));
+        $uploaded = $drive->upload($request->file('file'), 'client', $this->intakeFolderName($intake));
 
         $intake->documents()->create([
             'name' => $validated['name'] ?? $request->file('file')->getClientOriginalName(),
@@ -484,7 +509,7 @@ class IntakeController extends Controller
         $folderName = $this->intakeFolderName($intake);
 
         foreach ($validated['documents'] as $entry) {
-            $uploaded = $drive->upload($entry['file'], 'IntakeDocuments', $folderName);
+            $uploaded = $drive->upload($entry['file'], 'client', $folderName);
 
             $intake->documents()->create([
                 'name' => $entry['name'] ?? $entry['file']->getClientOriginalName(),
@@ -531,7 +556,7 @@ class IntakeController extends Controller
 
             $attributes = [
                 ...$attributes,
-                ...$drive->upload($request->file('file'), 'IntakeDocuments', $this->intakeFolderName($intake)),
+                ...$drive->upload($request->file('file'), 'client', $this->intakeFolderName($intake)),
                 'uploaded_at' => now(),
             ];
         }
@@ -563,7 +588,9 @@ class IntakeController extends Controller
 
     private function intakeFolderName(Intake $intake): string
     {
-        return "Intake-{$intake->id}-{$intake->child_first_name}-{$intake->child_last_name}";
+        $name = trim("{$intake->child_first_name} {$intake->child_last_name}");
+
+        return trim("{$intake->id}_{$name}", '_');
     }
 
     public function addNote(Request $request, Intake $intake): RedirectResponse
@@ -828,6 +855,7 @@ class IntakeController extends Controller
                 'first_name' => $therapist->first_name,
                 'last_name' => $therapist->last_name,
                 'email' => $therapist->email,
+                // @phpstan-ignore nullsafe.neverNull (a therapist User isn't guaranteed to have a TeamMember row; Larastan doesn't model that)
                 'specializations' => $therapist->teamMember?->specializations ?? [],
             ])
             ->values();
@@ -836,6 +864,8 @@ class IntakeController extends Controller
     /**
      * Resolves the badge the reference's client-side `getStatusBadge` renders
      * (intake status overlaid with any outstanding therapist review).
+     *
+     * @param  Collection<int, IntakeTherapistApproval>  $reviews
      */
     private function withStatusBadge(Intake $intake, Collection $reviews): Intake
     {
@@ -854,8 +884,20 @@ class IntakeController extends Controller
      */
     private function resolveStatusBadge(Intake $intake, Collection $reviews): array
     {
+        $hasRejection = $reviews->contains(
+            fn (IntakeTherapistApproval $review): bool => $review->status === 'rejected',
+        );
+
+        if ($intake->approved_as_client && $hasRejection) {
+            return [
+                'label' => 'Service Declined — Needs Reassignment',
+                'short_label' => 'Declined',
+                'variant' => 'therapist_rejected',
+            ];
+        }
+
         if (! $intake->approved_as_client && $reviews->isNotEmpty()) {
-            if ($reviews->contains(fn (IntakeTherapistApproval $review): bool => $review->status === 'rejected')) {
+            if ($hasRejection) {
                 return [
                     'label' => 'Rejected by Therapist',
                     'short_label' => 'Rejected',
@@ -899,6 +941,8 @@ class IntakeController extends Controller
      */
     private function intakeAttributes(array $validated): array
     {
+        $availability = IntakeSubmissionService::resolveAvailability($validated['availability_slots'] ?? []);
+
         $referralSource = ($validated['referral_source'] ?? null) === 'Other' && ! empty($validated['referral_source_other'])
             ? $validated['referral_source_other']
             : $validated['referral_source'];
@@ -918,7 +962,10 @@ class IntakeController extends Controller
             'services_needed' => $validated['services_needed'] ?? [],
             'currently_receiving_services' => $validated['currently_receiving_services'] ?? false,
             'receiving_services_desc' => $validated['receiving_services_desc'] ?? null,
-            'diagnosis' => $validated['diagnosis'] ?? [],
+            'diagnosis' => IntakeSubmissionService::resolveDiagnosis(
+                $validated['diagnosis'] ?? [],
+                $validated['diagnosis_other'] ?? null,
+            ),
             'has_medical_conditions' => $validated['has_medical_conditions'] ?? false,
             'languages_spoken_at_home' => $validated['languages_spoken_at_home'] ?? null,
             'require_interpreter' => $validated['require_interpreter'] ?? false,
@@ -927,8 +974,9 @@ class IntakeController extends Controller
             'theraphy_goals' => $validated['theraphy_goals'] ?? null,
             'admin_addition_informations' => $validated['admin_addition_informations'] ?? null,
             'funding_source' => $validated['funding_source'],
-            'available_days' => $validated['available_days'] ?? [],
-            'preferred_times' => $validated['preferred_times'] ?? [],
+            'available_days' => $availability['days'],
+            'preferred_times' => $availability['times'],
+            'availability_slots' => $availability['slots'],
             'primary_parent_name' => $validated['primary_parent_name'],
             'primary_parent_phone' => $validated['primary_parent_phone'],
             'primary_parent_email' => $validated['primary_parent_email'] ?? null,

@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Star } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 

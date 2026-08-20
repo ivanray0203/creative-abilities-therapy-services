@@ -8,11 +8,13 @@ use App\Http\Requests\Admin\UpdateTeamMemberRequest;
 use App\Models\Career;
 use App\Models\Client;
 use App\Models\ClientDocument;
+use App\Models\InvoiceService;
 use App\Models\ScheduleSession;
 use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
+use App\Services\PdfService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin team-member management (reference: cats-frontend/src/pages/admin/TeamPage.tsx
@@ -85,7 +88,7 @@ class TeamMemberController extends Controller
 
     public function show(TeamMember $teamMember): Response
     {
-        $teamMember->load('user', 'application');
+        $teamMember->load('user', 'application', 'invoiceServiceRates');
 
         $career = Career::query()->where('position', $teamMember->position)->first();
         $documents = $this->documentsFor($teamMember);
@@ -105,7 +108,30 @@ class TeamMemberController extends Controller
                 $career !== null ? ($career->required_documents ?? []) : [],
                 $documents->pluck('doc_type')->all(),
             )),
+            'invoiceServices' => InvoiceService::query()
+                ->active()
+                ->orderBy('sort_order')
+                ->get(['id', 'name', 'code', 'discipline', 'rate_fscd', 'rate_private']),
+            'invoiceServiceRates' => $this->invoiceServiceRatesFor($teamMember),
         ]);
+    }
+
+    /**
+     * This team member's rate overrides, keyed by invoice service id so the
+     * rates tab can look each line's override up as it renders the card.
+     *
+     * @return array<int, array{rate_fscd: string|null, rate_private: string|null}>
+     */
+    private function invoiceServiceRatesFor(TeamMember $teamMember): array
+    {
+        return $teamMember->invoiceServiceRates
+            ->mapWithKeys(fn (InvoiceService $service): array => [
+                $service->id => [
+                    'rate_fscd' => $service->pivot->rate_fscd,
+                    'rate_private' => $service->pivot->rate_private,
+                ],
+            ])
+            ->all();
     }
 
     public function create(): Response
@@ -147,6 +173,24 @@ class TeamMemberController extends Controller
         return Inertia::render('admin/team/edit', [
             'teamMember' => $teamMember->load('user'),
         ]);
+    }
+
+    /**
+     * The edit screen's whole record as a PDF, for personnel files and
+     * anything that has to leave the system on paper.
+     */
+    public function exportPdf(TeamMember $teamMember, PdfService $pdfService): StreamedResponse
+    {
+        $pdf = $pdfService->teamMemberProfile($teamMember);
+        $name = Str::slug($teamMember->user?->full_name ?: "team-member-{$teamMember->id}");
+
+        AuditLogger::log('Exported team member profile', 'Users', "Exported team member #{$teamMember->id} as PDF");
+
+        return response()->streamDownload(
+            fn () => print ($pdf),
+            "{$name}-profile.pdf",
+            ['Content-Type' => 'application/pdf'],
+        );
     }
 
     public function update(UpdateTeamMemberRequest $request, TeamMember $teamMember): RedirectResponse
@@ -192,6 +236,42 @@ class TeamMemberController extends Controller
         return back()->with('success', 'Access and status updated successfully.');
     }
 
+    /**
+     * Save this team member's rate-card overrides.
+     *
+     * A blank rate is not zero — it means "bill this line at the published
+     * rate", so it is stored as null, and a line with both rates blank drops
+     * its override row entirely rather than lingering as an empty record.
+     */
+    public function updateRates(Request $request, TeamMember $teamMember): RedirectResponse
+    {
+        $validated = $request->validate([
+            'rates' => ['present', 'array'],
+            'rates.*.invoice_service_id' => ['required', 'integer', 'exists:invoice_services,id'],
+            'rates.*.rate_fscd' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'rates.*.rate_private' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+        ]);
+
+        /** @var array<int, array<string, mixed>> $rates */
+        $rates = $validated['rates'];
+
+        $overrides = collect($rates)
+            ->filter(fn (array $rate): bool => $rate['rate_fscd'] !== null || $rate['rate_private'] !== null)
+            ->mapWithKeys(fn (array $rate): array => [
+                $rate['invoice_service_id'] => [
+                    'rate_fscd' => $rate['rate_fscd'],
+                    'rate_private' => $rate['rate_private'],
+                ],
+            ])
+            ->all();
+
+        $teamMember->invoiceServiceRates()->sync($overrides);
+
+        AuditLogger::log('Updated invoice service rates', 'Finance', "Updated invoice service rates for team member #{$teamMember->id}");
+
+        return back()->with('success', 'Invoice service rates updated successfully.');
+    }
+
     public function uploadDocument(Request $request, TeamMember $teamMember, DriveStorage $drive): RedirectResponse
     {
         $validated = $request->validate([
@@ -200,7 +280,7 @@ class TeamMemberController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'User', $this->teamMemberFolderName($teamMember));
+        $uploaded = $drive->upload($request->file('file'), 'therapists', $this->teamMemberFolderName($teamMember));
 
         ClientDocument::query()->create([
             'user_id' => $teamMember->user_id,
@@ -304,7 +384,7 @@ class TeamMemberController extends Controller
             'file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
         ]);
 
-        $uploaded = $drive->upload($request->file('file'), 'User', $this->teamMemberFolderName($teamMember));
+        $uploaded = $drive->upload($request->file('file'), 'therapists', $this->teamMemberFolderName($teamMember));
 
         ClientDocument::query()->create([
             'user_id' => $teamMember->user_id,
@@ -384,8 +464,9 @@ class TeamMemberController extends Controller
     private function teamMemberFolderName(TeamMember $teamMember): string
     {
         $user = $teamMember->user ?? User::query()->find($teamMember->user_id);
+        $name = trim("{$user?->first_name} {$user?->last_name}");
 
-        return trim("User-{$teamMember->user_id}-{$user?->first_name}-{$user?->last_name}", '-');
+        return trim("{$teamMember->id}_{$name}", '_');
     }
 
     private function syncUserActiveState(TeamMember $teamMember): void

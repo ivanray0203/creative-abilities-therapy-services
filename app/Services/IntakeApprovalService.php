@@ -15,7 +15,9 @@ use Illuminate\Support\Str;
 /**
  * Promotes an approved intake into a full Client record.
  *
- * Ported 1:1 from cats-backend/cats/services.py::promote_intake_to_client.
+ * Ported from cats-backend/cats/services.py::promote_intake_to_client, then
+ * amended by Phase 17: one Client per child rather than one per parent, so a
+ * parent with several children keeps a single login across several clients.
  */
 class IntakeApprovalService
 {
@@ -37,10 +39,14 @@ class IntakeApprovalService
      * the same intake) are added to the client's care team without
      * disturbing the primary assignment.
      *
+     * A returning parent — one whose email already has an account from an
+     * earlier child's intake — reuses that User, so `rawPassword` comes back
+     * null and no second welcome email is sent.
+     *
      * @param  Collection<int, User>  $therapists
      * @return array{client: Client, rawPassword: string|null}
      */
-    public function promote(Intake $intake, Collection $therapists = new Collection()): array
+    public function promote(Intake $intake, Collection $therapists = new Collection): array
     {
         $result = DB::transaction(function () use ($intake, $therapists): array {
             $primaryTherapist = $therapists->first();
@@ -74,38 +80,26 @@ class IntakeApprovalService
                 }
             }
 
-            // `clients.user_id` is unique — a parent who already has a Client
-            // (from an earlier intake, e.g. a sibling) must reuse that same
-            // row rather than trying to insert a second one for themselves.
-            $existingClient = $user ? Client::query()->where('user_id', $user->id)->first() : null;
+            // Phase 17: a Client represents one child, so every intake gets its
+            // own row even when the parent already has children in care. The
+            // parent User is shared across them; the Client is not.
+            $client = Client::query()->create([
+                'original_intake_id' => $intake->id,
+                'primary_therapist_id' => $primaryTherapist?->id,
+                'user_id' => $user?->id,
+                'assigned_therapist_id' => $primaryTherapist?->id,
+                'assigned_at' => $intake->assigned_at,
+            ]);
 
-            if ($existingClient) {
-                $client = $existingClient;
-
-                if ($primaryTherapist && ! $client->primary_therapist_id) {
-                    $client->assignTherapist($primaryTherapist);
-                }
-
-                $client->careTeam()->syncWithoutDetaching($therapists->pluck('id')->all());
-            } else {
-                $client = Client::query()->create([
-                    'original_intake_id' => $intake->id,
-                    'primary_therapist_id' => $primaryTherapist?->id,
-                    'user_id' => $user?->id,
-                    'assigned_therapist_id' => $primaryTherapist?->id,
-                    'assigned_at' => $intake->assigned_at,
-                ]);
-
-                if ($primaryTherapist) {
-                    $client->assignTherapist($primaryTherapist);
-                }
-
-                foreach ($therapists->skip(1) as $therapist) {
-                    $client->careTeam()->syncWithoutDetaching([$therapist->id]);
-                }
-
-                BillingAccount::query()->create(['client_id' => $client->id]);
+            if ($primaryTherapist) {
+                $client->assignTherapist($primaryTherapist);
             }
+
+            foreach ($therapists->skip(1) as $therapist) {
+                $client->careTeam()->syncWithoutDetaching([$therapist->id]);
+            }
+
+            BillingAccount::query()->create(['client_id' => $client->id]);
 
             $intake->forceFill([
                 'approved_as_client' => true,

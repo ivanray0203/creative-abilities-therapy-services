@@ -1,4 +1,5 @@
 import { formatScheduledDate, formatScheduledTime } from '@/lib/helpers';
+import { sessionServiceLabel } from '@/lib/sessions';
 import type { ScheduleSession } from '@/types/session';
 
 /**
@@ -29,7 +30,7 @@ export function exportSessionsCsv(sessions: ScheduleSession[]): void {
         session.therapist
             ? `${session.therapist.first_name} ${session.therapist.last_name}`
             : '',
-        session.service?.name ?? session.service_name ?? '',
+        sessionServiceLabel(session, ''),
         formatScheduledDate(session.scheduled_start),
         formatScheduledTime(session.scheduled_start),
         formatScheduledTime(session.scheduled_end),

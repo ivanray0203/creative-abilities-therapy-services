@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
-import type { ScheduleSessionStatus } from '@/types/session';
+import { sessionServiceNames } from '@/lib/sessions';
+import type { ScheduleSession, ScheduleSessionStatus } from '@/types/session';
 
 /** Session status badge, mirrors admin/intake/badges.tsx conventions. */
 
@@ -36,6 +37,42 @@ export function SessionStatusBadge({
         >
             {STATUS_LABELS[status]}
         </Badge>
+    );
+}
+
+/**
+ * One tag per availed service the visit covers — a session can deliver
+ * several at once, so a single line of text hid how much a booking included.
+ * Renders nothing when the session has no service recorded at all.
+ */
+export function SessionServiceTags({
+    session,
+    className = '',
+}: {
+    session: Pick<
+        ScheduleSession,
+        'client_services' | 'service' | 'service_name'
+    >;
+    className?: string;
+}) {
+    const names = sessionServiceNames(session);
+
+    if (names.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className={`flex flex-wrap gap-1 ${className}`}>
+            {names.map((name) => (
+                <Badge
+                    key={name}
+                    variant="secondary"
+                    className="rounded-[5px] border border-border bg-muted font-medium text-muted-foreground"
+                >
+                    {name}
+                </Badge>
+            ))}
+        </div>
     );
 }
 

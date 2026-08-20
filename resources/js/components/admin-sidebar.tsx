@@ -9,7 +9,9 @@ import {
     LayoutDashboard,
     LogOut,
     Megaphone,
+    Receipt,
     MessageSquare,
+    Sparkles,
     Shield,
     UserCog,
     Users,
@@ -28,6 +30,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { getInitials } from '@/lib/helpers';
+import { isActiveNavItem } from '@/lib/navigation';
 
 const menuItems = [
     { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
@@ -36,6 +39,8 @@ const menuItems = [
     { title: 'Clients', url: '/admin/clients', icon: Users },
     { title: 'Sessions', url: '/admin/sessions', icon: ClipboardIcon },
     { title: 'Services', url: '/admin/services', icon: Briefcase },
+    { title: 'Programs', url: '/admin/programs', icon: Sparkles },
+    { title: 'Billing', url: '/admin/billing', icon: Receipt },
     { title: 'Invoices', url: '/admin/invoices', icon: DollarSign },
     { title: 'Applications', url: '/admin/applications', icon: Clipboard },
     { title: 'Team', url: '/admin/team', icon: UserCog },
@@ -82,11 +87,11 @@ export function AdminSidebar({ onLogout }: { onLogout: () => void }) {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {menuItems.map((item) => {
-                                const isDashboard = item.url === '/admin';
-                                const isSelected = isDashboard
-                                    ? currentUrl === item.url
-                                    : currentUrl === item.url ||
-                                      currentUrl.startsWith(item.url + '/');
+                                const isSelected = isActiveNavItem(
+                                    currentUrl,
+                                    item.url,
+                                    { exact: item.url === '/admin' },
+                                );
 
                                 return (
                                     <SidebarMenuItem key={item.title}>

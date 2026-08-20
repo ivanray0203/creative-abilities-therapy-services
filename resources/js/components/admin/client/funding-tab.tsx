@@ -1,6 +1,7 @@
 import { CalendarDays, DollarSign } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
+import { fundingSourceLabel } from '@/lib/content/intake-taxonomy';
 import type { Client } from '@/types/client';
 
 /** Reference: cats-frontend/src/pages/admin/clientTabs/Funding.tsx */
@@ -24,7 +25,7 @@ export default function FundingTab({ client }: { client: Client }) {
                             <p className="text-xs text-muted-foreground">
                                 Funding Source
                             </p>
-                            <p>{intake?.funding_source || '-'}</p>
+                            <p>{fundingSourceLabel(intake?.funding_source)}</p>
                         </div>
 
                         {isFscd && (

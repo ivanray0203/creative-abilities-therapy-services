@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\WelcomeClientAccountMail;
 use App\Models\BillingAccount;
 use App\Models\Client;
 use App\Models\ClientService;
@@ -12,6 +13,7 @@ use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
@@ -40,8 +42,10 @@ function validAdminIntakePayload(array $overrides = []): array
         'languages_spoken_at_home' => 'English',
         'require_interpreter' => false,
         'funding_source' => 'private',
-        'available_days' => ['Monday', 'Tuesday'],
-        'preferred_times' => ['Mornings (8am-11am)'],
+        'availability_slots' => [
+            'Monday' => ['Mornings (8am-11am)'],
+            'Tuesday' => ['Mornings (8am-11am)'],
+        ],
         'primary_parent_name' => 'Jane Doe',
         'primary_parent_phone' => '5874338780',
         'primary_parent_email' => 'jane@example.com',
@@ -122,6 +126,15 @@ test('an admin can update an intake and a timeline entry is appended', function 
     expect($intake->child_first_name)->toBe('Renamed');
     expect($intake->timeline)->toHaveCount(1);
     expect($intake->timeline[0]['title'])->toBe('Intake Edited via Admin');
+});
+
+test('an admin saving an "Other" diagnosis stores the free-text answer', function () {
+    $this->actingAs(adminUser())->post('/admin/intake', validAdminIntakePayload([
+        'diagnosis' => ['Other'],
+        'diagnosis_other' => 'Cerebral Palsy',
+    ]))->assertSessionHasNoErrors();
+
+    expect(Intake::first()->diagnosis)->toBe(['Cerebral Palsy']);
 });
 
 test('the primary parent email cannot be changed once it is set', function () {
@@ -375,7 +388,9 @@ test('an admin direct approve promotes the intake to a fully linked client', fun
     expect($client->user_id)->toBe($parent->id);
 });
 
-test('approving a second intake for the same parent email reuses the existing client instead of erroring', function () {
+test('approving a second intake for the same parent email creates a second client under the same login', function () {
+    Mail::fake();
+
     $firstIntake = Intake::factory()->create(['primary_parent_email' => 'parent@example.com', 'primary_parent_name' => 'Maria Dela Cruz']);
     $firstTherapist = therapistUser();
     $this->actingAs(adminUser())
@@ -389,15 +404,30 @@ test('approving a second intake for the same parent email reuses the existing cl
         ->post("/admin/intake/{$secondIntake->id}/approve", ['therapist_id' => $secondTherapist->id])
         ->assertSessionHasNoErrors();
 
-    expect(Client::count())->toBe(1);
+    // Each child gets its own client record...
+    expect(Client::count())->toBe(2);
 
-    $client = Client::first();
-    expect($client->original_intake_id)->toBe($firstIntake->id);
-    expect($client->primary_therapist_id)->toBe($firstTherapist->id);
-    expect((int) $secondIntake->refresh()->linked_client_id)->toBe($client->id);
+    $firstClient = Client::where('original_intake_id', $firstIntake->id)->first();
+    $secondClient = Client::where('original_intake_id', $secondIntake->id)->first();
+
+    expect($firstClient->primary_therapist_id)->toBe($firstTherapist->id);
+    expect($secondClient->primary_therapist_id)->toBe($secondTherapist->id);
+    expect((int) $secondIntake->refresh()->linked_client_id)->toBe($secondClient->id);
     expect($secondIntake->approved_as_client)->toBeTrue();
-    expect($client->careTeam()->pluck('users.id')->sort()->values()->all())
-        ->toBe(collect([$firstTherapist->id, $secondTherapist->id])->sort()->values()->all());
+
+    // ...with its own care team, rather than one merged pool.
+    expect($firstClient->careTeam()->pluck('users.id')->all())->toBe([$firstTherapist->id]);
+    expect($secondClient->careTeam()->pluck('users.id')->all())->toBe([$secondTherapist->id]);
+
+    // ...and its own billing account.
+    expect(BillingAccount::where('client_id', $firstClient->id)->count())->toBe(1);
+    expect(BillingAccount::where('client_id', $secondClient->id)->count())->toBe(1);
+
+    // But the parent keeps a single login, and is only welcomed once —
+    // the mailable is ShouldQueue, hence assertQueued rather than assertSent.
+    expect(User::where('email', 'parent@example.com')->count())->toBe(1);
+    expect($secondClient->user_id)->toBe($firstClient->user_id);
+    Mail::assertQueued(WelcomeClientAccountMail::class, 1);
 });
 
 test('an already promoted intake cannot be approved twice', function () {
@@ -690,4 +720,120 @@ test('the detail page exposes the intake, therapists and allowed status transiti
             ->where('therapists.0.specializations', ['Counselling'])
             ->where('statusTransitions', ['approved', 'waitlist', 'denied'])
         );
+});
+
+test('a promoted intake stays on the intake list while a declined service is unresolved', function () {
+    $therapist = therapistUser();
+
+    $settled = Intake::factory()->create(['approved_as_client' => true]);
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $settled->id,
+        'therapist_id' => $therapist->id,
+        'service' => 'Physiotherapy',
+        'status' => 'approved',
+    ]);
+
+    $declined = Intake::factory()->create(['approved_as_client' => true, 'status' => 'pending']);
+    $review = IntakeTherapistApproval::factory()->create([
+        'intake_id' => $declined->id,
+        'therapist_id' => $therapist->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->get('/admin/intake')
+        ->assertInertia(fn ($page) => $page
+            ->has('intakes.data', 1)
+            ->where('intakes.data.0.id', $declined->id)
+            ->where('intakes.data.0.status_label', 'Service Declined — Needs Reassignment')
+            ->where('intakes.data.0.status_variant', 'therapist_rejected')
+            // Promoted rows are outstanding work, not part of the intake
+            // pipeline, so they must not inflate the pipeline counters.
+            ->where('stats.pending', 0)
+        );
+
+    // Once it is picked up again the row leaves the list.
+    $review->update(['status' => 'reassign']);
+
+    $this->actingAs(adminUser())->get('/admin/intake')
+        ->assertInertia(fn ($page) => $page->has('intakes.data', 0));
+
+    expect($settled->fresh()->approved_as_client)->toBeTrue();
+});
+
+test('the intake page carries what the already-a-client banner needs', function () {
+    $therapist = therapistUser();
+    $intake = Intake::factory()->create([
+        'approved_as_client' => true,
+        'services_needed' => ['Physiotherapy', 'Counselling'],
+    ]);
+    $client = Client::factory()->create(['original_intake_id' => $intake->id]);
+    $intake->forceFill(['linked_client_id' => $client->id])->save();
+
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $therapist->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->get("/admin/intake/{$intake->id}")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/intake/show')
+            ->where('intake.approved_as_client', true)
+            ->where('intake.linked_client_id', (string) $client->id)
+            ->has('intake.therapist_reviews', 1)
+            ->where('intake.therapist_reviews.0.status', 'rejected')
+            ->where('intake.therapist_reviews.0.service', 'Counselling')
+        );
+});
+
+test('sending to a therapist without naming a service is refused when the intake lists services', function () {
+    $therapist = therapistUser();
+    $intake = Intake::factory()->create(['services_needed' => ['Physiotherapy', 'Counselling']]);
+
+    // A caller that forgot the field used to create a stray whole-intake
+    // review, leaving the service it meant to route still unassigned.
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'therapist_id' => $therapist->id,
+    ])->assertSessionHasErrors('service');
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'service' => 'Not On This Intake',
+        'therapist_id' => $therapist->id,
+    ])->assertSessionHasErrors('service');
+
+    expect(IntakeTherapistApproval::count())->toBe(0);
+
+    // An intake with no services listed still routes as a whole.
+    $wholeIntake = Intake::factory()->create(['services_needed' => []]);
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$wholeIntake->id}/send-to-therapist", [
+        'therapist_id' => $therapist->id,
+    ])->assertSessionHasNoErrors();
+
+    expect(IntakeTherapistApproval::query()->where('intake_id', $wholeIntake->id)->first()->service)->toBeNull();
+});
+
+test('reassigning a declined service reuses its review rather than adding another', function () {
+    $decliner = therapistUser();
+    $replacement = therapistUser();
+    $intake = Intake::factory()->create(['services_needed' => ['Speech and Language Therapy']]);
+
+    $review = IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Speech and Language Therapy',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'service' => 'Speech and Language Therapy',
+        'therapist_id' => $replacement->id,
+    ])->assertSessionHasNoErrors();
+
+    expect(IntakeTherapistApproval::query()->where('intake_id', $intake->id)->count())->toBe(1)
+        ->and($review->fresh()->status)->toBe('reassign')
+        ->and($review->fresh()->therapist_id)->toBe($replacement->id);
 });

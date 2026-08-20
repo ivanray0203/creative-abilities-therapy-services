@@ -3,6 +3,7 @@ import { Save, Trash } from 'lucide-react';
 import { useState } from 'react';
 
 import DeleteIntakeModal from '@/components/admin/delete-intake-modal';
+import AvailabilityGrid from '@/components/availability-grid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,14 +16,15 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { AvailabilitySlots } from '@/lib/content/intake-taxonomy';
 import {
-    days,
+    fundingSourceLabel,
     leadSource,
     medicalConditionsOptions,
     ProvinceCities,
     Provinces,
     servicesMap,
-    times,
+    toggleAvailabilitySlot,
 } from '@/lib/content/intake-taxonomy';
 import type { Intake } from '@/types/intake';
 
@@ -68,6 +70,7 @@ interface AdminIntakeFormData {
     currently_receiving_services: boolean;
     receiving_services_desc: string;
     diagnosis: string[];
+    diagnosis_other: string;
     has_medical_conditions: boolean;
     languages_spoken_at_home: string;
     require_interpreter: boolean;
@@ -75,8 +78,7 @@ interface AdminIntakeFormData {
     medical_conditions: string;
     theraphy_goals: string;
     funding_source: string;
-    available_days: string[];
-    preferred_times: string[];
+    availability_slots: AvailabilitySlots;
     primary_parent_name: string;
     primary_parent_phone: string;
     primary_parent_email: string;
@@ -105,8 +107,30 @@ function toggleArrayValue(list: string[], value: string): string[] {
         : [...list, value];
 }
 
+/**
+ * Stored diagnoses are a flat list, so a free-text "Other" answer is saved in
+ * place of the literal "Other" label. Split it back out for editing, or the
+ * checkbox group would drop the custom value on the next save.
+ */
+function splitDiagnosis(stored: string[]): {
+    diagnosis: string[];
+    diagnosisOther: string;
+} {
+    const custom = stored.find(
+        (entry) => !medicalConditionsOptions.includes(entry),
+    );
+
+    return {
+        diagnosis: stored.map((entry) => (entry === custom ? 'Other' : entry)),
+        diagnosisOther: custom ?? '',
+    };
+}
+
 function initialValues(intake?: Intake): AdminIntakeFormData {
     const funding = intake?.funding_source_info ?? {};
+    const { diagnosis, diagnosisOther } = splitDiagnosis(
+        intake?.diagnosis ?? [],
+    );
 
     return {
         child_first_name: intake?.child_first_name ?? '',
@@ -125,7 +149,8 @@ function initialValues(intake?: Intake): AdminIntakeFormData {
         currently_receiving_services:
             intake?.currently_receiving_services ?? false,
         receiving_services_desc: intake?.receiving_services_desc ?? '',
-        diagnosis: intake?.diagnosis ?? [],
+        diagnosis,
+        diagnosis_other: diagnosisOther,
         has_medical_conditions: intake?.has_medical_conditions ?? false,
         languages_spoken_at_home: intake?.languages_spoken_at_home ?? '',
         require_interpreter: intake?.require_interpreter ?? false,
@@ -133,8 +158,7 @@ function initialValues(intake?: Intake): AdminIntakeFormData {
         medical_conditions: intake?.medical_conditions ?? '',
         theraphy_goals: intake?.theraphy_goals ?? '',
         funding_source: intake?.funding_source ?? '',
-        available_days: intake?.available_days ?? [],
-        preferred_times: intake?.preferred_times ?? [],
+        availability_slots: intake?.availability_slots ?? {},
         primary_parent_name: intake?.primary_parent_name ?? '',
         primary_parent_phone: intake?.primary_parent_phone ?? '',
         primary_parent_email: intake?.primary_parent_email ?? '',
@@ -384,7 +408,7 @@ export default function AdminIntakeForm({ intake }: { intake?: Intake }) {
                         <SelectContent>
                             {FUNDING_SOURCES.map((source) => (
                                 <SelectItem key={source} value={source}>
-                                    {source}
+                                    {fundingSourceLabel(source)}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -621,13 +645,32 @@ export default function AdminIntakeForm({ intake }: { intake?: Intake }) {
                     label="Diagnosis"
                     options={medicalConditionsOptions}
                     selected={data.diagnosis}
-                    onToggle={(value) =>
-                        setData(
-                            'diagnosis',
-                            toggleArrayValue(data.diagnosis, value),
-                        )
-                    }
+                    onToggle={(value) => {
+                        const next = toggleArrayValue(data.diagnosis, value);
+
+                        setData((current) => ({
+                            ...current,
+                            diagnosis: next,
+                            ...(next.includes('Other')
+                                ? {}
+                                : { diagnosis_other: '' }),
+                        }));
+                    }}
                 />
+                {data.diagnosis.includes('Other') && (
+                    <Field
+                        label="Other Diagnosis"
+                        error={errors.diagnosis_other}
+                    >
+                        <Input
+                            value={data.diagnosis_other}
+                            onChange={(event) =>
+                                setData('diagnosis_other', event.target.value)
+                            }
+                            placeholder="e.g., Cerebral Palsy"
+                        />
+                    </Field>
+                )}
                 <Field
                     label="Medical Conditions"
                     error={errors.medical_conditions}
@@ -689,25 +732,17 @@ export default function AdminIntakeForm({ intake }: { intake?: Intake }) {
             </Section>
 
             <Section title="Availability">
-                <CheckboxGroup
-                    label="Available Days"
-                    options={days}
-                    selected={data.available_days}
-                    onToggle={(value) =>
+                <AvailabilityGrid
+                    idPrefix="admin-availability"
+                    slots={data.availability_slots}
+                    onToggle={(day, time) =>
                         setData(
-                            'available_days',
-                            toggleArrayValue(data.available_days, value),
-                        )
-                    }
-                />
-                <CheckboxGroup
-                    label="Preferred Times"
-                    options={times}
-                    selected={data.preferred_times}
-                    onToggle={(value) =>
-                        setData(
-                            'preferred_times',
-                            toggleArrayValue(data.preferred_times, value),
+                            'availability_slots',
+                            toggleAvailabilitySlot(
+                                data.availability_slots,
+                                day,
+                                time,
+                            ),
                         )
                     }
                 />

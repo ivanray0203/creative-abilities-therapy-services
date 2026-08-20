@@ -6,6 +6,7 @@
 import type { AvailabilityEntry } from '@/types/application';
 import type { Client } from '@/types/client';
 import type { Paginated } from '@/types/intake';
+import type { InvoiceService, InvoiceServiceRate } from '@/types/invoice';
 import type { ScheduleSession } from '@/types/session';
 
 export type Department =
@@ -91,6 +92,9 @@ export interface TeamMemberShowProps {
     recentSessions: ScheduleSession[];
     documents: TeamMemberDocument[];
     missingDocuments: string[];
+    invoiceServices: InvoiceService[];
+    /** Keyed by invoice service id; a missing key means no override. */
+    invoiceServiceRates: Record<number, InvoiceServiceRate>;
 }
 
 export type { Paginated };

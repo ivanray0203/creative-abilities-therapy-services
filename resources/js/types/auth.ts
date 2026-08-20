@@ -26,8 +26,20 @@ export type TeamMember = {
     [key: string]: unknown;
 };
 
+/**
+ * One child of the signed-in parent, as listed in the portal's child
+ * switcher (Phase 17).
+ */
+export type AuthChild = {
+    id: number;
+    name: string;
+};
+
 export type Auth = {
     user: User | null;
     team_member: TeamMember | null;
+    /** The child the portal is currently scoped to. */
     client_id: number | null;
+    /** Every child belonging to this parent; empty for non-client roles. */
+    children: AuthChild[];
 };

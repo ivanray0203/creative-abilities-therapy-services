@@ -4,7 +4,10 @@ use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
 use App\Models\Intake;
+use App\Models\IntakeTherapistApproval;
+use App\Models\ScheduleSession;
 use App\Models\ServiceOffering;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -212,4 +215,201 @@ test('an admin can add and delete clinical notes', function () {
         ->assertSessionHasNoErrors();
 
     expect($client->refresh()->clinical_notes)->toBe([]);
+});
+
+test('an admin can export a client profile as a PDF covering every tab', function () {
+    $therapist = User::factory()->therapist()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
+    $intake = Intake::factory()->create([
+        'child_first_name' => 'Angel',
+        'child_last_name' => 'Diano',
+        'funding_source' => 'BDS-FSCD',
+        'funding_source_info' => ['FSCD_case_worker_name' => 'Casey Worker'],
+        'services_needed' => ['Physiotherapy', 'Counselling'],
+    ]);
+    $client = Client::factory()->create([
+        'original_intake_id' => $intake->id,
+        'primary_therapist_id' => $therapist->id,
+        'assigned_therapist_id' => $therapist->id,
+        'clinical_notes' => [
+            ['id' => 'note-1', 'user' => 'Demo Admin', 'date' => '2026-08-01', 'time' => '9:00 AM', 'note' => 'Settled in well.'],
+        ],
+    ]);
+    $client->careTeam()->attach($therapist->id);
+
+    $service = ServiceOffering::factory()->create(['name' => 'Physiotherapy']);
+    $clientService = ClientService::factory()->for($client)->create([
+        'service_id' => $service->id,
+        'therapist_id' => $therapist->id,
+    ]);
+    ScheduleSession::factory()->linkedTo($clientService)->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'completed',
+    ]);
+
+    $response = $this->actingAs(adminUser())->get("/admin/clients/{$client->id}/pdf");
+
+    $response->assertOk();
+    $response->assertHeader('content-type', 'application/pdf');
+    $response->assertDownload('angel-diano-profile.pdf');
+    expect($response->streamedContent())->toStartWith('%PDF');
+});
+
+test('a therapist cannot export a client profile', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs(therapistUser())->get("/admin/clients/{$client->id}/pdf")
+        ->assertRedirect('/therapist');
+});
+
+test('the client page marks services a therapist declined', function () {
+    $decliner = User::factory()->therapist()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
+    $intake = Intake::factory()->create(['services_needed' => ['Physiotherapy', 'Counselling']]);
+    $client = Client::factory()->create(['original_intake_id' => $intake->id]);
+
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+        'notes' => 'Caseload is full.',
+        'decided_at' => now(),
+    ]);
+    IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Physiotherapy',
+        'status' => 'approved',
+    ]);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->has('declinedServices', 1)
+            ->where('declinedServices.0.service', 'Counselling')
+            ->where('declinedServices.0.therapist', 'Jane Doe')
+            // The picker drops the decliner by id, so it has to travel too.
+            ->where('declinedServices.0.therapist_id', $decliner->id)
+            ->where('declinedServices.0.notes', 'Caseload is full.')
+        );
+});
+
+test('reassigning a declined service sends it back out and adds it to the existing client on approval', function () {
+    $decliner = therapistUser();
+    $replacement = therapistUser();
+    $service = ServiceOffering::factory()->create(['name' => 'Counselling']);
+
+    $intake = Intake::factory()->create([
+        'services_needed' => ['Counselling'],
+        'approved_as_client' => true,
+    ]);
+    $client = Client::factory()->create(['original_intake_id' => $intake->id]);
+    $intake->forceFill(['linked_client_id' => $client->id])->save();
+
+    $review = IntakeTherapistApproval::factory()->create([
+        'intake_id' => $intake->id,
+        'therapist_id' => $decliner->id,
+        'service' => 'Counselling',
+        'status' => 'rejected',
+    ]);
+
+    $this->actingAs(adminUser())->post("/admin/intake/{$intake->id}/send-to-therapist", [
+        'service' => 'Counselling',
+        'therapist_id' => $replacement->id,
+    ])->assertSessionHasNoErrors();
+
+    expect($review->fresh()->status)->toBe('reassign')
+        ->and($review->fresh()->therapist_id)->toBe($replacement->id);
+
+    $this->actingAs($replacement)->post("/therapist/intake/{$intake->id}/therapist-approve", [
+        'service' => 'Counselling',
+    ])->assertSessionHasNoErrors();
+
+    // Attached to the client that already exists — no second promotion.
+    expect(Client::count())->toBe(1)
+        ->and($client->fresh()->clientServices->pluck('service_id')->all())->toBe([$service->id])
+        ->and($client->fresh()->careTeam->pluck('id'))->toContain($replacement->id);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page->has('declinedServices', 0));
+});
+
+test('the progress tab counts delivery per service without double-counting shared visits', function () {
+    $therapist = User::factory()->therapist()->create(['first_name' => 'Jane', 'last_name' => 'Doe']);
+    $client = Client::factory()->create();
+
+    $speech = ClientService::factory()->for($client)->create([
+        'service_id' => ServiceOffering::factory()->create(['name' => 'Speech'])->id,
+        'therapist_id' => $therapist->id,
+        'no_sessions' => 4,
+        'goals' => 'Two-word phrases.',
+        'frequency' => 'Weekly',
+    ]);
+    $physio = ClientService::factory()->for($client)->create([
+        'service_id' => ServiceOffering::factory()->create(['name' => 'Physio'])->id,
+        'therapist_id' => $therapist->id,
+        'no_sessions' => 0,
+    ]);
+
+    // One visit covering both services: counts once for each, once overall.
+    $shared = ScheduleSession::factory()->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'completed',
+        'elapsed_time' => '01:30:00',
+        'scheduled_start' => now(),
+    ]);
+    $shared->clientServices()->sync([$speech->id, $physio->id]);
+
+    // Speech only, an hour, in a past month.
+    $speechOnly = ScheduleSession::factory()->linkedTo($speech)->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'confirmed',
+        'elapsed_time' => '01:00:00',
+        'scheduled_start' => now()->subMonths(2),
+    ]);
+
+    // Neither delivered: one missed, one cancelled, one still booked.
+    ScheduleSession::factory()->create(['client_id' => $client->id, 'status' => 'no_show']);
+    ScheduleSession::factory()->create(['client_id' => $client->id, 'status' => 'cancelled']);
+    ScheduleSession::factory()->create(['client_id' => $client->id, 'status' => 'scheduled']);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->has('progress.services', 2)
+            // Speech: 2 of 4 delivered, 2.5 hours, goals carried through.
+            ->where('progress.services.0.name', 'Speech')
+            ->where('progress.services.0.delivered', 2)
+            ->where('progress.services.0.authorised', 4)
+            ->where('progress.services.0.remaining', 2)
+            ->where('progress.services.0.percent', 50)
+            ->where('progress.services.0.hours', 2.5)
+            ->where('progress.services.0.therapist', 'Jane Doe')
+            ->where('progress.services.0.goals', 'Two-word phrases.')
+            // Physio authorised nothing, so there is no bar to draw.
+            ->where('progress.services.1.delivered', 1)
+            ->where('progress.services.1.authorised', null)
+            ->where('progress.services.1.percent', null)
+            // The shared visit is one visit, not two, in the totals.
+            ->where('progress.hours.total', 2.5)
+            ->where('progress.hours.this_month', 1.5)
+            ->where('progress.attendance.attended', 2)
+            ->where('progress.attendance.cancelled', 1)
+            ->where('progress.attendance.no_show', 1)
+            // 2 attended of 3 kept-or-missed; the cancellation is excluded.
+            ->where('progress.attendance.rate', 67)
+        );
+
+    expect($speechOnly->fresh()->status)->toBe('confirmed');
+});
+
+test('the progress tab reports nothing to show for a client with no services or sessions', function () {
+    $client = Client::factory()->create();
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->where('progress.has_data', false)
+            ->where('progress.attendance.rate', null)
+            ->where('progress.hours.total', 0)
+        );
 });

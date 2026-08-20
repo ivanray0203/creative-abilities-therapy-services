@@ -15,7 +15,7 @@ export const Philosophy: AboutPoint[] = [
         icon: 'Target',
         title: 'Meeting Children Where They Are',
         description:
-            "We provide individualized, evidence-based support that meets your child where they are and helps them grow in confidence, skills, and independence.",
+            'We provide individualized, evidence-based support that meets your child where they are and helps them grow in confidence, skills, and independence.',
     },
     {
         id: 2,

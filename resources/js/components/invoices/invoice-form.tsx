@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import type { ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -15,11 +17,15 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { formatScheduledDate } from '@/lib/helpers';
-import type { Client, ServiceOffering } from '@/types/client';
-import type { Invoice } from '@/types/invoice';
+import { sessionServiceLabel } from '@/lib/sessions';
+import type { Client } from '@/types/client';
+import type { Invoice, InvoiceServiceOption } from '@/types/invoice';
 import type { ScheduleSession } from '@/types/session';
 
 const OTHER_SERVICE = 'other';
+
+/** Intake funding sources billed at the FSCD rate (App\Models\InvoiceService). */
+const FSCD_FUNDING_SOURCES = ['BDS-FSCD', 'SS-FSCD', 'Counselling-FSCD'];
 
 interface LineItemForm {
     service_id: string;
@@ -32,9 +38,9 @@ interface LineItemForm {
 interface InvoiceFormData {
     client_id: string;
     session_id: string;
+    linked_therapist_invoice_id: string;
     invoice_date: string;
     due_date: string;
-    tax_percentage: string;
     notes: string;
     services: LineItemForm[];
 }
@@ -49,11 +55,14 @@ const EMPTY_LINE: LineItemForm = {
 
 function initialValues(
     invoice: Invoice | null | undefined,
-    services: ServiceOffering[],
+    services: InvoiceServiceOption[],
 ): InvoiceFormData {
     return {
         client_id: invoice ? String(invoice.client_id) : '',
         session_id: invoice?.session_id ? String(invoice.session_id) : '',
+        linked_therapist_invoice_id: invoice?.linked_therapist_invoice_id
+            ? String(invoice.linked_therapist_invoice_id)
+            : '',
         invoice_date:
             invoice?.invoice_date ?? new Date().toISOString().slice(0, 10),
         due_date:
@@ -61,18 +70,18 @@ function initialValues(
             new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
                 .toISOString()
                 .slice(0, 10),
-        tax_percentage: invoice ? String(invoice.tax_percentage) : '5',
         notes: invoice?.notes ?? '',
         services: invoice
             ? invoice.services.map((line) => {
                   const matched = services.find(
-                      (service) => service.name === line.name,
+                      (service) =>
+                          (line.invoice_service_id != null &&
+                              service.id === line.invoice_service_id) ||
+                          service.name === line.name,
                   );
 
                   return {
-                      service_id: matched
-                          ? String(matched.id)
-                          : OTHER_SERVICE,
+                      service_id: matched ? String(matched.id) : OTHER_SERVICE,
                       name: line.name,
                       description: line.description ?? '',
                       numberOfSessions: String(line.numberOfSessions),
@@ -94,11 +103,14 @@ export default function InvoiceForm({
     basePath,
     clients,
     services,
+    therapistInvoices = [],
 }: {
     invoice?: Invoice | null;
     basePath: string;
     clients: Client[];
-    services: ServiceOffering[];
+    services: InvoiceServiceOption[];
+    /** Admins only — the therapist bills this invoice can recover. */
+    therapistInvoices?: Invoice[];
 }) {
     const isEdit = invoice != null;
 
@@ -126,18 +138,111 @@ export default function InvoiceForm({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data.client_id]);
 
-    const totals = useMemo(() => {
-        const subTotal = data.services.reduce((sum, line) => {
-            const rate = parseFloat(line.rate_numeric) || 0;
-            const sessions = parseInt(line.numberOfSessions, 10) || 0;
+    /*
+     * The clinic bills the family for work a therapist already billed the
+     * clinic for. Pointing one at the other is what lets the admin read what
+     * they are owed and what they owe as a pair.
+     */
+    const recoverableInvoices = useMemo(
+        () =>
+            therapistInvoices.filter(
+                (therapistInvoice) =>
+                    String(therapistInvoice.client_id) === data.client_id,
+            ),
+        [therapistInvoices, data.client_id],
+    );
 
-            return sum + rate * sessions;
-        }, 0);
-        const taxPercentage = parseFloat(data.tax_percentage) || 0;
+    /*
+     * The rate card as combobox options. Searchable on the code as well as
+     * the name, so "ot-home" finds the line as readily as "Occupational".
+     */
+    const serviceOptions = useMemo<ComboboxOption[]>(
+        () => [
+            ...services.map((service) => ({
+                value: String(service.id),
+                label: service.name,
+                keywords: service.code,
+            })),
+            { value: OTHER_SERVICE, label: 'Other' },
+        ],
+        [services],
+    );
+
+    /**
+     * Quantity times the rate this line bills at. Quantity is billable hours,
+     * so it is parsed as a float — parseInt would bill 1.5 hours as 1.
+     */
+    const lineAmount = (line: LineItemForm): number =>
+        (parseFloat(line.rate_numeric) || 0) *
+        (parseFloat(line.numberOfSessions) || 0);
+
+    /*
+     * New invoices carry no GST. An invoice raised before that change keeps
+     * the rate it was billed at, so editing one still shows and charges it —
+     * the server leaves `tax_percentage` untouched on update.
+     */
+    const taxPercentage = parseFloat(invoice?.tax_percentage ?? '0') || 0;
+
+    const totals = useMemo(() => {
+        const subTotal = data.services.reduce(
+            (sum, line) => sum + lineAmount(line),
+            0,
+        );
         const gst = Math.round(subTotal * (taxPercentage / 100) * 100) / 100;
 
         return { subTotal, gst, total: subTotal + gst };
-    }, [data.services, data.tax_percentage]);
+    }, [data.services, taxPercentage]);
+
+    /**
+     * Which rate column this client bills against. FSCD-funded care bills the
+     * FSCD rate; Insurance and private care bill the private/insurance rate.
+     */
+    const fundingStream = useMemo(() => {
+        const client = clients.find(
+            (option) => String(option.id) === data.client_id,
+        );
+
+        return FSCD_FUNDING_SOURCES.includes(
+            client?.original_intake?.funding_source ?? '',
+        )
+            ? 'rate_fscd'
+            : 'rate_private';
+    }, [clients, data.client_id]);
+
+    /** The rate this invoice bills a line at, or null when it is not billable. */
+    const rateFor = (
+        service: InvoiceServiceOption | undefined,
+    ): string | null => service?.[fundingStream] ?? null;
+
+    /*
+     * The funding source sets the price, so switching client re-prices every
+     * line that came from the rate card. A hand-typed "Other" line is left as
+     * the user wrote it.
+     */
+    useEffect(() => {
+        if (!data.client_id) {
+            return;
+        }
+
+        setData(
+            'services',
+            data.services.map((line) => {
+                if (!line.service_id || line.service_id === OTHER_SERVICE) {
+                    return line;
+                }
+
+                const service = services.find(
+                    (option) => String(option.id) === line.service_id,
+                );
+
+                return {
+                    ...line,
+                    rate_numeric: rateFor(service) ?? line.rate_numeric,
+                };
+            }),
+        );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fundingStream]);
 
     const updateLine = (
         index: number,
@@ -168,7 +273,7 @@ export default function InvoiceForm({
                 ...line,
                 service_id: serviceId,
                 name: service?.name ?? '',
-                rate_numeric: service?.base_price ?? line.rate_numeric,
+                rate_numeric: rateFor(service) ?? line.rate_numeric,
             };
         });
 
@@ -192,6 +297,10 @@ export default function InvoiceForm({
             action,
             session_id: form.session_id || null,
             services: form.services.map((line) => ({
+                // Carried so the clinic's monthly invoice can re-price this
+                // line off the rate card rather than matching it by name.
+                invoice_service_id:
+                    line.service_id === OTHER_SERVICE ? null : line.service_id,
                 name: line.name,
                 description: line.description,
                 numberOfSessions: line.numberOfSessions,
@@ -232,6 +341,7 @@ export default function InvoiceForm({
                                     {clients.map((client) => (
                                         <SelectItem
                                             key={client.id}
+                                            id={`invoice-client-${client.id}`}
                                             value={String(client.id)}
                                         >
                                             {client.original_intake
@@ -272,23 +382,25 @@ export default function InvoiceForm({
                                     {clientSessions.map((session) => (
                                         <SelectItem
                                             key={session.id}
+                                            id={`invoice-session-${session.id}`}
                                             value={String(session.id)}
                                         >
                                             {formatScheduledDate(
                                                 session.scheduled_start,
                                             )}{' '}
                                             —{' '}
-                                            {session.service?.name ??
-                                                session.service_name ??
-                                                'Session'}{' '}
+                                            {sessionServiceLabel(
+                                                session,
+                                                'Session',
+                                            )}{' '}
                                             ({session.status})
                                         </SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                Linking a session marks it completed once this
-                                invoice is paid.
+                                Marks the session completed once this invoice is
+                                paid. Services are chosen below.
                             </p>
                             {errors.session_id && (
                                 <p className="mt-1 text-sm text-destructive">
@@ -296,6 +408,67 @@ export default function InvoiceForm({
                                 </p>
                             )}
                         </div>
+
+                        {therapistInvoices.length > 0 && (
+                            <div>
+                                <Label htmlFor="invoice-recovers">
+                                    Recovers Therapist Invoice (Optional)
+                                </Label>
+                                <Select
+                                    value={data.linked_therapist_invoice_id}
+                                    onValueChange={(value) =>
+                                        setData(
+                                            'linked_therapist_invoice_id',
+                                            value,
+                                        )
+                                    }
+                                    disabled={
+                                        !data.client_id ||
+                                        recoverableInvoices.length === 0
+                                    }
+                                >
+                                    <SelectTrigger
+                                        id="invoice-recovers"
+                                        className="mt-2 rounded-[10px]"
+                                    >
+                                        <SelectValue placeholder="Link the therapist's bill" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {recoverableInvoices.map(
+                                            (therapistInvoice) => (
+                                                <SelectItem
+                                                    key={therapistInvoice.id}
+                                                    value={String(
+                                                        therapistInvoice.id,
+                                                    )}
+                                                >
+                                                    {therapistInvoice.invoice_id ??
+                                                        `#${therapistInvoice.id}`}{' '}
+                                                    —{' '}
+                                                    {therapistInvoice.therapist
+                                                        ? `${therapistInvoice.therapist.first_name} ${therapistInvoice.therapist.last_name}`
+                                                        : 'Therapist'}{' '}
+                                                    — $
+                                                    {Number(
+                                                        therapistInvoice.total,
+                                                    ).toFixed(2)}{' '}
+                                                    ({therapistInvoice.status})
+                                                </SelectItem>
+                                            ),
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                    What the clinic owes the therapist for this
+                                    work, shown alongside this invoice.
+                                </p>
+                                {errors.linked_therapist_invoice_id && (
+                                    <p className="mt-1 text-sm text-destructive">
+                                        {errors.linked_therapist_invoice_id}
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                         <div>
                             <Label htmlFor="invoice-date">Invoice Date *</Label>
@@ -347,7 +520,7 @@ export default function InvoiceForm({
                             {data.services.map((line, index) => (
                                 <div
                                     key={index}
-                                    className="grid grid-cols-1 gap-3 rounded-[10px] border p-3 md:grid-cols-[2fr_1fr_1fr_auto]"
+                                    className="grid grid-cols-1 gap-3 rounded-[10px] border p-3 md:grid-cols-[2fr_1fr_1fr_1fr_auto]"
                                 >
                                     <div>
                                         <Label
@@ -355,38 +528,19 @@ export default function InvoiceForm({
                                         >
                                             Service Name
                                         </Label>
-                                        <Select
+                                        <Combobox
+                                            id={`service-name-${index}`}
+                                            className="mt-1 rounded-[10px]"
                                             value={line.service_id}
-                                            onValueChange={(value) =>
+                                            onChange={(value) =>
                                                 selectService(index, value)
                                             }
-                                        >
-                                            <SelectTrigger
-                                                id={`service-name-${index}`}
-                                                className="mt-1 rounded-[10px]"
-                                            >
-                                                <SelectValue placeholder="Select service" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {services.map((service) => (
-                                                    <SelectItem
-                                                        key={service.id}
-                                                        value={String(
-                                                            service.id,
-                                                        )}
-                                                    >
-                                                        {service.name}
-                                                    </SelectItem>
-                                                ))}
-                                                <SelectItem
-                                                    value={OTHER_SERVICE}
-                                                >
-                                                    Other
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        {line.service_id ===
-                                            OTHER_SERVICE && (
+                                            options={serviceOptions}
+                                            placeholder="Select service"
+                                            searchPlaceholder="Search services..."
+                                            emptyLabel="No service matches that search."
+                                        />
+                                        {line.service_id === OTHER_SERVICE && (
                                             <Input
                                                 value={line.name}
                                                 placeholder="Enter service name"
@@ -400,27 +554,6 @@ export default function InvoiceForm({
                                                 }
                                             />
                                         )}
-                                    </div>
-                                    <div>
-                                        <Label
-                                            htmlFor={`service-sessions-${index}`}
-                                        >
-                                            Sessions
-                                        </Label>
-                                        <Input
-                                            id={`service-sessions-${index}`}
-                                            type="number"
-                                            min={1}
-                                            value={line.numberOfSessions}
-                                            className="mt-1 rounded-[10px]"
-                                            onChange={(event) =>
-                                                updateLine(
-                                                    index,
-                                                    'numberOfSessions',
-                                                    event.target.value,
-                                                )
-                                            }
-                                        />
                                     </div>
                                     <div>
                                         <Label
@@ -444,6 +577,38 @@ export default function InvoiceForm({
                                             }
                                         />
                                     </div>
+                                    <div>
+                                        <Label
+                                            htmlFor={`service-sessions-${index}`}
+                                        >
+                                            Quantity
+                                        </Label>
+                                        <Input
+                                            id={`service-sessions-${index}`}
+                                            type="number"
+                                            // Billable hours, so fractional:
+                                            // 0.75 and 1.5 are real quantities.
+                                            min={0.01}
+                                            step="0.25"
+                                            inputMode="decimal"
+                                            value={line.numberOfSessions}
+                                            className="mt-1 rounded-[10px]"
+                                            onChange={(event) =>
+                                                updateLine(
+                                                    index,
+                                                    'numberOfSessions',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <Label>Amount</Label>
+                                        <p className="mt-1 flex h-9 items-center font-medium">
+                                            ${lineAmount(line).toFixed(2)}
+                                        </p>
+                                    </div>
                                     <div className="flex items-end">
                                         <Button
                                             type="button"
@@ -465,23 +630,6 @@ export default function InvoiceForm({
                                 {errors.services}
                             </p>
                         )}
-                    </div>
-
-                    <div>
-                        <Label htmlFor="invoice-tax">Tax Percentage</Label>
-                        <Input
-                            id="invoice-tax"
-                            type="number"
-                            min={0}
-                            max={100}
-                            step="0.01"
-                            value={data.tax_percentage}
-                            disabled
-                            className="mt-2 w-32 rounded-[10px]"
-                            onChange={(event) =>
-                                setData('tax_percentage', event.target.value)
-                            }
-                        />
                     </div>
 
                     <div>
@@ -529,12 +677,14 @@ export default function InvoiceForm({
                             </span>
                             <span>${totals.subTotal.toFixed(2)}</span>
                         </div>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">
-                                GST ({data.tax_percentage || 0}%)
-                            </span>
-                            <span>${totals.gst.toFixed(2)}</span>
-                        </div>
+                        {taxPercentage > 0 && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                    GST ({taxPercentage}%)
+                                </span>
+                                <span>${totals.gst.toFixed(2)}</span>
+                            </div>
+                        )}
                         <div className="flex justify-between border-t pt-2 font-bold">
                             <span>Total</span>
                             <span>${totals.total.toFixed(2)}</span>

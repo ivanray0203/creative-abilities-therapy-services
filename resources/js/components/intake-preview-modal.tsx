@@ -8,6 +8,11 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import type { AvailabilitySlots } from '@/lib/content/intake-taxonomy';
+import {
+    availabilitySummary,
+    fundingSourceLabel,
+} from '@/lib/content/intake-taxonomy';
 
 interface FscdInfoPreview {
     FSCD_case_worker_name?: string;
@@ -55,6 +60,7 @@ export interface IntakePreviewData {
     emergency_contact_relationship: string;
     emergency_contact_phone: string;
     diagnosis: string[];
+    diagnosis_other?: string;
     has_medical_conditions: boolean;
     medical_conditions?: string;
     languages_spoken_at_home?: string;
@@ -64,8 +70,7 @@ export interface IntakePreviewData {
     services_needed: string[];
     currently_receiving_services: boolean;
     receiving_services_desc?: string;
-    available_days: string[];
-    preferred_times: string[];
+    availability_slots?: AvailabilitySlots;
     additional_information?: string;
     referral_source: string;
 }
@@ -87,6 +92,10 @@ export default function IntakePreviewModal({
     applicationData,
     submitApplication,
 }: IntakePreviewModalProps) {
+    const { days: availableDays } = availabilitySummary(
+        applicationData.availability_slots ?? {},
+    );
+
     const isFscd =
         applicationData.funding_source !== 'Insurance' &&
         applicationData.funding_source !== 'private';
@@ -354,7 +363,14 @@ export default function IntakePreviewModal({
                                 </h3>
                                 <p className="font-medium">
                                     {applicationData.diagnosis?.length
-                                        ? applicationData.diagnosis.join(', ')
+                                        ? applicationData.diagnosis
+                                              .map((entry) =>
+                                                  entry === 'Other' &&
+                                                  applicationData.diagnosis_other
+                                                      ? applicationData.diagnosis_other
+                                                      : entry,
+                                              )
+                                              .join(', ')
                                         : '—'}
                                 </p>
                             </div>
@@ -401,7 +417,9 @@ export default function IntakePreviewModal({
                                     Selected Funding
                                 </h3>
                                 <p className="font-medium">
-                                    {applicationData.funding_source || '—'}
+                                    {fundingSourceLabel(
+                                        applicationData.funding_source,
+                                    )}
                                 </p>
                             </div>
 
@@ -605,29 +623,27 @@ export default function IntakePreviewModal({
                                     </p>
                                 </div>
                             )}
-                            <div>
+                            <div className="md:col-span-2">
                                 <h3 className="text-sm text-muted-foreground">
-                                    Availability (day)
+                                    Availability
                                 </h3>
-                                <p className="font-medium">
-                                    {applicationData.available_days?.length
-                                        ? applicationData.available_days.join(
-                                              ', ',
-                                          )
-                                        : '—'}
-                                </p>
-                            </div>
-                            <div>
-                                <h3 className="text-sm text-muted-foreground">
-                                    Availability (times)
-                                </h3>
-                                <p className="font-medium">
-                                    {applicationData.preferred_times?.length
-                                        ? applicationData.preferred_times.join(
-                                              ', ',
-                                          )
-                                        : '—'}
-                                </p>
+                                {availableDays.length === 0 ? (
+                                    <p className="font-medium">—</p>
+                                ) : (
+                                    <ul className="font-medium">
+                                        {availableDays.map((day) => (
+                                            <li key={day}>
+                                                {day}s:{' '}
+                                                {(
+                                                    applicationData
+                                                        .availability_slots?.[
+                                                        day
+                                                    ] ?? []
+                                                ).join(', ')}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </div>
                             <div>
                                 <h3 className="text-sm text-muted-foreground">

@@ -6,24 +6,36 @@ import {
     Phone,
     User,
     UserCog,
+    UserX,
 } from 'lucide-react';
 import { useState } from 'react';
 
+import ReassignServiceModal from '@/components/admin/client/reassign-service-modal';
 import ServiceModal from '@/components/admin/client/service-modal';
+import AvailabilitySummary from '@/components/availability-summary';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { capitalize } from '@/lib/helpers';
 import type { Client, ClientService } from '@/types/client';
+import type { DeclinedService, TherapistOption } from '@/types/intake';
 
 /** Reference: cats-frontend/src/pages/admin/clientTabs/Overview.tsx */
 export default function OverviewTab({
     client,
+    declinedServices = [],
+    therapists = [],
     isPreview,
 }: {
     client: Client;
+    declinedServices?: DeclinedService[];
+    therapists?: TherapistOption[];
     isPreview?: boolean;
 }) {
     const [selectedService, setSelectedService] =
         useState<ClientService | null>(null);
+    const [reassigning, setReassigning] = useState<DeclinedService | null>(
+        null,
+    );
     const intake = client.original_intake;
     const currentServices = client.client_services ?? [];
     const availedNames = new Set(
@@ -234,6 +246,68 @@ export default function OverviewTab({
                                 </div>
                             </div>
                         )}
+
+                        {/*
+                         * A declined service leaves no ClientService behind and
+                         * the intake drops off the admin list once the child is
+                         * promoted, so without this it would sit silently among
+                         * the requested ones with nothing prompting anyone to
+                         * act on it.
+                         */}
+                        {declinedServices.length > 0 && (
+                            <div className="mt-6 border-t pt-5">
+                                <p className="flex items-center gap-2 text-xs text-destructive">
+                                    <UserX className="h-4 w-4" /> Declined by
+                                    therapist
+                                </p>
+                                <div className="mt-3 grid grid-cols-1 gap-3">
+                                    {declinedServices.map((declined) => (
+                                        <div
+                                            key={declined.service}
+                                            className="rounded-[5px] border border-destructive/40 bg-destructive/5 p-3"
+                                        >
+                                            <div className="flex flex-wrap items-start justify-between gap-2">
+                                                <div>
+                                                    <p className="font-medium">
+                                                        {declined.service}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {declined.therapist ??
+                                                            'Therapist'}
+                                                        {declined.decided_at
+                                                            ? ' \u00b7 ' +
+                                                              declined.decided_at
+                                                            : ''}
+                                                    </p>
+                                                </div>
+
+                                                {!isPreview && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="rounded-[5px]"
+                                                        onClick={() =>
+                                                            setReassigning(
+                                                                declined,
+                                                            )
+                                                        }
+                                                    >
+                                                        Reassign
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {declined.notes && (
+                                                <p className="mt-2 text-sm text-muted-foreground">
+                                                    &ldquo;{declined.notes}
+                                                    &rdquo;
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
 
@@ -243,52 +317,36 @@ export default function OverviewTab({
                             <Calendar className="text-primary" /> Availability
                         </p>
 
-                        <div className="mt-10 grid gap-5">
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Available Days
-                                </p>
-                                <div className="flex flex-row flex-wrap gap-3">
-                                    {(intake?.available_days ?? []).map(
-                                        (day) => (
-                                            <p
-                                                key={day}
-                                                className="rounded-[5px] border p-1 text-sm"
-                                            >
-                                                {day}
-                                            </p>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Preferred Times
-                                </p>
-                                <div className="flex flex-row flex-wrap gap-3">
-                                    {(intake?.preferred_times ?? []).map(
-                                        (time) => (
-                                            <p
-                                                key={time}
-                                                className="rounded-[5px] border p-1 text-sm"
-                                            >
-                                                {time}
-                                            </p>
-                                        ),
-                                    )}
-                                </div>
-                            </div>
+                        <div className="mt-10">
+                            <AvailabilitySummary
+                                slots={intake?.availability_slots}
+                                fallbackDays={intake?.available_days}
+                                fallbackTimes={intake?.preferred_times}
+                            />
                         </div>
                     </CardContent>
                 </Card>
             </div>
 
             {!isPreview && (
-                <ServiceModal
-                    clientService={selectedService}
-                    isOpen={selectedService !== null}
-                    onClose={() => setSelectedService(null)}
-                />
+                <>
+                    <ServiceModal
+                        clientService={selectedService}
+                        isOpen={selectedService !== null}
+                        onClose={() => setSelectedService(null)}
+                    />
+
+                    {client.original_intake_id !== null && (
+                        <ReassignServiceModal
+                            intakeId={client.original_intake_id}
+                            service={reassigning?.service ?? null}
+                            declinedByTherapistId={reassigning?.therapist_id}
+                            therapists={therapists}
+                            isOpen={reassigning !== null}
+                            onClose={() => setReassigning(null)}
+                        />
+                    )}
+                </>
             )}
         </>
     );

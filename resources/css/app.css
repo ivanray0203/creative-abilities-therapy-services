@@ -191,3 +191,27 @@ Brand palette (from cats-frontend design system):
         @apply bg-background text-foreground;
     }
 }
+
+/*
+ * Radix's Select already scrolls its list — it sets `overflow: hidden auto`
+ * inline on the viewport — but it also injects a stylesheet hiding the
+ * scrollbar, leaving only a hover-activated chevron as the hint. A long
+ * dropdown then looks like a list that simply cannot be scrolled.
+ *
+ * The selector is doubled to outrank Radix's own `[data-radix-select-viewport]`
+ * rule, which is injected at runtime and would otherwise win on order.
+ */
+[data-radix-select-viewport][data-radix-select-viewport] {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+}
+
+[data-radix-select-viewport][data-radix-select-viewport]::-webkit-scrollbar {
+    display: block;
+    width: 8px;
+}
+
+[data-radix-select-viewport][data-radix-select-viewport]::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 4px;
+}

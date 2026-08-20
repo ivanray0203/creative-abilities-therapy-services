@@ -1,7 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { Eye } from 'lucide-react';
 
-import { InvoiceStatusBadge } from '@/components/invoices/badges';
+import {
+    InvoiceDirectionBadge,
+    InvoiceStatusBadge,
+} from '@/components/invoices/badges';
 import { formatDate } from '@/lib/helpers';
 import type { Invoice } from '@/types/invoice';
 
@@ -9,9 +12,12 @@ import type { Invoice } from '@/types/invoice';
 export default function InvoicesTable({
     invoices,
     basePath,
+    showDirection = false,
 }: {
     invoices: Invoice[];
     basePath: string;
+    /** Admins see both sides of the ledger and need them told apart. */
+    showDirection?: boolean;
 }) {
     if (invoices.length === 0) {
         return (
@@ -28,6 +34,7 @@ export default function InvoicesTable({
                     <tr>
                         <th className="pb-3">Invoice #</th>
                         <th className="hidden pb-3 md:table-cell">Client</th>
+                        {showDirection && <th className="pb-3">Direction</th>}
                         <th className="pb-3">Date</th>
                         <th className="hidden pb-3 md:table-cell">Due Date</th>
                         <th className="pb-3">Total</th>
@@ -46,6 +53,13 @@ export default function InvoicesTable({
                                     ? `${invoice.client.original_intake.child_first_name} ${invoice.client.original_intake.child_last_name}`
                                     : '-'}
                             </td>
+                            {showDirection && (
+                                <td className="py-4">
+                                    <InvoiceDirectionBadge
+                                        billedBy={invoice.billed_by}
+                                    />
+                                </td>
+                            )}
                             <td className="py-4">
                                 {formatDate(invoice.invoice_date)}
                             </td>

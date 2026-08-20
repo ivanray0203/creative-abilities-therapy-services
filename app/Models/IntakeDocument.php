@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Database\Factories\IntakeDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable(['intake_id', 'name', 'type', 'file', 'drive_file_id', 'drive_file_url', 'drive_web_view', 'uploaded_at'])]
 class IntakeDocument extends Model
 {
-    /** @use HasFactory<\Database\Factories\IntakeDocumentFactory> */
+    /** @use HasFactory<IntakeDocumentFactory> */
     use HasFactory;
 
     protected function casts(): array

@@ -1,17 +1,40 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Calendar, ClipboardIcon, DollarSign, FileText, LayoutDashboard, LogOut, User, Users } from 'lucide-react';
+import {
+    Calendar,
+    ClipboardIcon,
+    ClipboardList,
+    DollarSign,
+    FileText,
+    LayoutDashboard,
+    LogOut,
+    Receipt,
+    User,
+    Users,
+} from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from '@/components/ui/sidebar';
+import {
+    Sidebar,
+    SidebarContent,
+    SidebarGroup,
+    SidebarGroupContent,
+    SidebarMenu,
+    SidebarMenuButton,
+    SidebarMenuItem,
+    useSidebar,
+} from '@/components/ui/sidebar';
 import { useAuthUser } from '@/hooks/use-auth-user';
 import { getInitials } from '@/lib/helpers';
+import { isActiveNavItem } from '@/lib/navigation';
 
 const menuItems = [
     { title: 'Dashboard', icon: LayoutDashboard, url: '/therapist' },
     { title: 'Calendar', icon: Calendar, url: '/therapist/calendar' },
     { title: 'Sessions', icon: ClipboardIcon, url: '/therapist/sessions' },
     { title: 'Clients', icon: Users, url: '/therapist/clients' },
-    { title: 'Invoices', icon: DollarSign, url: '/therapist/invoices' },
+    { title: 'Reviews', icon: ClipboardList, url: '/therapist/intake' },
+    { title: 'Billing', icon: DollarSign, url: '/therapist/billing' },
+    { title: 'Invoices', icon: Receipt, url: '/therapist/invoices' },
     { title: 'Complaints', icon: FileText, url: '/therapist/complaints' },
     { title: 'Profile', icon: User, url: '/therapist/profile' },
 ];
@@ -27,14 +50,20 @@ export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
                 <div className="border-b border-sidebar-border p-4">
                     <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 bg-primary">
-                            <AvatarFallback className="bg-primary text-primary-foreground">{getInitials(`${user.first_name} ${user.last_name}`)}</AvatarFallback>
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                                {getInitials(
+                                    `${user.first_name} ${user.last_name}`,
+                                )}
+                            </AvatarFallback>
                         </Avatar>
                         {open && (
                             <div className="min-w-0 flex-1">
                                 <p className="truncate text-sm font-medium text-sidebar-foreground">
                                     {user.first_name} {user.last_name}
                                 </p>
-                                <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                                <p className="truncate text-xs text-muted-foreground">
+                                    {user.email}
+                                </p>
                             </div>
                         )}
                     </div>
@@ -44,8 +73,11 @@ export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
                     <SidebarGroupContent>
                         <SidebarMenu>
                             {menuItems.map((item) => {
-                                const isDashboard = item.url === '/therapist';
-                                const isSelected = isDashboard ? currentUrl === item.url : currentUrl === item.url || currentUrl.startsWith(item.url + '/');
+                                const isSelected = isActiveNavItem(
+                                    currentUrl,
+                                    item.url,
+                                    { exact: item.url === '/therapist' },
+                                );
 
                                 return (
                                     <SidebarMenuItem key={item.title}>
@@ -53,11 +85,15 @@ export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
                                             <Link
                                                 href={item.url}
                                                 className={`flex items-center gap-2 rounded-[5px] px-3 py-2 ${
-                                                    isSelected ? 'bg-secondary-orange/10 font-medium text-primary' : 'text-sidebar-foreground hover:bg-secondary-orange/20'
+                                                    isSelected
+                                                        ? 'bg-secondary-orange/10 font-medium text-primary'
+                                                        : 'text-sidebar-foreground hover:bg-secondary-orange/20'
                                                 }`}
                                             >
                                                 <item.icon className="h-4 w-4" />
-                                                {open && <span>{item.title}</span>}
+                                                {open && (
+                                                    <span>{item.title}</span>
+                                                )}
                                             </Link>
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
@@ -65,7 +101,10 @@ export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
                             })}
                             <SidebarMenuItem className="mt-2 block sm:hidden">
                                 <SidebarMenuButton asChild>
-                                    <button onClick={onLogout} className="flex w-full items-center gap-2 rounded-[5px] px-3 py-2 text-red-600 hover:bg-red-100">
+                                    <button
+                                        onClick={onLogout}
+                                        className="flex w-full items-center gap-2 rounded-[5px] px-3 py-2 text-red-600 hover:bg-red-100"
+                                    >
                                         <LogOut className="h-4 w-4" />
                                         Logout
                                     </button>

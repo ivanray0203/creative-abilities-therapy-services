@@ -3,7 +3,7 @@
  * (app/Models/ScheduleSession.php) plus its eager-loaded relations.
  */
 
-import type { Client, ServiceOffering } from '@/types/client';
+import type { Client, ClientService, ServiceOffering } from '@/types/client';
 import type { TherapistOption } from '@/types/intake';
 
 export type ScheduleSessionStatus =
@@ -24,11 +24,11 @@ export interface ScheduleSession {
     therapist_id: number;
     service_id: number | null;
     service_name: string | null;
-    linked_client_service_id: number | null;
     scheduled_start: string;
     scheduled_end: string;
     location: string | null;
-    duration: string | null;
+    /** Minutes. */
+    duration: number | null;
     notes: string | null;
     status: ScheduleSessionStatus;
     elapsed_time: string | null;
@@ -41,6 +41,29 @@ export interface ScheduleSession {
     client?: Client | null;
     therapist?: TherapistOption | null;
     service?: ServiceOffering | null;
+    /** The availed services this one visit delivers. */
+    client_services?: ClientService[];
+}
+
+/**
+ * A session flattened for the admin calendar grid
+ * (Admin\CalendarController::sessions()). Dates and times arrive
+ * pre-formatted in the app timezone so the grid never re-parses them.
+ */
+export interface CalendarSession {
+    id: string;
+    /** `YYYY-MM-DD`. */
+    date: string;
+    /** `HH:MM`. */
+    time: string;
+    endTime: string;
+    client: string;
+    /** The service name as configured, so not a fixed set of codes. */
+    type: string;
+    location: string;
+    status: string;
+    therapistId: number | null;
+    therapist: string;
 }
 
 export interface SessionStats {
