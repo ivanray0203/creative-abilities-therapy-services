@@ -346,6 +346,20 @@ export default function SessionsForm({
                         )}
                     </div>
 
+                    {/*
+                     * A therapist has no Therapist field to hang this on, so
+                     * a clash with their own diary would otherwise reject the
+                     * form with nothing on screen to explain it.
+                     */}
+                    {!isAdmin && errors.therapist_id && (
+                        <p
+                            id="session-therapist-conflict"
+                            className="text-sm text-destructive md:col-span-2"
+                        >
+                            {errors.therapist_id}
+                        </p>
+                    )}
+
                     <div className="md:col-span-2">
                         <Label htmlFor="session-notes">Notes</Label>
                         <Textarea

@@ -166,6 +166,26 @@ test('a therapist scheduling for themselves is checked against their own diary',
     expect(ScheduleSession::count())->toBe(1);
 });
 
+test('the clash is worded at whoever is booking', function () {
+    [$therapist, $client] = bookedNineToTen();
+
+    $clash = [
+        'client_id' => $client->id,
+        'date' => '2026-09-01',
+        'start_time' => '09:30',
+        'end_time' => '10:30',
+    ];
+
+    // The therapist reads about their own diary, not a third party's.
+    $this->actingAs($therapist)
+        ->post('/therapist/sessions', $clash)
+        ->assertSessionHasErrors(['therapist_id' => 'You already have a session booked from 9:00 AM to 10:00 AM.']);
+
+    $this->actingAs(adminUser())
+        ->post('/admin/sessions', [...$clash, 'therapist_id' => $therapist->id])
+        ->assertSessionHasErrors(['therapist_id' => 'This therapist already has a session booked from 9:00 AM to 10:00 AM.']);
+});
+
 test('a different therapist and child at the same time is fine', function () {
     bookedNineToTen();
 

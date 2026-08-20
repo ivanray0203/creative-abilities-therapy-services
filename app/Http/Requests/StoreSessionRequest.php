@@ -86,7 +86,11 @@ class StoreSessionRequest extends FormRequest
                     ScheduleSession::query()->where('therapist_id', $this->effectiveTherapistId()),
                     $start,
                     $end,
-                    'This therapist already has a session booked from :from to :to.',
+                    // A therapist is always booking their own diary, so the
+                    // clash is theirs rather than some third party's.
+                    $this->user()?->isAdmin() === true
+                        ? 'This therapist already has a session booked from :from to :to.'
+                        : 'You already have a session booked from :from to :to.',
                 );
 
                 $this->failOnConflict(
