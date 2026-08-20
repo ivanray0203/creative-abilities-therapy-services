@@ -22,14 +22,14 @@ class DemoAccountsSeeder extends Seeder
     public function run(): void
     {
         $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@cats.test'],
+            ['email' => 'admin@creativeabilitiestherapyservices.ca'],
             [
-                'first_name' => 'Demo',
+                'first_name' => 'Admin',
                 'last_name' => 'Admin',
                 'role' => 'admin',
                 'is_active' => true,
                 'email_verified_at' => now(),
-                'password' => Hash::make(self::PASSWORD),
+                'password' => Hash::make("CaTsInc123*"),
             ],
         );
 
@@ -63,54 +63,54 @@ class DemoAccountsSeeder extends Seeder
             ],
         );
 
-        $clientUser = User::query()->updateOrCreate(
-            ['email' => 'client@cats.test'],
-            [
-                'first_name' => 'Demo',
-                'last_name' => 'Client',
-                'role' => 'client',
-                'is_active' => true,
-                'email_verified_at' => now(),
-                'password' => Hash::make(self::PASSWORD),
-            ],
-        );
+        // $clientUser = User::query()->updateOrCreate(
+        //     ['email' => 'client@cats.test'],
+        //     [
+        //         'first_name' => 'Demo',
+        //         'last_name' => 'Client',
+        //         'role' => 'client',
+        //         'is_active' => true,
+        //         'email_verified_at' => now(),
+        //         'password' => Hash::make(self::PASSWORD),
+        //     ],
+        // );
 
-        $client = Client::query()->where('user_id', $clientUser->id)->first();
+        // $client = Client::query()->where('user_id', $clientUser->id)->first();
 
-        if (! $client) {
-            $dateOfBirth = now()->subYears(8)->startOfDay();
+        // if (! $client) {
+            // $dateOfBirth = now()->subYears(8)->startOfDay();
 
-            $intake = Intake::query()->updateOrCreate(
-                ['reference_number' => 'INT-'.now()->year.'-001'],
-                [
-                    'child_first_name' => 'Demo',
-                    'child_last_name' => 'Child',
-                    'date_of_birth' => $dateOfBirth->toDateString(),
-                    'age' => 8,
-                    'gender' => 'other',
-                    'status' => 'approved',
-                    'street_address' => '100 Demo Street',
-                    'city' => 'Calgary',
-                    'state_province' => 'AB',
-                    'postal_code' => 'T2P 1A1',
-                    'primary_parent_name' => 'Demo Client',
-                    'primary_parent_phone' => '555-0101',
-                    'primary_parent_email' => $clientUser->email,
-                    'primary_relationship_to_child' => 'Parent',
-                    'primary_contact_method' => 'email',
-                ],
-            );
+            // $intake = Intake::query()->updateOrCreate(
+            //     ['reference_number' => 'INT-'.now()->year.'-001'],
+            //     [
+            //         'child_first_name' => 'Demo',
+            //         'child_last_name' => 'Child',
+            //         'date_of_birth' => $dateOfBirth->toDateString(),
+            //         'age' => 8,
+            //         'gender' => 'other',
+            //         'status' => 'approved',
+            //         'street_address' => '100 Demo Street',
+            //         'city' => 'Calgary',
+            //         'state_province' => 'AB',
+            //         'postal_code' => 'T2P 1A1',
+            //         'primary_parent_name' => 'Demo Client',
+            //         'primary_parent_phone' => '555-0101',
+            //         'primary_parent_email' => $clientUser->email,
+            //         'primary_relationship_to_child' => 'Parent',
+            //         'primary_contact_method' => 'email',
+            //     ],
+            // );
 
-            $client = Client::query()->create([
-                'original_intake_id' => $intake->id,
-                'user_id' => $clientUser->id,
-                'primary_therapist_id' => $therapistUser->id,
-                'assigned_therapist_id' => $therapistUser->id,
-                'assigned_at' => now()->toDateString(),
-                'status' => 'active',
-            ]);
+            // $client = Client::query()->create([
+            //     'original_intake_id' => $intake->id,
+            //     'user_id' => $clientUser->id,
+            //     'primary_therapist_id' => $therapistUser->id,
+            //     'assigned_therapist_id' => $therapistUser->id,
+            //     'assigned_at' => now()->toDateString(),
+            //     'status' => 'active',
+            // ]);
 
-            BillingAccount::query()->firstOrCreate(['client_id' => $client->id]);
+            // BillingAccount::query()->firstOrCreate(['client_id' => $client->id]);
         }
     }
 }
