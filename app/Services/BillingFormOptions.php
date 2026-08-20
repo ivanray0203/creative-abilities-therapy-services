@@ -31,9 +31,9 @@ class BillingFormOptions
      * billing the clinic bills at their own, which falls back to the
      * published rate wherever they have no override.
      *
-     * @return Collection<int, array{id: int, name: string, code: string, discipline: string, rate_fscd: ?string, rate_private: ?string}>
+     * @return array<int, array{id: int, name: string, code: string, discipline: string, rate_fscd: string|null, rate_private: string|null}>
      */
-    public function services(User $user): Collection
+    public function services(User $user): array
     {
         $services = InvoiceService::query()->active()->orderBy('sort_order')->get();
 
@@ -46,9 +46,9 @@ class BillingFormOptions
             'name' => $service->name,
             'code' => $service->code,
             'discipline' => $service->discipline,
-            'rate_fscd' => $teamMember?->rateFor($service, 'fscd') ?? $service->rate_fscd,
-            'rate_private' => $teamMember?->rateFor($service, 'private') ?? $service->rate_private,
-        ]);
+            'rate_fscd' => $teamMember?->rateFor($service, 'fscd') ?? $service->rateFor('fscd'),
+            'rate_private' => $teamMember?->rateFor($service, 'private') ?? $service->rateFor('private'),
+        ])->all();
     }
 
     /**

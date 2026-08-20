@@ -703,9 +703,9 @@ class InvoiceController extends Controller
     }
 
     /**
-     * @return Collection<int, array{id: int, name: string, code: string, discipline: string, rate_fscd: ?string, rate_private: ?string}>
+     * @return array<int, array{id: int, name: string, code: string, discipline: string, rate_fscd: ?string, rate_private: ?string}>
      */
-    private function serviceOptions(User $user): Collection
+    private function serviceOptions(User $user): array
     {
         return app(BillingFormOptions::class)->services($user);
     }

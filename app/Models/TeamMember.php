@@ -77,7 +77,7 @@ class TeamMember extends Model
      * The pivot carries the override itself; a null pivot rate means the line
      * falls back to the published rate on `invoice_services`.
      *
-     * @return BelongsToMany<InvoiceService, $this>
+     * @return BelongsToMany<InvoiceService, $this, TeamMemberInvoiceServiceRate>
      */
     public function invoiceServiceRates(): BelongsToMany
     {

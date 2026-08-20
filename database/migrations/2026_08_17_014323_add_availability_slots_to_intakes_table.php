@@ -78,13 +78,10 @@ return new class extends Migration
 
     private function replacePreferredTime(string $from, string $to): void
     {
-        DB::table('intakes')
-            ->whereNotNull('preferred_times')
-            ->where('preferred_times', 'like', '%'.$from.'%')
-            ->update([
-                'preferred_times' => DB::raw(
-                    'REPLACE(preferred_times, '.DB::getPdo()->quote($from).', '.DB::getPdo()->quote($to).')'
-                ),
-            ]);
+        DB::update(
+            'update intakes set preferred_times = REPLACE(preferred_times, ?, ?) '
+            .'where preferred_times is not null and preferred_times like ?',
+            [$from, $to, '%'.$from.'%'],
+        );
     }
 };

@@ -268,3 +268,9 @@ test('the command can close one side of the ledger only', function () {
 test('the command rejects an unknown side', function () {
     $this->artisan('invoices:generate-monthly', ['--only' => 'nonsense'])->assertFailed();
 });
+
+test('the command rejects a month it cannot read', function () {
+    $this->artisan('invoices:generate-monthly', ['--month' => 'last-june'])
+        ->expectsOutputToContain('Could not read --month.')
+        ->assertFailed();
+});

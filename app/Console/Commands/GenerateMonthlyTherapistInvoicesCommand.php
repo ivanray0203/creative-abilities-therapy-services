@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Services\MonthlyClientInvoiceGenerator;
 use App\Services\MonthlyTherapistInvoiceGenerator;
+use Carbon\Exceptions\InvalidFormatException;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -32,11 +33,15 @@ class GenerateMonthlyTherapistInvoicesCommand extends Command
     ): int {
         $option = $this->option('month');
 
-        $month = $option
-            ? Carbon::createFromFormat('Y-m', (string) $option)?->startOfMonth()
-            : now()->subMonthNoOverflow()->startOfMonth();
+        try {
+            $month = $option
+                ? Carbon::createFromFormat('Y-m', (string) $option)?->startOfMonth()
+                : now()->subMonthNoOverflow()->startOfMonth();
+        } catch (InvalidFormatException) {
+            $month = null;
+        }
 
-        if ($month === null || $month === false) {
+        if ($month === null) {
             $this->error('Could not read --month. Use YYYY-MM, for example 2026-06.');
 
             return self::FAILURE;

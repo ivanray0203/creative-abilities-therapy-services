@@ -489,7 +489,7 @@ class DemoDataSeeder extends Seeder
 
         if ($status === 'paid') {
             $invoice->paid_at = $issuedAt->copy()->addDays(12);
-            $invoice->paid_date = $issuedAt->copy()->addDays(12)->toDateString();
+            $invoice->paid_date = $issuedAt->copy()->addDays(12);
             $invoice->amount_due = 0;
         }
 

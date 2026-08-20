@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\InvoiceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -14,6 +15,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 /**
  * @property array<int, array<string, mixed>>|null $services Line items shaped like {name, description, period, numberOfSessions, rate, rate_numeric}.
  * @property array<int, array<string, mixed>>|null $timeline
+ * @property CarbonImmutable|null $invoice_date
+ * @property CarbonImmutable|null $due_date
+ * @property CarbonImmutable|null $paid_at
+ * @property CarbonImmutable|null $paid_date
+ * @property CarbonImmutable|null $period_start
+ * @property CarbonImmutable|null $period_end
  * @property-read Client|null $client
  * @property-read User|null $therapist
  */

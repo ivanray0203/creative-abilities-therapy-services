@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Model;
  *
  * @property string|null $rate_fscd
  * @property string|null $rate_private
+ * @property-read TeamMemberInvoiceServiceRate|null $pivot Set when the line is read through TeamMember::invoiceServiceRates().
  */
 #[Fillable(['name', 'code', 'discipline', 'rate_fscd', 'rate_private', 'is_active', 'sort_order'])]
 class InvoiceService extends Model

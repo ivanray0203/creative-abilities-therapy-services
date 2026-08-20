@@ -252,7 +252,10 @@ class TeamMemberController extends Controller
             'rates.*.rate_private' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
         ]);
 
-        $overrides = collect($validated['rates'])
+        /** @var array<int, array<string, mixed>> $rates */
+        $rates = $validated['rates'];
+
+        $overrides = collect($rates)
             ->filter(fn (array $rate): bool => $rate['rate_fscd'] !== null || $rate['rate_private'] !== null)
             ->mapWithKeys(fn (array $rate): array => [
                 $rate['invoice_service_id'] => [
