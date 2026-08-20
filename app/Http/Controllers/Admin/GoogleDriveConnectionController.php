@@ -7,6 +7,7 @@ use Google\Client as GoogleClient;
 use Google\Service\Drive as GoogleDrive;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * One-time OAuth authorization so document uploads can write to Google
@@ -18,6 +19,10 @@ class GoogleDriveConnectionController extends Controller
 {
     public function connect(): RedirectResponse
     {
+        if (blank(config('services.google_drive.client_id')) || blank(config('services.google_drive.client_secret'))) {
+            return $this->fail('Google Drive is not configured: set GOOGLE_DRIVE_CLIENT_ID and GOOGLE_DRIVE_CLIENT_SECRET.');
+        }
+
         $client = $this->client();
         $client->setAccessType('offline');
         $client->setPrompt('consent');
@@ -27,22 +32,47 @@ class GoogleDriveConnectionController extends Controller
 
     public function callback(Request $request): RedirectResponse
     {
+        if (filled($error = $request->query('error'))) {
+            return $this->fail("Google Drive authorization was denied by Google: {$error}.");
+        }
+
         $code = $request->query('code');
 
         if (blank($code)) {
-            return redirect()->route('admin.dashboard')->with('error', 'Google Drive authorization was cancelled or denied.');
+            return $this->fail('Google Drive authorization did not start. Begin at the "Connect Google Drive" link rather than opening the callback URL directly.');
         }
 
         $client = $this->client();
         $token = $client->fetchAccessTokenWithAuthCode((string) $code);
 
         if (isset($token['error'])) {
-            return redirect()->route('admin.dashboard')->with('error', "Google Drive authorization failed: {$token['error_description']}");
+            $reason = $token['error_description'] ?? $token['error'];
+
+            return $this->fail("Google Drive authorization failed: {$reason}");
         }
 
-        file_put_contents(config('services.google_drive.token_path'), json_encode($token));
+        if (blank($token['refresh_token'] ?? null)) {
+            return $this->fail('Google returned no refresh token. Revoke this app under your Google account\'s third-party access, then connect again.');
+        }
+
+        $path = config('services.google_drive.token_path');
+
+        if (! is_dir($directory = dirname($path))) {
+            mkdir($directory, 0755, true);
+        }
+
+        if (file_put_contents($path, json_encode($token)) === false) {
+            return $this->fail("Google Drive connected, but the token could not be saved to {$path}. Check the directory is writable.");
+        }
 
         return redirect()->route('admin.dashboard')->with('success', 'Google Drive connected successfully.');
+    }
+
+    private function fail(string $message): RedirectResponse
+    {
+        Log::error('Google Drive authorization failed.', ['reason' => $message]);
+
+        return redirect()->route('admin.dashboard')->with('error', $message);
     }
 
     private function client(): GoogleClient
