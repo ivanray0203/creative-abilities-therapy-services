@@ -35,13 +35,19 @@ export default function IntakeDecisionCard({
             router.post(
                 `/therapist/intake/${intakeId}/therapist-approve`,
                 { service },
-                { onFinish: () => setSubmitting(false) },
+                {
+                    preserveScroll: true,
+                    onFinish: () => setSubmitting(false),
+                },
             );
         } else {
             router.post(
                 `/therapist/intake/${intakeId}/therapist-reject`,
                 { service, notes: reason },
-                { onFinish: () => setSubmitting(false) },
+                {
+                    preserveScroll: true,
+                    onFinish: () => setSubmitting(false),
+                },
             );
         }
     };
