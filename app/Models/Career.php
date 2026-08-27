@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\StringList;
 use Database\Factories\CareerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,11 +16,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property array<int, string>|null $benefits
  * @property array<int, string>|null $highlights
  * @property array<int, string>|null $required_documents
+ * @property array<string, mixed>|null $detail
  */
 #[Fillable([
     'position', 'location', 'schedule', 'contract', 'rate', 'short_description', 'about_description',
-    'responsibilities', 'qualifications', 'skills', 'benefits', 'is_active', 'due_date',
-    'highlights', 'level', 'hours', 'required_documents',
+    'responsibilities', 'qualifications', 'skills', 'benefits', 'is_active', 'sort_order', 'due_date',
+    'highlights', 'level', 'hours', 'required_documents', 'detail',
 ])]
 class Career extends Model
 {
@@ -29,14 +31,16 @@ class Career extends Model
     protected function casts(): array
     {
         return [
-            'responsibilities' => 'array',
-            'qualifications' => 'array',
-            'skills' => 'array',
-            'benefits' => 'array',
+            'responsibilities' => StringList::class,
+            'qualifications' => StringList::class,
+            'skills' => StringList::class,
+            'benefits' => StringList::class,
             'is_active' => 'boolean',
+            'sort_order' => 'integer',
             'due_date' => 'date',
-            'highlights' => 'array',
-            'required_documents' => 'array',
+            'highlights' => StringList::class,
+            'required_documents' => StringList::class,
+            'detail' => 'array',
         ];
     }
 

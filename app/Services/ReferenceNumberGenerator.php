@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Generates INT-{year}-{seq} / APP-{year}-{seq} / INV-{year}-{seq} /
- * BIL-{year}-{seq} / PRG-{year}-{seq} reference numbers.
+ * BIL-{year}-{seq} / PRG-{year}-{seq} / EXP-{year}-{seq} reference numbers.
  *
  * The Django reference derives {seq} from a per-year row COUNT, which
  * races under concurrent submissions. This locks the max existing
@@ -37,6 +37,11 @@ class ReferenceNumberGenerator
     public function programRegistration(): string
     {
         return $this->next('program_registrations', 'PRG');
+    }
+
+    public function expense(): string
+    {
+        return $this->next('expenses', 'EXP');
     }
 
     private function next(string $table, string $prefix, string $column = 'reference_number'): string

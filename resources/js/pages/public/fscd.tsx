@@ -2,42 +2,22 @@ import { Head, Link } from '@inertiajs/react';
 import { Heart } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
+import ScrollToContactButton from '@/components/scroll-to-contact-button';
 import { Button } from '@/components/ui/button';
 import PublicLayout from '@/layouts/public-layout';
-import { Process, WhyFscd } from '@/lib/content/fscd';
+import { Process, ServiceComparison, WhyFscd } from '@/lib/content/fscd';
 
-const BDS_GOALS = [
-    'Practice communication and social skills',
-    'Learn routines and follow structured activities',
-    'Develop positive behaviour strategies',
-    'Gain confidence and independence in daily tasks',
+const BDS_PARAGRAPHS = [
+    'Behavioural and Developmental Support (BDS) is an FSCD-funded service designed for children who need targeted support with behavioural, developmental, communication, social, or everyday living skills. Support is individualized around the child’s strengths, needs, goals, and family priorities.',
+    'BDS is generally a less intensive service model and is typically provided for approximately six months. Depending on the child’s approved FSCD services, the team may include a Behavioural & Developmental Aide and up to two clinicians.',
+    'During BDS, the team works collaboratively with the family to support identified goals, monitor progress, and determine whether the child’s needs can continue to be supported through BDS or whether a transition to more intensive Specialized Services (SS) may be appropriate.',
 ];
 
-const SS_GOALS = [
-    'Behaviour management and emotional regulation',
-    'Communication and social interaction',
-    'Physical development, including gross and fine motor skills',
-    'Adaptive skills and independence in daily living',
-    'Mental health support, coping strategies, and family guidance',
-];
-
-const KEY_DIFFERENCES = [
-    {
-        title: 'Intensity and Complexity',
-        desc: 'BDS is generally less intensive, focusing on direct support from a behavioural aide. SS is multidisciplinary, structured, and more intensive for children with complex needs.',
-    },
-    {
-        title: 'Type of Support',
-        desc: 'BDS involves hands-on support under supervision, while SS integrates therapy and interventions from a team of professionals according to an individualized plan.',
-    },
-    {
-        title: 'Eligibility',
-        desc: 'BDS is designed for children requiring behavioural or developmental support. SS is intended for children with severe disabilities affecting multiple areas of functioning.',
-    },
-    {
-        title: 'Duration',
-        desc: 'BDS is usually planned in 6-month blocks with reviews, while SS is planned in 12-month blocks as part of an FSCD Agreement that can last up to three years.',
-    },
+const SS_PARAGRAPHS = [
+    'Specialized Services (SS) is an FSCD-funded service designed for children with more complex needs who require coordinated support across multiple areas of development. Services are individualized around the child’s strengths, needs, goals, and family priorities.',
+    'SS is generally a more intensive, multidisciplinary service model and is typically provided over a 12-month period. Depending on the child’s approved FSCD services, the team may include a Clinical Coordinator, Behavioural & Developmental Aide, and up to four clinicians.',
+    'The multidisciplinary team works collaboratively with the family to develop and implement an individualized service plan, coordinate goals across disciplines, monitor progress, and adjust strategies as the child’s needs change.',
+    'Specialized Services may be appropriate when a child requires a higher level of coordinated support than can be provided through BDS. Some families may transition from Behavioural and Developmental Support (BDS) to Specialized Services (SS) when more intensive multidisciplinary support is needed.',
 ];
 
 export default function Fscd() {
@@ -64,28 +44,22 @@ export default function Fscd() {
                         Family Support for Children with Disabilities (FSCD)
                     </p>
 
-                    <p className="text-center text-base leading-relaxed md:text-lg">
-                        At{' '}
+                    <p className="max-w-4xl text-center text-base leading-relaxed md:text-lg">
                         <span className="font-bold">
                             Creative Abilities Therapy Services
-                        </span>
-                        , we are proud to be an FSCD-approved service provider,
-                        offering families access to both Behavioural
-                        Developmental Services (BDS) and Specialized Services
-                        (SS). The{' '}
-                        <span className="font-bold">
-                            Family Support for Children with Disabilities (FSCD)
                         </span>{' '}
-                        program is designed by the Alberta government to help
-                        children with disabilities reach their full potential.
-                        FSCD provides funding and support for families to access
-                        services that meet their child's unique developmental,
-                        behavioural, physical, and emotional needs.
+                        is an approved Family Support for Children with
+                        Disabilities (FSCD) service provider. We support
+                        families through Behavioural and Developmental Support
+                        (BDS) and Specialized Services (SS), helping children
+                        access individualized services based on their
+                        developmental, behavioural, physical, communication, and
+                        emotional needs.
                     </p>
                 </div>
             </section>
 
-            {/* Guiding */}
+            {/* Supporting your family */}
             <section id="guiding" className="py-20">
                 <div className="container mx-auto">
                     <div className="grid items-center gap-12 lg:grid-cols-2">
@@ -104,33 +78,31 @@ export default function Fscd() {
                         <div className="space-y-6">
                             <div className="flex flex-row gap-3 text-primary">
                                 <p className="flex flex-row gap-3 rounded-lg bg-primary/10 p-3 text-sm md:text-base">
-                                    Guiding You Through Every Step
+                                    Supporting Your Family Through Services
                                 </p>
                             </div>
 
                             <h2 className="text-lg font-bold md:text-xl">
-                                Empowering Every Child, Celebrating Every
-                                Ability
+                                Empowering Every Child, Embracing Every Ability
                             </h2>
 
                             <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-                                We understand that navigating the FSCD program
-                                can be complex, and we are here to guide you
-                                through every step of the process. From initial
-                                intake and assessment to the creation of an
-                                individualized services plan, our goal is to
-                                ensure that your child's unique needs are met,
-                                and that they receive the support they deserve.
+                                Once your family has been approved for FSCD
+                                services and chooses Creative Abilities Therapy
+                                Services as your provider, our team works with
+                                you to understand your child&rsquo;s strengths,
+                                needs, and goals. We collaborate with families,
+                                FSCD caseworkers, and service providers to
+                                develop and deliver individualized support based
+                                on the services included in your FSCD agreement.
                             </p>
 
                             <p className="text-sm leading-relaxed text-muted-foreground md:text-base">
-                                By working closely with families and other
-                                service providers, we ensure a holistic approach
-                                to care that helps children reach their full
-                                potential. Our commitment is to foster a better
-                                quality of life for children and provide
-                                families with the tools and resources they need
-                                for continued success.
+                                Our goal is to provide coordinated,
+                                family-centred support that helps children build
+                                meaningful skills, increase participation, and
+                                grow in confidence and independence at home and
+                                in their community.
                             </p>
 
                             <div className="flex flex-col gap-3 sm:flex-row">
@@ -139,42 +111,21 @@ export default function Fscd() {
                                     className="w-full rounded-[10px] sm:w-auto"
                                 >
                                     <Link href="/intake/apply">
-                                        Start Intake Form
+                                        Start Intake
                                     </Link>
                                 </Button>
-                                <Button
-                                    asChild
-                                    variant="outline"
-                                    className="w-full rounded-[10px] border-2 border-primary text-primary sm:w-auto"
-                                >
-                                    <a
-                                        href="#contact_us"
-                                        onClick={(e) => {
-                                            const el =
-                                                document.getElementById(
-                                                    'contact_us',
-                                                );
-
-                                            if (el) {
-                                                e.preventDefault();
-                                                el.scrollIntoView({
-                                                    behavior: 'smooth',
-                                                });
-                                            }
-                                        }}
-                                    >
-                                        Contact Us
-                                    </a>
-                                </Button>
+                                <ScrollToContactButton className="w-full rounded-[10px] border-2 border-primary bg-white text-primary hover:bg-white sm:w-auto">
+                                    Contact Us
+                                </ScrollToContactButton>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* What is */}
+            {/* What is FSCD */}
             <section id="what-is" className="py-32">
-                <div className="flex flex-col items-center justify-center">
+                <div className="flex flex-col items-center justify-center px-4">
                     {/* Badge */}
                     <div className="rounded-full border border-secondary-orange/20 bg-white px-6 py-3 shadow-sm">
                         <p className="flex flex-row gap-3 text-sm md:text-base">
@@ -195,53 +146,52 @@ export default function Fscd() {
                         <p className="px-4 text-center text-base leading-relaxed md:px-16 md:text-lg">
                             The Family Support for Children with Disabilities
                             (FSCD) program is offered by the Government of
-                            Alberta to provide support and funding to families
-                            of children with disabilities. FSCD is designed to
-                            help families access the services, resources, and
-                            support their child needs to thrive at home, in
-                            school, and in the community. The program is
-                            family-centred, meaning that families are actively
-                            involved in planning, decision-making, and goal
-                            setting, ensuring that supports are tailored to the
-                            child's unique needs and the family's circumstances.
-                            FSCD can help cover costs associated with a child's
-                            disability, such as respite care, medical-related
-                            travel, equipment, therapy services, and behavioural
-                            or developmental supports.
+                            Alberta to provide funding and support to eligible
+                            families of children with disabilities. The program
+                            is family-centred, meaning parents and caregivers
+                            are involved in planning, decision-making, and
+                            identifying the supports that best meet their
+                            child&rsquo;s needs.
                         </p>
 
                         <p className="mt-5 px-4 text-center text-base leading-relaxed md:px-16 md:text-lg">
-                            Services are flexible and coordinated to meet both
-                            the child's and family's long-term needs, and the
-                            program focuses on building on the family's
-                            strengths while providing additional assistance
-                            where required. Families must meet eligibility
-                            requirements, including having a child under 18 who
-                            resides in Alberta and has a disability that
-                            significantly impacts daily functioning. Through
-                            FSCD, families can access a range of supports
-                            designed to promote their child's development,
-                            independence, and participation in everyday life,
-                            helping both children and families achieve
-                            meaningful progress.
+                            Depending on eligibility and the family&rsquo;s FSCD
+                            agreement, funding may help support services such as
+                            therapy, behavioural and developmental support,
+                            respite, equipment, and other disability-related
+                            needs. FSCD aims to support children&rsquo;s
+                            development, independence, and participation at home
+                            and in their community.
                         </p>
 
-                        <p className="mt-5 px-4 text-center text-base leading-relaxed md:px-16 md:text-lg">
-                            For more information, visit:{' '}
-                            <a
-                                href="https://www.alberta.ca/fscd"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary underline"
-                            >
-                                https://www.alberta.ca/fscd
-                            </a>
-                        </p>
+                        <div className="mt-8 rounded-xl bg-secondary-orange/5 p-5 md:p-8">
+                            <p className="text-center font-semibold text-primary">
+                                FSCD Eligibility
+                            </p>
+                            <p className="mt-3 text-center text-base leading-relaxed">
+                                FSCD has specific eligibility requirements
+                                determined by the Government of Alberta.
+                                Families must apply directly through FSCD to
+                                determine whether their child is eligible for
+                                funding and support.
+                            </p>
+                            <p className="mt-4 text-center">
+                                <a
+                                    href="https://www.alberta.ca/fscd-eligibility"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group inline-flex items-center gap-2 font-medium text-primary underline"
+                                >
+                                    Learn More About FSCD Eligibility
+                                    <LucideIcons.ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                </a>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Services */}
+            {/* FSCD-approved services */}
             <section id="services" className="py-20">
                 {/* Header */}
                 <div className="mb-10 flex flex-col items-center justify-center px-4">
@@ -258,9 +208,9 @@ export default function Fscd() {
                     </p>
                 </div>
 
-                {/* Services Grid */}
+                {/* Services */}
                 <div className="flex flex-col gap-10 px-4 md:px-20">
-                    {/* BDS Service */}
+                    {/* BDS */}
                     <div className="flex flex-col rounded-2xl bg-white p-6 shadow-md md:p-10">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-white">
                             <LucideIcons.Target className="h-5 w-5" />
@@ -268,46 +218,18 @@ export default function Fscd() {
                         <p className="mt-5 font-semibold text-primary md:text-lg">
                             Behavioural and Developmental Support (BDS)
                         </p>
-                        <p className="mt-5 text-sm leading-relaxed md:text-base">
-                            Behavioural Developmental Services (BDS) focus on
-                            providing structured, goal-oriented support to
-                            children who need assistance with behavioural or
-                            developmental challenges. BDS is typically delivered
-                            by trained behavioural developmental aides who work
-                            directly with your child under the guidance of
-                            qualified professionals, such as psychologists or
-                            behavioural consultants.
-                        </p>
 
-                        <p className="mt-10 font-semibold text-primary">
-                            The primary purpose of BDS is to help children:
-                        </p>
-                        <div className="mt-4 space-y-2">
-                            {BDS_GOALS.map((item) => (
-                                <p
-                                    key={item}
-                                    className="flex flex-row items-start gap-2"
-                                >
-                                    <LucideIcons.CheckCircle2 className="mt-1 text-primary" />
-                                    {item}
-                                </p>
-                            ))}
-                        </div>
-
-                        <div className="mt-10 rounded-xl bg-peach-cream/20 p-5 text-sm leading-relaxed md:text-base">
-                            BDS is designed to be flexible and individualized.
-                            FSCD funding usually supports BDS for blocks of
-                            approximately six months, during which the child's
-                            goals are actively monitored and progress is
-                            documented. After each block, the service plan is
-                            reviewed collaboratively by the family, FSCD
-                            caseworker, and service provider to determine
-                            whether additional support is needed, or if goals
-                            can be adjusted.
-                        </div>
+                        {BDS_PARAGRAPHS.map((paragraph) => (
+                            <p
+                                key={paragraph}
+                                className="mt-5 text-sm leading-relaxed md:text-base"
+                            >
+                                {paragraph}
+                            </p>
+                        ))}
                     </div>
 
-                    {/* SS Service */}
+                    {/* SS */}
                     <div className="flex flex-col rounded-2xl bg-primary/90 p-6 text-white shadow-md md:p-10">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
                             <LucideIcons.Users2 className="h-6 w-6" />
@@ -316,67 +238,65 @@ export default function Fscd() {
                             Specialized Services (SS)
                         </p>
 
-                        <p className="mt-5 text-sm leading-relaxed md:text-base">
-                            Specialized Services (SS) are designed for children
-                            with more severe or complex disabilities whose needs
-                            significantly impact multiple areas of daily living.
-                            These services are more intensive than BDS and are
-                            delivered by a multidisciplinary team.
-                        </p>
-
-                        <p className="mt-10 font-semibold">
-                            SS focuses on providing coordinated, individualized
-                            support for children who require interventions in
-                            multiple domains, such as:
-                        </p>
-                        <div className="mt-4 space-y-2">
-                            {SS_GOALS.map((item) => (
-                                <p
-                                    key={item}
-                                    className="flex flex-row items-start gap-2"
-                                >
-                                    <LucideIcons.CheckCircle2 />
-                                    {item}
-                                </p>
-                            ))}
-                        </div>
-
-                        <p className="mt-5 text-sm leading-relaxed md:text-base">
-                            Each SS plan is formalized in an Individualized
-                            Service Plan (ISP), which clearly outlines the
-                            child's specific goals, the supports required, and
-                            how progress will be measured. The ISP is reviewed
-                            regularly and updated as the child grows and their
-                            needs change. SS contracts are generally planned in
-                            12-month blocks but are part of the broader FSCD
-                            Agreement, which can last up to three years.
-                        </p>
+                        {SS_PARAGRAPHS.map((paragraph) => (
+                            <p
+                                key={paragraph}
+                                className="mt-5 text-sm leading-relaxed md:text-base"
+                            >
+                                {paragraph}
+                            </p>
+                        ))}
                     </div>
                 </div>
 
-                {/* Key Differences */}
+                {/* Key differences */}
                 <div className="mx-4 mt-10 flex flex-col rounded-2xl border border-primary-orange/50 p-6 shadow-md md:mx-20 md:p-10">
-                    <p className="mt-5 text-center font-semibold text-primary">
-                        Key Differences Between BDS and SS
+                    <p className="text-center font-semibold text-primary">
+                        Key Differences Between BDS and Specialized Services
                     </p>
 
-                    <div className="mt-10 grid grid-cols-1 gap-6 md:grid-cols-2">
-                        {KEY_DIFFERENCES.map((item) => (
-                            <div
-                                key={item.title}
-                                className="rounded-xl bg-secondary-orange/5 p-5 text-sm shadow-sm md:text-base"
-                            >
-                                <p className="font-semibold text-primary">
-                                    {item.title}:
-                                </p>
-                                <p className="mt-2">{item.desc}</p>
-                            </div>
-                        ))}
+                    {/*
+                     * Three columns of prose do not fit a phone, so the table
+                     * scrolls inside its own container rather than pushing the
+                     * page sideways.
+                     */}
+                    <div className="mt-8 overflow-x-auto">
+                        <table className="w-full min-w-[640px] border-collapse text-left text-sm md:text-base">
+                            <thead>
+                                <tr className="border-b border-primary-orange/30">
+                                    <th className="p-3 font-semibold text-charcoal-gray" />
+                                    <th className="p-3 font-semibold text-primary">
+                                        Behavioural &amp; Developmental Support
+                                        (BDS)
+                                    </th>
+                                    <th className="p-3 font-semibold text-primary">
+                                        Specialized Services (SS)
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {ServiceComparison.map((row) => (
+                                    <tr
+                                        key={row.label}
+                                        className="border-b border-secondary-orange/20 align-top last:border-b-0"
+                                    >
+                                        <th
+                                            scope="row"
+                                            className="p-3 text-left font-semibold text-charcoal-gray"
+                                        >
+                                            {row.label}
+                                        </th>
+                                        <td className="p-3">{row.bds}</td>
+                                        <td className="p-3">{row.ss}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </section>
 
-            {/* Process */}
+            {/* The process */}
             <section id="process" className="py-20">
                 {/* Header */}
                 <div className="mb-10 flex flex-col items-center justify-center px-4">
@@ -390,20 +310,24 @@ export default function Fscd() {
                     </div>
 
                     <p className="mt-5 text-center text-lg font-semibold text-primary md:text-xl">
-                        How FSCD Works with Creative Abilities Therapy Services
+                        How FSCD Services Work with Creative Abilities Therapy
+                        Services
                     </p>
 
-                    <p className="mt-3 px-4 text-center text-base leading-relaxed md:px-[20%] md:text-xl">
-                        We partner with Alberta's FSCD program to make accessing
-                        services as smooth and supportive as possible.
+                    <p className="mt-3 max-w-4xl px-4 text-center text-base leading-relaxed md:px-0 md:text-lg">
+                        Once your child has been approved for FSCD services,
+                        Creative Abilities Therapy Services works
+                        collaboratively with your family, FSCD caseworker, and
+                        service team to coordinate the supports included in your
+                        FSCD agreement.
                     </p>
                 </div>
 
-                {/* Process Steps with Image */}
+                {/* Steps with image */}
                 <div className="px-4 md:px-20">
-                    <div className="grid items-center gap-12 lg:grid-cols-2">
+                    <div className="grid items-start gap-12 lg:grid-cols-2">
                         {/* Image */}
-                        <div className="relative">
+                        <div className="relative lg:sticky lg:top-32">
                             <div className="aspect-[4/3] overflow-hidden rounded-2xl shadow-2xl">
                                 <img
                                     src="/images/800x600/photo-1708687045030-26702e62fc65_1_cropped.jpg"
@@ -414,22 +338,60 @@ export default function Fscd() {
                         </div>
 
                         {/* Steps */}
-                        <div className="space-y-6">
-                            {Process.map((p) => (
-                                <div key={p.id} className="flex flex-row gap-4">
+                        <div className="space-y-8">
+                            {Process.map((step) => (
+                                <div
+                                    key={step.id}
+                                    className="flex flex-row gap-4"
+                                >
                                     <div>
                                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-orange text-lg font-semibold text-white">
-                                            {p.id}
+                                            {step.id}
                                         </div>
                                     </div>
 
-                                    <div>
+                                    <div className="space-y-3">
                                         <p className="text-lg font-semibold text-primary">
-                                            {p.title}
+                                            Step {step.id} &mdash; {step.title}
                                         </p>
-                                        <p className="mt-1 text-sm leading-relaxed md:text-base">
-                                            {p.desc}
-                                        </p>
+
+                                        {step.paragraphs.map((paragraph) => (
+                                            <p
+                                                key={paragraph}
+                                                className="text-sm leading-relaxed md:text-base"
+                                            >
+                                                {paragraph}
+                                            </p>
+                                        ))}
+
+                                        {step.lead_in && (
+                                            <p className="text-sm font-medium md:text-base">
+                                                {step.lead_in}
+                                            </p>
+                                        )}
+
+                                        {step.options && (
+                                            <ul className="space-y-2">
+                                                {step.options.map((option) => (
+                                                    <li
+                                                        key={option}
+                                                        className="flex items-start gap-2 text-sm leading-relaxed md:text-base"
+                                                    >
+                                                        <LucideIcons.CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary" />
+                                                        <span>{option}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
+
+                                        {step.after?.map((paragraph) => (
+                                            <p
+                                                key={paragraph}
+                                                className="text-sm leading-relaxed md:text-base"
+                                            >
+                                                {paragraph}
+                                            </p>
+                                        ))}
                                     </div>
                                 </div>
                             ))}
@@ -440,36 +402,38 @@ export default function Fscd() {
                 {/* Callout */}
                 <div className="mx-4 mt-10 rounded-2xl bg-primary p-6 text-center text-base leading-relaxed text-white shadow-md md:mx-[10%] md:p-10 md:text-lg">
                     <p>
-                        Through this collaboration, we aim to reduce stress for
-                        families, ensure consistency across home and community
-                        settings, and help every child make meaningful progress
-                        in their development.
+                        Through ongoing collaboration, we work to create
+                        consistency across home and community settings, support
+                        families throughout services, and help each child make
+                        meaningful progress toward their individual goals.
                     </p>
                 </div>
             </section>
 
-            {/* Why Choose Us */}
+            {/* Why families choose CATS */}
             <section id="why-us" className="bg-peach-cream/10 py-32">
                 <div className="flex flex-col items-center justify-center px-4 md:px-20">
                     <p className="m-5 text-center text-xl font-semibold text-primary md:text-2xl">
-                        Why Choose Us for FSCD Services?
+                        Why Families Choose CATS for FSCD Services
                     </p>
-                    <p className="px-2 text-center text-base leading-relaxed md:px-[20%] md:text-lg">
-                        At Creative Abilities Therapy Services, we go beyond
-                        delivering therapy — we build strong, supportive
-                        partnerships with families.
+                    <p className="max-w-4xl px-2 text-center text-base leading-relaxed md:px-0 md:text-lg">
+                        At Creative Abilities Therapy Services, we provide more
+                        than individual services. We work collaboratively with
+                        families and service teams to deliver coordinated,
+                        individualized support based on each child&rsquo;s
+                        strengths, needs, goals, and approved FSCD services.
                     </p>
 
-                    {/* Features Grid */}
+                    {/* Features */}
                     <div className="mt-10 grid w-full grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                        {WhyFscd.map((j) => {
+                        {WhyFscd.map((point) => {
                             const IconComponent = LucideIcons[
-                                j.icon as keyof typeof LucideIcons
+                                point.icon as keyof typeof LucideIcons
                             ] as React.ElementType | undefined;
 
                             return (
                                 <div
-                                    key={j.id}
+                                    key={point.id}
                                     className="flex flex-col items-start justify-start rounded-2xl bg-white p-5 shadow-sm transition-all duration-300 hover:shadow-md"
                                 >
                                     {IconComponent ? (
@@ -482,19 +446,19 @@ export default function Fscd() {
                                     )}
 
                                     <p className="pt-3 text-base font-semibold text-primary">
-                                        {j.title}
+                                        {point.title}
                                     </p>
                                     <p className="pt-2 text-base font-light text-black">
-                                        {j.desc}
+                                        {point.desc}
                                     </p>
                                 </div>
                             );
                         })}
                     </div>
 
-                    {/* Commitment Section */}
-                    <div className="mt-10 flex flex-row items-center gap-5 rounded-2xl border-l-0 bg-secondary-orange/5 p-5 shadow-sm md:w-1/2 md:border-l-4 md:border-primary">
-                        <div className="relative">
+                    {/* Commitment */}
+                    <div className="mt-10 flex flex-col items-center gap-5 rounded-2xl border-l-0 bg-secondary-orange/5 p-5 shadow-sm sm:flex-row md:w-2/3 md:border-l-4 md:border-primary">
+                        <div className="relative w-full sm:w-1/3">
                             <div className="aspect-[16/9] overflow-hidden rounded-2xl shadow-2xl">
                                 <img
                                     src="/images/800x600/photo-1760704892974-60b5ddb59825_1_cropped.jpg"
@@ -509,17 +473,12 @@ export default function Fscd() {
                                 Our Commitment to Excellence
                             </p>
                             <p className="mt-2 text-base leading-relaxed">
-                                At Creative Abilities Therapy Services, we
-                                understand that every family's journey is
-                                unique. We are committed to providing
-                                exceptional, evidence-based care that respects
-                                your family's values, culture, and goals.
-                            </p>
-                            <p className="mt-2 text-base leading-relaxed">
-                                Our experienced professionals work together
-                                seamlessly to ensure your child receives
-                                coordinated, comprehensive support that leads to
-                                meaningful, lasting outcomes.
+                                We are committed to providing coordinated,
+                                evidence-based, and family-centred support that
+                                reflects each child&rsquo;s strengths, needs,
+                                and goals. Our team works collaboratively to
+                                promote consistency across services and support
+                                meaningful progress over time.
                             </p>
                         </div>
                     </div>
@@ -534,9 +493,9 @@ Fscd.layout = (page: React.ReactNode) => (
         footer={{
             is_career: false,
             show_ready: true,
-            show_contact: false,
+            show_contact: true,
             title: 'Ready to Access FSCD Services?',
-            desc: 'If your family is eligible for FSCD support and you are seeking specialized services for your child, contact Creative Abilities Therapy Services today. Our team will help you navigate the FSCD process, from application to service delivery, ensuring your child receives the best possible care.',
+            desc: 'If your family has been approved for FSCD services and you are looking for a service provider, Creative Abilities Therapy Services is here to support you. Complete our intake form to tell us about your child, your approved services, and your family’s needs. Our team will review your information and connect with you about the next steps for beginning services with CATS.',
         }}
     >
         {page}

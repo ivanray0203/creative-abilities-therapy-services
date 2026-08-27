@@ -51,16 +51,16 @@
         .head-brand .brand-kicker {
             font-family: Helvetica-Bold, sans-serif;
             font-size: 7.5pt;
-            color: #E2853D;
+            color: #D87E45;
         }
-        .brand-accent { color: #E2853D; }
+        .brand-accent { color: #D87E45; }
 
         .head-title {
             text-align: right;
             vertical-align: top;
             font-family: Helvetica-Bold, sans-serif;
             font-size: 34pt;
-            color: #4a4a4a;
+            color: #4D4D4D;
         }
 
         .summary { width: 100%; }
@@ -71,11 +71,11 @@
         }
         .summary .label { font-family: Helvetica-Bold, sans-serif; width: 52%; }
         .summary .value { text-align: center; font-family: Helvetica-Bold, sans-serif; }
-        .summary .due { background: #F6DFC9; }
+        .summary .due { background: #F5DFD1; }
 
         .parties { margin-top: 14px; font-size: 9.5pt; line-height: 1.5; }
         .parties .heading { font-family: Helvetica-Bold, sans-serif; }
-        .parties .from { padding-top: 8px; color: #4a4a4a; }
+        .parties .from { padding-top: 8px; color: #4D4D4D; }
 
         .items { margin-top: 14px; }
         .items th,
@@ -98,9 +98,9 @@
             font-family: Helvetica-Bold, sans-serif;
         }
         .totals .label { text-align: right; }
-        .totals .amount { text-align: right; background: #F6DFC9; width: 18%; }
+        .totals .amount { text-align: right; background: #F5DFD1; width: 18%; }
 
-        .period { margin-top: 10px; font-size: 8.5pt; color: #4a4a4a; }
+        .period { margin-top: 10px; font-size: 8.5pt; color: #4D4D4D; }
     </style>
 </head>
 <body>

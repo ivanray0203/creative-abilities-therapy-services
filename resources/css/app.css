@@ -75,12 +75,12 @@
     --color-sidebar-border: hsl(var(--sidebar-border));
     --color-sidebar-ring: hsl(var(--sidebar-ring));
 
-    --color-primary-orange: hsl(24 60% 55%);
-    --color-secondary-orange: hsl(24 51% 47%);
-    --color-dark-orange: hsl(24 63% 28%);
-    --color-warm-white: hsl(24 100% 97%);
-    --color-peach-cream: hsl(24 52% 90%);
-    --color-charcoal-gray: hsl(0 0% 24%);
+    --color-primary-orange: hsl(23.3 65.3% 55.9%);
+    --color-secondary-orange: hsl(23.2 51.4% 48.4%);
+    --color-dark-orange: hsl(23.3 63% 28%);
+    --color-warm-white: hsl(23.3 100% 97%);
+    --color-peach-cream: hsl(23.3 52% 90%);
+    --color-charcoal-gray: hsl(0 0% 30.2%);
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
@@ -88,12 +88,12 @@
 }
 
 /*
-Brand palette (from cats-frontend design system):
-#D37B43 - Primary buttons, headings, accents
-#B8693A - Hover states, borders
-#FFF5EE - Page backgrounds, cards
-#F5E6DB - Section backgrounds, highlights
-#3D3D3D - Body text, dark headings
+Brand palette:
+#D87E45 - Primary buttons, headings, accents (--primary, --color-primary-orange)
+#BB6D3C - Hover states, borders (--color-secondary-orange)
+#FFF6F0 - Page backgrounds, cards (--warm-white, --color-warm-white)
+#F3E3D8 - Section backgrounds, highlights (--secondary, --color-peach-cream)
+#4D4D4D - Body text, dark headings (--accent, --color-charcoal-gray)
 */
 
 :root {
@@ -106,31 +106,31 @@ Brand palette (from cats-frontend design system):
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 24 57% 54%;
+    --primary: 23.3 65.3% 55.9%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 174 48% 93%;
-    --secondary-foreground: 175 77% 21%;
+    --secondary: 23.3 48% 91%;
+    --secondary-foreground: 0 0% 30.2%;
 
     --muted: 220 14% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 0 0% 24%;
+    --accent: 0 0% 30.2%;
     --accent-foreground: 0 0% 100%;
 
-    --warm-white: 27 100% 96%;
-    --peach-cream: 24 88% 91%;
+    --warm-white: 23.3 100% 96%;
+    --peach-cream: 23.3 88% 91%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 214 32% 91%;
     --input: 220 13% 91%;
-    --ring: 174 87% 24%;
+    --ring: 23.3 65.3% 55.9%;
 
     --radius: 1.25rem;
 
-    --gradient-bg: linear-gradient(135deg, hsl(174 48% 96%), hsl(0 0% 100%));
+    --gradient-bg: linear-gradient(135deg, hsl(23.3 60% 96%), hsl(0 0% 100%));
     --shadow-card: 0 4px 20px hsla(0 0% 0% / 0.08);
 
     --sidebar-background: 0 0% 98%;
@@ -153,16 +153,16 @@ Brand palette (from cats-frontend design system):
     --popover: 222 47% 11%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 174 87% 24%;
+    --primary: 23.3 65.3% 55.9%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 175 77% 21%;
-    --secondary-foreground: 174 48% 93%;
+    --secondary: 23.3 30% 24%;
+    --secondary-foreground: 23.3 48% 91%;
 
     --muted: 217 33% 18%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 175 77% 21%;
+    --accent: 0 0% 30.2%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
@@ -170,7 +170,7 @@ Brand palette (from cats-frontend design system):
 
     --border: 217 33% 18%;
     --input: 217 33% 18%;
-    --ring: 174 87% 24%;
+    --ring: 23.3 65.3% 55.9%;
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;

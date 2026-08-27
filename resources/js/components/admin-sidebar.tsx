@@ -15,6 +15,7 @@ import {
     Shield,
     UserCog,
     Users,
+    Wallet,
 } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -42,6 +43,7 @@ const menuItems = [
     { title: 'Programs', url: '/admin/programs', icon: Sparkles },
     { title: 'Billing', url: '/admin/billing', icon: Receipt },
     { title: 'Invoices', url: '/admin/invoices', icon: DollarSign },
+    { title: 'Expenses', url: '/admin/expenses', icon: Wallet },
     { title: 'Applications', url: '/admin/applications', icon: Clipboard },
     { title: 'Team', url: '/admin/team', icon: UserCog },
     { title: 'Positions', url: '/admin/careers', icon: Megaphone },

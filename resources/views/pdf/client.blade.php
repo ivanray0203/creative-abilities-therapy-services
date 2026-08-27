@@ -11,8 +11,8 @@
         .tab-title {
             font-family: Helvetica-Bold, sans-serif;
             font-size: 13pt;
-            color: #1f5673;
-            border-bottom: 2px solid #1f5673;
+            color: #D87E45;
+            border-bottom: 2px solid #D87E45;
             padding-bottom: 4px;
             margin: 22px 0 4px;
         }

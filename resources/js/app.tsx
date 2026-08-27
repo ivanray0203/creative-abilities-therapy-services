@@ -19,6 +19,6 @@ createInertiaApp({
             import.meta.glob<ResolvedComponent>('./pages/**/*.tsx'),
         ),
     progress: {
-        color: '#D37B43',
+        color: '#D87E45',
     },
 });

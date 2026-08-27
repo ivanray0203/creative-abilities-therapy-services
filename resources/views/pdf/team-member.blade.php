@@ -11,7 +11,7 @@
         .section-title {
             font-family: Helvetica-Bold, sans-serif;
             font-size: 11.5pt;
-            color: #1f5673;
+            color: #D87E45;
             border-bottom: 1px solid #d4d4d4;
             padding-bottom: 3px;
             margin: 18px 0 8px;

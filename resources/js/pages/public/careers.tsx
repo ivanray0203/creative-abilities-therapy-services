@@ -3,10 +3,13 @@ import { ArrowRight, Luggage, MapPin } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import CareerDetailModal from '@/components/career-detail-modal';
 import { Button } from '@/components/ui/button';
 import PublicLayout from '@/layouts/public-layout';
-import { ApplicationProcess, Benefits } from '@/lib/content/careers-config';
+import {
+    APPLICATION_TIMELINE,
+    ApplicationProcess,
+    WhyWorkWithCats,
+} from '@/lib/content/careers-config';
 import type { Career } from '@/types/career';
 
 /**
@@ -18,8 +21,6 @@ export default function Careers({ careers }: { careers: Career[] }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLocation, setSelectedLocation] = useState('');
     const [selectedExperience, setSelectedExperience] = useState('');
-    const [careerModalVisible, setCareerModalVisible] = useState(false);
-    const [selectedCareer, setSelectedCareer] = useState<Career | null>(null);
 
     const filteredCareers = useMemo(() => {
         if (!careers) {
@@ -54,34 +55,38 @@ export default function Careers({ careers }: { careers: Career[] }) {
                             <div className="space-y-6">
                                 <div className="flex gap-4">
                                     <Button size="lg">
-                                        <Luggage /> We're Hiring
+                                        <Luggage /> Join Our Team
                                     </Button>
                                 </div>
 
                                 <div>
                                     <p className="text-xl font-semibold text-primary md:text-2xl">
-                                        Join Our Team at Creative Abilities
-                                        Therapy Services!
+                                        Build Your Career with Creative
+                                        Abilities Therapy Services
                                     </p>
                                 </div>
 
                                 <p className="text-lg leading-relaxed text-foreground md:text-xl">
-                                    Are you passionate about supporting children
-                                    with diverse needs and making a meaningful
-                                    impact in their lives? At Creative Abilities
-                                    Therapy Services, we are always looking for
-                                    dedicated professionals to join our growing
-                                    team.
+                                    We&rsquo;re looking for dedicated
+                                    professionals who are passionate about
+                                    supporting children and families through
+                                    individualized, family-centred care. At
+                                    Creative Abilities Therapy Services,
+                                    you&rsquo;ll have the opportunity to
+                                    contribute your skills while working as part
+                                    of a collaborative and growing team.
                                 </p>
 
                                 <p className="text-lg leading-relaxed md:text-xl">
                                     We offer flexible, contract-based
-                                    opportunities for occupational therapists,
-                                    speech-language pathologists,
-                                    physiotherapists, psychologists, behavioural
-                                    consultants, and behavioural aides who share
-                                    our commitment to family-centered care and
-                                    inclusive practices.
+                                    opportunities for Speech-Language
+                                    Pathologists, Psychologists, Occupational
+                                    Therapists, Physiotherapists, Behavioural
+                                    Consultants, Behavioural &amp; Developmental
+                                    Aides, and Community &amp; Respite Aides. We
+                                    welcome professionals who value
+                                    collaboration, individualized support, and
+                                    family-centred care.
                                 </p>
                             </div>
 
@@ -108,12 +113,13 @@ export default function Careers({ careers }: { careers: Career[] }) {
                                 Application Process
                             </div>
                             <h2 className="text-xl font-semibold md:text-2xl">
-                                Your Journey to Joining Us
+                                Your Journey to Joining CATS
                             </h2>
                             <p className="mx-auto max-w-2xl leading-relaxed text-muted-foreground">
-                                We've streamlined our hiring process to respect
-                                your time while ensuring the right fit for both
-                                parties.
+                                Our application process is designed to be clear
+                                and straightforward, giving both you and our
+                                team the opportunity to determine whether the
+                                role is a good fit.
                             </p>
                         </div>
 
@@ -166,9 +172,6 @@ export default function Careers({ careers }: { careers: Career[] }) {
                                             <p className="mt-2 text-center text-sm text-muted-foreground">
                                                 {app.description}
                                             </p>
-                                            <p className="mt-2 text-center text-xs text-primary">
-                                                {app.duration}
-                                            </p>
                                         </div>
                                     </div>
                                 );
@@ -176,11 +179,13 @@ export default function Careers({ careers }: { careers: Career[] }) {
                         </div>
 
                         {/* Total Timeline */}
-                        <div className="mt-10 rounded-sm border border-primary/40 bg-secondary-orange/5 p-6 text-center text-sm md:text-base">
-                            <span className="font-semibold text-primary">
-                                Total Timeline:
-                            </span>{' '}
-                            Typically 3-4 weeks from application to offer
+                        <div className="mt-10 space-y-2 rounded-sm border border-primary/40 bg-secondary-orange/5 p-6 text-center text-sm md:text-base">
+                            <p className="font-semibold text-primary">
+                                {APPLICATION_TIMELINE.label}
+                            </p>
+                            <p className="text-muted-foreground">
+                                {APPLICATION_TIMELINE.note}
+                            </p>
                         </div>
                     </div>
                 </section>
@@ -190,16 +195,17 @@ export default function Careers({ careers }: { careers: Career[] }) {
                     <div className="flex flex-col items-center justify-center">
                         {/* Header */}
                         <p className="m-5 text-xl font-semibold text-primary">
-                            Comprehensive Benefits Package
+                            Why Work With CATS
                         </p>
                         <p className="px-4 text-center text-base leading-relaxed text-muted-foreground md:px-[20%]">
-                            We believe in taking care of our team members so
-                            they can provide the best care to our families.
+                            We offer flexible contractor opportunities designed
+                            to support professional growth, collaboration, and
+                            work-life balance.
                         </p>
 
                         {/* Benefits grid */}
                         <div className="mt-10 grid w-full grid-cols-1 gap-10 px-4 sm:grid-cols-2 md:px-20 lg:grid-cols-3">
-                            {Benefits.map((benefit) => {
+                            {WhyWorkWithCats.map((benefit) => {
                                 const IconComponent = LucideIcons[
                                     benefit.icon.replace(
                                         ' ',
@@ -228,15 +234,9 @@ export default function Careers({ careers }: { careers: Career[] }) {
                                         </p>
 
                                         {/* Description */}
-                                        {benefit.desc.map((d, idx) => (
-                                            <p
-                                                key={idx}
-                                                className="flex items-center gap-2 pt-2 text-sm font-light text-black"
-                                            >
-                                                <LucideIcons.CircleCheck className="text-primary" />{' '}
-                                                {d}
-                                            </p>
-                                        ))}
+                                        <p className="pt-2 text-sm font-light text-black">
+                                            {benefit.desc}
+                                        </p>
                                     </div>
                                 );
                             })}
@@ -244,8 +244,9 @@ export default function Careers({ careers }: { careers: Career[] }) {
 
                         {/* Call to action */}
                         <div className="mt-10 rounded-lg border border-primary/40 bg-secondary-orange/5 p-8 text-center text-sm text-muted-foreground md:text-base">
-                            Whether you're an experienced clinician or just
-                            starting your journey, we'd love to hear from you.
+                            Whether you&rsquo;re an experienced professional or
+                            just beginning your career, we&rsquo;d be happy to
+                            hear from you.
                         </div>
                     </div>
                 </section>
@@ -267,8 +268,9 @@ export default function Careers({ careers }: { careers: Career[] }) {
                             </h2>
 
                             <p className="mx-auto max-w-2xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                                Explore our available positions and find the
-                                perfect opportunity to join our team.
+                                Explore our current contract opportunities and
+                                find a role that aligns with your experience,
+                                interests, and availability.
                             </p>
                         </div>
 
@@ -401,6 +403,10 @@ export default function Careers({ careers }: { careers: Career[] }) {
 
                                                     <div className="flex flex-col gap-3 text-sm sm:gap-5 sm:text-base">
                                                         <p className="flex items-center gap-2">
+                                                            <LucideIcons.Briefcase className="h-4 w-4 text-primary" />{' '}
+                                                            {c.level}
+                                                        </p>
+                                                        <p className="flex items-center gap-2">
                                                             <LucideIcons.CircleChevronLeft className="h-4 w-4 text-primary" />{' '}
                                                             {c.hours}
                                                         </p>
@@ -409,23 +415,23 @@ export default function Careers({ careers }: { careers: Career[] }) {
 
                                                 <div className="mt-4 flex flex-col justify-between gap-3 sm:mt-6 sm:flex-row">
                                                     <Button
+                                                        asChild
                                                         className="flex-1 rounded-[5px] border border-primary text-primary"
                                                         variant="outline"
-                                                        onClick={() => {
-                                                            window.scrollTo(
-                                                                0,
-                                                                0,
-                                                            );
-                                                            setSelectedCareer(
-                                                                c,
-                                                            );
-                                                            setCareerModalVisible(
-                                                                true,
-                                                            );
-                                                        }}
                                                     >
-                                                        View Details{' '}
-                                                        <ArrowRight />
+                                                        <Link
+                                                            id={`career-details-${c.id}`}
+                                                            href={`/careers/${c.id}`}
+                                                            onClick={() =>
+                                                                window.scroll(
+                                                                    0,
+                                                                    0,
+                                                                )
+                                                            }
+                                                        >
+                                                            View Details{' '}
+                                                            <ArrowRight />
+                                                        </Link>
                                                     </Button>
 
                                                     <Button
@@ -433,6 +439,7 @@ export default function Careers({ careers }: { careers: Career[] }) {
                                                         className="flex-1 rounded-[5px]"
                                                     >
                                                         <Link
+                                                            id={`career-apply-${c.id}`}
                                                             href={`/careers/apply/${c.id}?position=${c.position}`}
                                                         >
                                                             Apply Now{' '}
@@ -475,14 +482,6 @@ export default function Careers({ careers }: { careers: Career[] }) {
                     </div>
                 </section>
             </div>
-
-            {careerModalVisible && selectedCareer && (
-                <CareerDetailModal
-                    career={selectedCareer}
-                    visible={careerModalVisible}
-                    onClose={() => setCareerModalVisible(false)}
-                />
-            )}
         </>
     );
 }

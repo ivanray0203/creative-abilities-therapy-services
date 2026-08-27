@@ -185,6 +185,13 @@ class GoogleDriveService implements DriveStorage
         }
 
         $token = json_decode($contents, true);
+
+        // The Google client throws "Invalid token format" on anything that is
+        // not a token array, which says nothing about what to do next.
+        if (! is_array($token) || ! isset($token['access_token'])) {
+            throw new \RuntimeException("The Google Drive token at [{$this->tokenPath}] is not a usable token — reconnect via the admin Google Drive settings.");
+        }
+
         $client->setAccessToken($token);
 
         if ($client->isAccessTokenExpired()) {
@@ -195,6 +202,18 @@ class GoogleDriveService implements DriveStorage
             }
 
             $refreshed = $client->fetchAccessTokenWithRefreshToken($refreshToken);
+
+            // A refused refresh comes back as an `error`/`error_description`
+            // pair rather than a token. Writing that over the stored
+            // credential is what turns one expired token into a permanently
+            // broken connection, so keep the file as it is and say why.
+            if (! isset($refreshed['access_token'])) {
+                throw new \RuntimeException(sprintf(
+                    'Google Drive refused to refresh the token (%s) — reconnect via the admin Google Drive settings.',
+                    $refreshed['error_description'] ?? $refreshed['error'] ?? 'no access token was returned',
+                ));
+            }
+
             $refreshed['refresh_token'] ??= $refreshToken;
 
             file_put_contents($this->tokenPath, json_encode($refreshed));

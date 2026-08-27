@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import CookieConsent from '@/components/cookie-consent';
+import FlashToaster from '@/components/flash-toaster';
 import Footer from '@/components/footer';
 import type { FooterProps } from '@/components/footer';
 import LoginModal from '@/components/login-modal';
@@ -37,6 +38,7 @@ export default function PublicLayout({ children, footer }: PublicLayoutProps) {
 
     return (
         <div className="flex min-h-screen flex-col">
+            <FlashToaster />
             <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
                 <div className="container mx-auto flex items-center justify-between py-3">
                     <Link href="/" className="flex items-center gap-3">

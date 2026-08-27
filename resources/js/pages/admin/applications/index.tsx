@@ -24,7 +24,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AdminLayout from '@/layouts/admin-layout';
-import { capitalize, getInitials } from '@/lib/helpers';
+import { formatDate, getInitials } from '@/lib/helpers';
 import type {
     Application,
     ApplicationStats,
@@ -99,7 +99,7 @@ export default function AdminApplicationsIndex({
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:grid-cols-6 md:gap-6">
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-7 md:gap-6">
                 <Card className="p-2 text-center md:p-6">
                     <p className="mb-1 font-light">{stats.total}</p>
                     <p className="text-sm text-muted-foreground">Total</p>
@@ -123,6 +123,12 @@ export default function AdminApplicationsIndex({
                         {stats.interview_scheduled}
                     </p>
                     <p className="text-sm text-muted-foreground">Interview</p>
+                </Card>
+                <Card className="p-2 text-center md:p-6">
+                    <p className="mb-1 font-light text-orange-600">
+                        {stats.offer_sent}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Offer Sent</p>
                 </Card>
                 <Card className="p-2 text-center md:p-6">
                     <p className="mb-1 font-light text-green-600">
@@ -175,6 +181,9 @@ export default function AdminApplicationsIndex({
                                     Interview Scheduled
                                 </SelectItem>
                                 <SelectItem value="hired">Hired</SelectItem>
+                                <SelectItem value="offer_sent">
+                                    Offer Sent
+                                </SelectItem>
                                 <SelectItem value="declined">
                                     Declined
                                 </SelectItem>
@@ -255,7 +264,7 @@ export default function AdminApplicationsIndex({
                                 </p>
                                 <p className="text-muted-foreground">
                                     📅 Applied{' '}
-                                    {application.created_at.split('T')[0]}
+                                    {formatDate(application.created_at)}
                                 </p>
                             </div>
 
@@ -268,14 +277,13 @@ export default function AdminApplicationsIndex({
                                         </p>
                                         <p className="flex items-center gap-2 text-sm text-yellow-700">
                                             <Calendar className="h-4 w-4" />{' '}
-                                            {application.interview_date} on{' '}
-                                            {application.interview_time}
+                                            {application.interview_schedule}
                                         </p>
                                         <p className="mt-2 flex items-center gap-2 text-sm text-yellow-700">
                                             <Video className="h-4 w-4" />
-                                            {capitalize(
-                                                application.interview_platform,
-                                            )}
+                                            {
+                                                application.interview_platform_label
+                                            }
                                         </p>
                                     </div>
                                 )}
@@ -326,7 +334,68 @@ export default function AdminApplicationsIndex({
                                     application.application_status !==
                                         'declined' &&
                                     application.application_status !==
-                                        'pending' && (
+                                        'pending' &&
+                                    (application.application_status ===
+                                    'offer_sent' ? (
+                                        /*
+                                         * Once the offer is out, Decline sits
+                                         * beside View Profile and Hire takes
+                                         * the row below it — the widest, last
+                                         * thing on the card, and inert until
+                                         * the candidate has actually signed.
+                                         */
+                                        <>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                className="flex-1 rounded-[5px]"
+                                                onClick={() =>
+                                                    openStatusModal(
+                                                        application,
+                                                        'declined',
+                                                    )
+                                                }
+                                            >
+                                                <XCircle className="mr-2 h-4 w-4" />
+                                                Decline
+                                            </Button>
+
+                                            <div className="col-span-2 flex flex-col gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    className="w-full rounded-[5px] bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    onClick={() =>
+                                                        openStatusModal(
+                                                            application,
+                                                            'hired',
+                                                        )
+                                                    }
+                                                    disabled={
+                                                        !application.offer_accepted_at ||
+                                                        !application.signed_offer_letter
+                                                    }
+                                                    title={
+                                                        application.offer_accepted_at &&
+                                                        application.signed_offer_letter
+                                                            ? undefined
+                                                            : 'The candidate has not signed their offer letter yet.'
+                                                    }
+                                                >
+                                                    <CheckCircle className="mr-2 h-4 w-4" />
+                                                    Hire
+                                                </Button>
+
+                                                {(!application.offer_accepted_at ||
+                                                    !application.signed_offer_letter) && (
+                                                    <p className="text-center text-xs text-muted-foreground">
+                                                        Waiting on the
+                                                        candidate&apos;s
+                                                        signature
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </>
+                                    ) : (
                                         <>
                                             <Button
                                                 variant="outline"
@@ -350,17 +419,18 @@ export default function AdminApplicationsIndex({
 
                                             <Button
                                                 size="sm"
-                                                className="flex-1 rounded-[5px] bg-green-600 hover:bg-green-700"
+                                                className="flex-1 rounded-[5px] bg-orange-600 hover:bg-orange-700"
                                                 onClick={() =>
                                                     openStatusModal(
                                                         application,
-                                                        'hired',
+                                                        'offer_sent',
                                                     )
                                                 }
                                             >
                                                 <CheckCircle className="mr-2 h-4 w-4" />
-                                                Hire
+                                                Send Offer
                                             </Button>
+
                                             <Button
                                                 variant="destructive"
                                                 size="sm"
@@ -376,7 +446,7 @@ export default function AdminApplicationsIndex({
                                                 Decline
                                             </Button>
                                         </>
-                                    )}
+                                    ))}
                             </div>
                         </Card>
                     ))}

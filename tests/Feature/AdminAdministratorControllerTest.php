@@ -54,7 +54,13 @@ test('an admin can create, update, and deactivate an admin user', function () {
     expect($created->refresh()->is_active)->toBeFalse();
 });
 
-test('toggling a service visibility is reflected on the public services page', function () {
+/*
+ * This used to also assert that deactivating a service hid it from the public
+ * services page. The public services pages are now static content
+ * (resources/js/lib/content/service-list.ts) and no longer read this table, so
+ * only the stored flag is checked here.
+ */
+test('an admin can toggle a service visibility flag', function () {
     $service = Service::factory()->create(['is_active' => true]);
 
     $this->actingAs(adminUser())->patch("/admin/administrator/services/{$service->id}", [
@@ -62,12 +68,6 @@ test('toggling a service visibility is reflected on the public services page', f
     ])->assertSessionHasNoErrors();
 
     expect($service->refresh()->is_active)->toBeFalse();
-
-    $publicResponse = $this->get('/services');
-    $publicResponse->assertInertia(fn ($page) => $page
-        ->component('public/services')
-        ->where('services', fn ($services) => collect($services)->doesntContain(fn ($item) => $item['id'] === $service->id))
-    );
 });
 
 test('an admin can update their own profile and notification preferences', function () {

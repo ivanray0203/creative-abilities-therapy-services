@@ -7,7 +7,7 @@ export type ApplicationStatus =
     | 'pending'
     | 'reviewing'
     | 'interview_scheduled'
-    | 'shortlisted'
+    | 'offer_sent'
     | 'hired'
     | 'declined';
 
@@ -60,6 +60,13 @@ export interface Application {
     interview_date: string | null;
     interview_time: string | null;
     interview_platform: string | null;
+    /**
+     * Server-rendered labels, appended by the Application model so the admin
+     * screens and the candidate's email read the same string — and so the
+     * clock never passes through the viewer's timezone.
+     */
+    interview_schedule: string | null;
+    interview_platform_label: string | null;
     education: string | null;
     skills: string[] | null;
     candidate_rating: number | null;
@@ -69,6 +76,12 @@ export interface Application {
     references: Record<string, unknown>[] | null;
     resident_status: string | null;
     reference_number: string | null;
+    offer_sent_at: string | null;
+    offer_expires_at: string | null;
+    offer_letter: string | null;
+    signed_offer_letter: string | null;
+    offer_accepted_at: string | null;
+    offer_declined_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -78,6 +91,7 @@ export interface ApplicationStats {
     pending: number;
     reviewing: number;
     interview_scheduled: number;
+    offer_sent: number;
     hired: number;
     declined: number;
 }

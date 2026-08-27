@@ -6,6 +6,8 @@ use App\Http\Controllers\Admin\CalendarController;
 use App\Http\Controllers\Admin\CareerController as AdminCareerController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ExpenseController;
+use App\Http\Controllers\Admin\ExpenseReportController;
 use App\Http\Controllers\Admin\GoogleDriveConnectionController;
 use App\Http\Controllers\Admin\IntakeController;
 use App\Http\Controllers\Admin\InvoiceServiceController;
@@ -27,22 +29,31 @@ use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Public\CheckEmailController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\IntakeApplicationController;
+use App\Http\Controllers\Public\OfferLetterController;
 use App\Http\Controllers\Public\ProgramController;
 use App\Http\Controllers\Public\ProgramRegistrationController;
-use App\Http\Controllers\Public\ServiceController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TherapistClientController;
 use App\Http\Controllers\TherapistDashboardController;
 use App\Http\Controllers\TherapistIntakeController;
 use App\Http\Controllers\TherapistListController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::inertia('/', 'public/home')->name('public.home');
 Route::inertia('about', 'public/about')->name('public.about');
 Route::inertia('team', 'public/team')->name('public.team');
 Route::inertia('team/founder', 'public/founder')->name('public.founder');
-Route::get('services', [ServiceController::class, 'index'])->name('public.services');
-Route::get('servicesDetails/{service}', [ServiceController::class, 'show'])->name('public.service-detail');
+Route::inertia('services', 'public/services')->name('public.services');
+/*
+ * The services pages are static marketing content held in
+ * resources/js/lib/content/service-list.ts, so the route only forwards the
+ * requested service code and the page resolves it client-side.
+ */
+Route::get('servicesDetails/{service}', fn (string $service) => Inertia::render(
+    'public/service-detail',
+    ['code' => $service],
+))->name('public.service-detail');
 Route::get('programs', [ProgramController::class, 'index'])->name('public.programs');
 Route::get('programs/{program}', [ProgramController::class, 'show'])->name('public.program-detail');
 // Throttled like the other public write endpoints: this one is unauthenticated.
@@ -60,6 +71,14 @@ Route::inertia('privacypolicy', 'public/privacy')->name('public.privacy');
 Route::inertia('cookiepolicy', 'public/cookie')->name('public.cookie');
 Route::inertia('accessibility', 'public/accessibility')->name('public.accessibility');
 Route::post('contacts', [ContactController::class, 'store'])->name('public.contacts.store');
+
+// The candidate has no account yet — the hire is what creates one — so the
+// signed URL stands in for a login. It expires with the offer itself.
+Route::middleware('signed')->group(function (): void {
+    Route::get('offer/{application}', [OfferLetterController::class, 'show'])->name('public.offer.show');
+    Route::post('offer/{application}/accept', [OfferLetterController::class, 'accept'])->name('public.offer.accept');
+    Route::post('offer/{application}/decline', [OfferLetterController::class, 'decline'])->name('public.offer.decline');
+});
 
 Route::get('intake/apply', [IntakeApplicationController::class, 'create'])->name('public.intake.create');
 Route::post('intake/apply', [IntakeApplicationController::class, 'store'])->name('public.intake.store');
@@ -154,6 +173,17 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('billing/create', [BillingItemController::class, 'create'])->name('admin.billing.create');
         Route::post('billing', [BillingItemController::class, 'store'])->name('admin.billing.store');
         Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('admin.billing.destroy');
+
+        // `expenses/report` must be declared before `expenses/{expense}` or the
+        // word "report" would be bound as an expense id.
+        Route::get('expenses', [ExpenseController::class, 'index'])->name('admin.expenses.index');
+        Route::get('expenses/add', [ExpenseController::class, 'create'])->name('admin.expenses.create');
+        Route::post('expenses', [ExpenseController::class, 'store'])->name('admin.expenses.store');
+        Route::get('expenses/report', [ExpenseReportController::class, 'index'])->name('admin.expenses.report');
+        Route::get('expenses/report/export', [ExpenseReportController::class, 'export'])->name('admin.expenses.report.export');
+        Route::get('expenses/edit/{expense}', [ExpenseController::class, 'edit'])->name('admin.expenses.edit');
+        Route::put('expenses/{expense}', [ExpenseController::class, 'update'])->name('admin.expenses.update');
+        Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->name('admin.expenses.destroy');
 
         Route::get('invoices', [InvoiceController::class, 'index'])->name('admin.invoices.index');
         Route::get('invoices/create', [InvoiceController::class, 'create'])->name('admin.invoices.create');

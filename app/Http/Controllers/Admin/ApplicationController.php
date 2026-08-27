@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Mail\LoginCredentialsMail;
-use App\Mail\OfferLetterMail;
 use App\Models\Application;
 use App\Models\User;
 use App\Services\ApplicationHiringService;
+use App\Services\ApplicationNotifier;
 use App\Services\AuditLogger;
-use App\Services\PdfService;
+use App\Services\OfferLetterService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,8 +38,9 @@ class ApplicationController extends Controller
      */
     public const STATUS_TRANSITIONS = [
         'pending' => ['reviewing'],
-        'reviewing' => ['interview_scheduled', 'hired', 'declined'],
-        'interview_scheduled' => ['interview_scheduled', 'hired', 'declined'],
+        'reviewing' => ['interview_scheduled', 'offer_sent', 'declined'],
+        'interview_scheduled' => ['interview_scheduled', 'offer_sent', 'declined'],
+        'offer_sent' => ['offer_sent', 'hired', 'declined'],
         'hired' => [],
         'declined' => [],
     ];
@@ -50,6 +52,7 @@ class ApplicationController extends Controller
             'pending' => Application::query()->where('application_status', 'pending')->count(),
             'reviewing' => Application::query()->where('application_status', 'reviewing')->count(),
             'interview_scheduled' => Application::query()->where('application_status', 'interview_scheduled')->count(),
+            'offer_sent' => Application::query()->where('application_status', 'offer_sent')->count(),
             'hired' => Application::query()->where('application_status', 'hired')->count(),
             'declined' => Application::query()->where('application_status', 'declined')->count(),
         ];
@@ -89,18 +92,23 @@ class ApplicationController extends Controller
     }
 
     /**
-     * The reference's UpdateApplicationStatus modal: hourly rate on hire,
-     * interview date/time/platform on scheduling, an optional note
-     * otherwise.
+     * Every status change goes through here. The modal asks for what the
+     * target status needs: an hourly rate when the offer goes out, interview
+     * date/time/platform when one is booked, an optional note otherwise.
+     *
+     * Hire is the odd one out — it asks for nothing, because everything it
+     * needs was agreed on the offer the candidate has already signed.
      */
-    public function updateStatus(Request $request, Application $application, ApplicationHiringService $hiringService, PdfService $pdfService): RedirectResponse
+    public function updateStatus(Request $request, Application $application, ApplicationHiringService $hiringService, OfferLetterService $offers): RedirectResponse
     {
         $allowed = self::STATUS_TRANSITIONS[$application->application_status] ?? [];
+        $previousStatus = $application->application_status;
+        $previousInterviewSchedule = $application->interview_schedule;
 
         $validated = $request->validate([
             'application_status' => ['required', Rule::in($allowed)],
             'note' => ['nullable', 'string'],
-            'hourly_rate' => [Rule::requiredIf($request->input('application_status') === 'hired'), 'nullable', 'numeric', 'min:0'],
+            'hourly_rate' => [Rule::requiredIf($request->input('application_status') === 'offer_sent'), 'nullable', 'numeric', 'min:0'],
             'interview_date' => [Rule::requiredIf($request->input('application_status') === 'interview_scheduled'), 'nullable', 'date'],
             'interview_time' => ['nullable', 'string'],
             'interview_platform' => ['nullable', 'string', 'max:255'],
@@ -127,24 +135,38 @@ class ApplicationController extends Controller
             $attributes['declined'] = true;
         }
 
+        if ($validated['application_status'] === 'offer_sent') {
+            $attributes['hourly_rate'] = $validated['hourly_rate'];
+            $application->update($attributes);
+
+            $offers->send($application);
+
+            AuditLogger::log('Offer sent', 'Applications', "Sent the offer letter for application #{$application->id} ({$application->email})");
+
+            return back()->with('success', 'Offer letter sent successfully.');
+        }
+
         if ($validated['application_status'] === 'hired') {
+            if (! $application->hasSignedOffer()) {
+                throw ValidationException::withMessages([
+                    'application_status' => 'This candidate has not signed their offer letter yet.',
+                ]);
+            }
+
+            // The rate was agreed when the offer went out and the candidate
+            // signed against it, so it is read off the application rather
+            // than asked for again here.
+            $hourlyRate = (float) $application->hourly_rate;
+
             $attributes['hired'] = true;
             $attributes['hire_date'] = now()->toDateString();
-            $attributes['hourly_rate'] = $validated['hourly_rate'];
 
-            $rawPassword = DB::transaction(function () use ($application, $attributes, $hiringService, $validated): ?string {
-                $hired = $hiringService->hire($application, (float) $validated['hourly_rate']);
+            $rawPassword = DB::transaction(function () use ($application, $attributes, $hiringService, $hourlyRate): ?string {
+                $hired = $hiringService->hire($application, $hourlyRate);
                 $application->update($attributes);
 
                 return $hired['rawPassword'];
             });
-
-            Mail::to($application->email)->send(new OfferLetterMail(
-                $application->first_name,
-                $application->last_name,
-                $application->position_applied,
-                $pdfService->offerLetter($application),
-            ));
 
             if ($rawPassword !== null) {
                 Mail::to($application->email)->send(new LoginCredentialsMail(
@@ -161,9 +183,28 @@ class ApplicationController extends Controller
 
         $application->update($attributes);
 
+        $this->notifyCandidate($application, $previousStatus, $previousInterviewSchedule);
+
         AuditLogger::log('Updated application status', 'Applications', "Set application #{$application->id} status to {$validated['application_status']}");
 
         return back()->with('success', 'Application status updated successfully.');
+    }
+
+    /**
+     * Tells the candidate what just happened to their application. The hire
+     * branch returns before reaching here — it sends its own offer letter and
+     * login credentials instead.
+     */
+    private function notifyCandidate(Application $application, string $previousStatus, ?string $previousInterviewSchedule): void
+    {
+        match ($application->application_status) {
+            'reviewing' => ApplicationNotifier::underReview($application),
+            'interview_scheduled' => $previousStatus === 'interview_scheduled'
+                ? ApplicationNotifier::interviewRescheduled($application, $previousInterviewSchedule)
+                : ApplicationNotifier::interviewScheduled($application),
+            'declined' => ApplicationNotifier::declined($application),
+            default => null,
+        };
     }
 
     public function updateRating(Request $request, Application $application): RedirectResponse

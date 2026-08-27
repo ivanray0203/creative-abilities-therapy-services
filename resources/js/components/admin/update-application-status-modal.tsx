@@ -24,6 +24,7 @@ import type { Application, ApplicationStatus } from '@/types/application';
 const TITLES: Record<string, string> = {
     reviewing: 'Update Application Status',
     interview_scheduled: 'Schedule Interview',
+    offer_sent: 'Send Offer Letter',
     declined: 'Decline Application',
     hired: 'Hire Candidate',
 };
@@ -31,13 +32,15 @@ const TITLES: Record<string, string> = {
 const DESCRIPTIONS: Record<string, string> = {
     reviewing: 'This will move the application to Under Review.',
     interview_scheduled: 'Schedule an interview with',
+    offer_sent: 'Email the offer letter, with a link to sign it, to',
     declined: 'Are you sure you want to decline the application from',
-    hired: 'Are you sure you want to hire',
+    hired: 'Create the account and send login details to',
 };
 
 const CONFIRM_LABELS: Record<string, string> = {
     reviewing: 'Update',
     interview_scheduled: 'Confirm Interview',
+    offer_sent: 'Send Offer',
     declined: 'Decline',
     hired: 'Hire',
 };
@@ -111,7 +114,7 @@ export default function UpdateApplicationStatusModal({
                     </DialogTitle>
                 </DialogHeader>
 
-                {targetStatus === 'hired' && (
+                {targetStatus === 'offer_sent' && (
                     <div>
                         <Label htmlFor="hourly-rate">Hourly Rate *</Label>
                         <Input
@@ -131,7 +134,21 @@ export default function UpdateApplicationStatusModal({
                                 {errors.hourly_rate}
                             </p>
                         )}
+                        <p className="mt-2 text-xs text-muted-foreground">
+                            This is the rate printed on the letter the candidate
+                            signs, and the rate they are hired on.
+                        </p>
                     </div>
+                )}
+
+                {targetStatus === 'hired' && (
+                    <p className="text-sm text-muted-foreground">
+                        {application.first_name} signed their offer on{' '}
+                        {application.offer_accepted_at?.split('T')[0]} at $
+                        {Number(application.hourly_rate ?? 0).toFixed(2)}/hour.
+                        Hiring creates their account and emails their login
+                        details.
+                    </p>
                 )}
 
                 {targetStatus === 'interview_scheduled' ? (
@@ -229,6 +246,12 @@ export default function UpdateApplicationStatusModal({
                     </div>
                 )}
 
+                {errors.application_status && (
+                    <p className="text-sm text-destructive">
+                        {errors.application_status}
+                    </p>
+                )}
+
                 <DialogFooter className="mt-6">
                     <Button
                         className="w-full rounded-[10px]"
@@ -240,6 +263,10 @@ export default function UpdateApplicationStatusModal({
                     <Button
                         className={`w-full rounded-[10px] ${
                             targetStatus === 'hired'
+                                ? 'bg-orange-500 text-white hover:bg-orange-600'
+                                : ''
+                        } ${
+                            targetStatus === 'offer_sent'
                                 ? 'bg-orange-500 text-white hover:bg-orange-600'
                                 : ''
                         } ${

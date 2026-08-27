@@ -9,76 +9,108 @@ export interface ApplicationProcessStep {
     icon: string;
     title: string;
     description: string;
-    duration: string;
 }
 
+/**
+ * The same four steps appear on the careers index and on every posting's
+ * detail page, so both read them from here.
+ */
 export const ApplicationProcess: ApplicationProcessStep[] = [
     {
         id: 1,
         icon: 'Luggage',
         title: 'Apply',
-        description: 'Submit your application through our online portal',
-        duration: 'Same day',
+        description:
+            'Submit your application through our online application portal.',
     },
     {
         id: 2,
         icon: 'CircleCheckIcon',
         title: 'Review',
-        description: 'Our team reviews your qualifications and experience',
-        duration: '1-2 business days',
+        description:
+            'Our team reviews your application, qualifications, and relevant experience to determine whether your background aligns with the role.',
     },
     {
         id: 3,
         icon: 'MessageCircleIcon',
         title: 'Interview',
-        description: 'Meet with our team to discuss the role and fit',
-        duration: '1-2 weeks',
+        description:
+            'Meet with our team to learn more about the role, discuss your experience and availability, and determine whether the opportunity is a good fit for both you and Creative Abilities Therapy Services.',
     },
     {
         id: 4,
         icon: 'Medal',
-        title: 'Offer',
-        description: 'Receive your offer and begin onboarding',
-        duration: '1 week',
+        title: 'Offer & Onboarding',
+        description:
+            'If selected, you will receive an offer outlining the contractor opportunity and next steps. Once accepted, we will begin the onboarding process and prepare you for your Contract Review and Orientation.',
     },
 ];
 
-export interface BenefitGroup {
+export const APPLICATION_TIMELINE = {
+    label: 'Typical Timeline: Approximately 1–2 Weeks',
+    note: 'Timelines may vary depending on the position, interview availability, reference checks, and completion of onboarding requirements.',
+};
+
+export interface WhyWorkPoint {
     id: number;
     title: string;
-    desc: string[];
+    desc: string;
     icon: string;
 }
 
-export const Benefits: BenefitGroup[] = [
+export const WhyWorkWithCats: WhyWorkPoint[] = [
     {
         id: 1,
-        title: 'Compensation & Financial',
-        desc: ['Competive contract rates'],
+        title: 'Competitive Contract Rates',
+        desc: 'We offer competitive contract rates based on the role and services provided. Specific rates are outlined within each position posting.',
         icon: 'DollarSign',
     },
     {
         id: 2,
-        title: 'Flexibility & Balance',
-        desc: ['Choose your own schedule', 'Client location-based services'],
+        title: 'Flexible Scheduling',
+        desc: 'Set your availability based on your schedule and caseload.',
         icon: 'Clock',
     },
     {
         id: 3,
-        title: 'Professional Development',
-        desc: ['Conference attendance support', 'Mentorship program)'],
+        title: 'Community-Based Opportunities',
+        desc: 'Provide services in client homes and community settings throughout Calgary and surrounding areas.',
+        icon: 'MapPin',
+    },
+    {
+        id: 4,
+        title: 'Learning & Growth Opportunities',
+        desc: 'Access opportunities for ongoing learning, mentorship, and professional development when available.',
         icon: 'GraduationCap',
     },
     {
         id: 5,
-        title: 'Community & Culture',
-        desc: ['Team building events', 'Quarterly team retreats'],
-        icon: 'Users',
+        title: 'Training & Resources',
+        desc: 'Contractors may have access to workshops, educational resources, and other learning opportunities offered through CATS.',
+        icon: 'BookOpen',
     },
     {
         id: 6,
-        title: 'Additional Perks',
-        desc: ['Admin support provided', 'Resource library access'],
+        title: 'Collaborative Team Environment',
+        desc: 'Be part of a supportive team that values communication, collaboration, and shared learning.',
+        icon: 'Users',
+    },
+    {
+        id: 7,
+        title: 'Team Connection',
+        desc: 'Opportunities for team gatherings, workshops, and community-building activities may be offered throughout the year.',
+        icon: 'Heart',
+    },
+    {
+        id: 8,
+        title: 'Administrative Support',
+        desc: 'Access administrative support for service coordination, documentation processes, and other operational needs.',
+        icon: 'ClipboardList',
+    },
+    {
+        id: 9,
+        title: 'Resources & Tools',
+        desc: 'Contractors may have access to shared resources, templates, and materials to support their work with children and families.',
         icon: 'Sparkle',
     },
 ];

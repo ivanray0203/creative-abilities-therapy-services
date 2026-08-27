@@ -93,7 +93,7 @@ export default function Footer({
                     <div className="container mx-auto space-y-6 text-center">
                         <div className="inline-block rounded-full bg-white/20 px-3 py-1 text-sm font-medium">
                             <Sparkles className="mr-1 inline h-3 w-3" />
-                            Start Your Journey Today
+                            Start Your Journey with CATS
                         </div>
                         <h2 className="text-3xl font-bold">{title}</h2>
                         <p className="mx-auto max-w-2xl text-white/90">
@@ -109,7 +109,7 @@ export default function Footer({
                                     className="rounded-[5px] border-white bg-white text-primary shadow-md hover:bg-white hover:text-primary"
                                 >
                                     <Link href="/intake/apply">
-                                        Complete Intake Form
+                                        Start Intake
                                     </Link>
                                 </Button>
 
@@ -178,11 +178,13 @@ export default function Footer({
                                 </div>
                                 <div>
                                     <h4 className="text-xl font-light">
-                                        Can I contact someone directly with
-                                        questions?
+                                        Have a Question?
                                     </h4>
                                     <p className="text-muted-foreground">
-                                        Yes! Please leave your message below.
+                                        Not sure where to start or which service
+                                        may be right for your family? Send us a
+                                        message and our team will be happy to
+                                        help.
                                     </p>
                                 </div>
                             </div>
@@ -210,10 +212,10 @@ export default function Footer({
                             </div>
 
                             <p className="mt-5 text-white">
-                                Empowering Every Child, Embracing Every Ability!
-                                We provide compassionate, evidence-based therapy
-                                services through innovative programs and
-                                activities.
+                                Creative Abilities Therapy Services provides
+                                individualized, family-centred therapy and
+                                developmental support to help children grow,
+                                participate, and thrive.
                             </p>
 
                             <div className="mt-5 flex flex-row gap-3">
@@ -253,7 +255,7 @@ export default function Footer({
                                 { label: 'Home', href: '/' },
                                 { label: 'About Us', href: '/about' },
                                 { label: 'Services', href: '/services' },
-                                { label: 'Our Team', href: '/team/founder' },
+                                { label: 'Our Team', href: '/team' },
                                 { label: 'Careers', href: '/careers' },
                                 { label: 'FAQ', href: '/faq' },
                             ].map((link) => (
@@ -277,32 +279,36 @@ export default function Footer({
 
                             {[
                                 {
-                                    label: 'Occupational Therapy',
-                                    href: '/services#OTS-101',
-                                },
-                                {
                                     label: 'Speech-Language Therapy',
                                     href: '/services#SLTS-202',
-                                },
-                                {
-                                    label: 'Physiotherapy',
-                                    href: '/services#P-303',
                                 },
                                 {
                                     label: 'Psychology Services',
                                     href: '/services#BCCPS-303',
                                 },
                                 {
-                                    label: 'Behavioural Consulting',
+                                    label: 'Counselling',
                                     href: '/services#BCCPS-303',
                                 },
                                 {
-                                    label: 'Behavioural Developmental Aide',
+                                    label: 'Occupational Therapy',
+                                    href: '/services#OTS-101',
+                                },
+                                {
+                                    label: 'Physiotherapy',
+                                    href: '/services#P-303',
+                                },
+                                {
+                                    label: 'Behavioural Consulting',
+                                    href: '/services#BTC-505',
+                                },
+                                {
+                                    label: 'Behavioural & Developmental Aide',
                                     href: '/services#BDAS-303',
                                 },
                                 {
-                                    label: 'Counselling',
-                                    href: '/services#BCCPS-303',
+                                    label: 'Community & Respite Service',
+                                    href: '/services#CRAS-404',
                                 },
                             ].map((link) => (
                                 <Link
@@ -336,24 +342,25 @@ export default function Footer({
                                     <MapPin className="h-5 w-5 text-white" />
                                 </div>
                                 <div className="flex flex-col text-white">
-                                    <p className="text-sm">Service Area</p>
+                                    <p className="text-sm">Service Area:</p>
                                     <p className="text-xs">
-                                        Calgary, Airdrie, Chestermere,
-                                        Strathmore, Cochrane, Okotoks & nearby
+                                        Calgary, Airdrie, Chestermere, Cochrane,
+                                        Okotoks, Strathmore &amp; surrounding
+                                        communities
                                     </p>
                                 </div>
                             </a>
 
                             <a
-                                href="tel:+15874338780"
+                                href="tel:+15874369825"
                                 className="flex flex-row gap-2"
                             >
                                 <div className="flex items-center justify-center rounded bg-secondary/20 p-2">
                                     <Phone className="h-5 w-5 text-white" />
                                 </div>
                                 <div className="flex flex-col text-white">
-                                    <p className="text-sm">Phone</p>
-                                    <p className="text-xs">(587) 433-8780</p>
+                                    <p className="text-sm">Phone:</p>
+                                    <p className="text-xs">(587) 436-9825</p>
                                 </div>
                             </a>
 
@@ -365,7 +372,7 @@ export default function Footer({
                                     <Mail className="h-5 w-5 text-white" />
                                 </div>
                                 <div className="flex flex-col text-white">
-                                    <p className="text-sm">Email</p>
+                                    <p className="text-sm">Email:</p>
                                     <p className="text-xs">
                                         info@creativeabilitiestherapyservices.ca
                                     </p>
@@ -377,12 +384,12 @@ export default function Footer({
                                     <Clock className="h-5 w-5 text-white" />
                                 </div>
                                 <div className="flex flex-col text-white">
-                                    <p className="text-sm">Hours</p>
+                                    <p className="text-sm">Hours:</p>
                                     <p className="text-xs">
-                                        Mon-Fri: 8AM - 6PM
+                                        Monday&ndash;Friday: 8:00 AM - 6:00 PM
                                     </p>
                                     <p className="text-xs">
-                                        Sat: By Appointment
+                                        Saturday: By Appointment
                                     </p>
                                 </div>
                             </div>
@@ -445,7 +452,7 @@ function ContactForm() {
         name: '',
         email: '',
         phone: '',
-        subject: 'Website Contact Form',
+        subject: '',
         message: '',
     });
 
@@ -460,8 +467,14 @@ function ContactForm() {
     return (
         <form onSubmit={submit} className="space-y-4">
             <div>
-                <label className="mb-2 block text-sm font-medium">Name</label>
+                <label
+                    htmlFor="contact-name"
+                    className="mb-2 block text-sm font-medium"
+                >
+                    Name
+                </label>
                 <input
+                    id="contact-name"
                     type="text"
                     value={data.name}
                     onChange={(e) => setData('name', e.target.value)}
@@ -473,8 +486,14 @@ function ContactForm() {
             </div>
 
             <div>
-                <label className="mb-2 block text-sm font-medium">Email</label>
+                <label
+                    htmlFor="contact-email"
+                    className="mb-2 block text-sm font-medium"
+                >
+                    Email
+                </label>
                 <input
+                    id="contact-email"
                     type="email"
                     value={data.email}
                     onChange={(e) => setData('email', e.target.value)}
@@ -486,10 +505,14 @@ function ContactForm() {
             </div>
 
             <div>
-                <label className="mb-2 block text-sm font-medium">
-                    Phone Number
+                <label
+                    htmlFor="contact-phone"
+                    className="mb-2 block text-sm font-medium"
+                >
+                    Phone (Optional)
                 </label>
                 <input
+                    id="contact-phone"
                     type="text"
                     value={data.phone}
                     placeholder="Optional"
@@ -508,13 +531,39 @@ function ContactForm() {
             </div>
 
             <div>
-                <label className="mb-2 flex items-center justify-between text-sm font-medium">
-                    <span>Message</span>
+                <label
+                    htmlFor="contact-subject"
+                    className="mb-2 block text-sm font-medium"
+                >
+                    Subject
+                </label>
+                <input
+                    id="contact-subject"
+                    type="text"
+                    value={data.subject}
+                    onChange={(e) => setData('subject', e.target.value)}
+                    maxLength={255}
+                    className="w-full rounded-[5px] border px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-primary"
+                />
+                {errors.subject && (
+                    <p className="mt-1 text-xs text-red-500">
+                        {errors.subject}
+                    </p>
+                )}
+            </div>
+
+            <div>
+                <label
+                    htmlFor="contact-message"
+                    className="mb-2 flex items-center justify-between text-sm font-medium"
+                >
+                    <span>How can we help?</span>
                     <span className="text-xs text-gray-500">
                         {data.message.length}/500
                     </span>
                 </label>
                 <textarea
+                    id="contact-message"
                     value={data.message}
                     onChange={(e) =>
                         setData('message', e.target.value.slice(0, 500))
@@ -537,6 +586,7 @@ function ContactForm() {
             )}
 
             <Button
+                id="contact-submit"
                 type="submit"
                 className="w-full rounded-[5px]"
                 disabled={processing}

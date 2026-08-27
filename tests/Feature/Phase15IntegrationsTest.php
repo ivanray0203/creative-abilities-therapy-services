@@ -51,8 +51,9 @@ test('sending an intake to a therapist emails the therapist', function () {
     Mail::assertQueued(IntakeAssignedToTherapistMail::class, fn ($mail) => $mail->hasTo($therapist->email));
 });
 
-test('hiring an applicant sends an offer letter and, for a new account, login credentials', function () {
+test('sending an offer emails the offer letter with a link to sign it', function () {
     Mail::fake();
+    Storage::fake('public');
 
     $application = Application::factory()->create([
         'application_status' => 'reviewing',
@@ -63,11 +64,31 @@ test('hiring an applicant sends an offer letter and, for a new account, login cr
     ]);
 
     $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
-        'application_status' => 'hired',
+        'application_status' => 'offer_sent',
         'hourly_rate' => 55,
     ])->assertSessionHasNoErrors();
 
-    Mail::assertQueued(OfferLetterMail::class, fn ($mail) => $mail->hasTo('new.hire@example.com') && $mail->position === 'Occupational Therapist');
+    Mail::assertQueued(OfferLetterMail::class, fn ($mail) => $mail->hasTo('new.hire@example.com')
+        && $mail->application->position_applied === 'Occupational Therapist');
+
+    // No account yet — that is what the hire creates, once this is signed.
+    Mail::assertNotQueued(LoginCredentialsMail::class);
+});
+
+test('hiring a candidate who signed their offer sends their login credentials', function () {
+    Mail::fake();
+
+    $application = Application::factory()->offerSigned()->create([
+        'email' => 'new.hire@example.com',
+        'first_name' => 'Jamie',
+        'last_name' => 'Rivera',
+        'position_applied' => 'Occupational Therapist',
+    ]);
+
+    $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
+        'application_status' => 'hired',
+    ])->assertSessionHasNoErrors();
+
     Mail::assertQueued(LoginCredentialsMail::class, fn ($mail) => $mail->hasTo('new.hire@example.com'));
 });
 
@@ -79,7 +100,7 @@ test('OfferLetterMail survives real queue JSON serialization with its binary PDF
     ]);
 
     $pdfBytes = app(PdfService::class)->offerLetter($application);
-    $mail = new OfferLetterMail('Jamie', 'Rivera', 'Occupational Therapist', $pdfBytes);
+    $mail = new OfferLetterMail($application, 'https://cats.test/offer/1?signature=abc', $pdfBytes);
 
     // Mirrors Illuminate\Queue\Queue::createPayload(), which json_encode()s the
     // serialized job — this is the exact step that threw InvalidPayloadException
@@ -94,8 +115,7 @@ test('hiring an applicant provisions a Mailcow mailbox when Mailcow is configure
     Mail::fake();
     Bus::fake();
 
-    $application = Application::factory()->create([
-        'application_status' => 'reviewing',
+    $application = Application::factory()->offerSigned()->create([
         'email' => 'jordan.lee@example.com',
         'first_name' => 'Jordan',
         'last_name' => 'Lee',
@@ -103,7 +123,6 @@ test('hiring an applicant provisions a Mailcow mailbox when Mailcow is configure
 
     $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
         'application_status' => 'hired',
-        'hourly_rate' => 40,
     ])->assertSessionHasNoErrors();
 
     Bus::assertDispatched(CreateMailcowMailbox::class);
