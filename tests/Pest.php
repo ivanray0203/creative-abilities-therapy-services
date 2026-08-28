@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Client;
+use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -64,6 +65,30 @@ function adminUser(): User
 function therapistUser(): User
 {
     return User::factory()->therapist()->create();
+}
+
+/**
+ * A therapist holding an aide position: they log hours on a time sheet
+ * rather than billing services, so Billing and Invoices are closed to them
+ * and Hours and Timesheets are not.
+ */
+function aideUser(string $position = 'Behavioural & Developmental Aide'): User
+{
+    $user = User::factory()->therapist()->create();
+    TeamMember::factory()->create(['user_id' => $user->id, 'position' => $position]);
+
+    return $user->load('teamMember');
+}
+
+/**
+ * A 1x1 PNG, the smallest thing that clears the signature validator
+ * (App\Rules\PngSignature). Shared by every document a signature lands on.
+ */
+function signaturePng(): string
+{
+    return 'data:image/png;base64,'.base64_encode(base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    ));
 }
 
 /**

@@ -8,6 +8,7 @@ use App\Models\ConsentDocument;
 use App\Models\Intake;
 use App\Models\Invoice;
 use App\Models\TeamMember;
+use App\Models\Timesheet;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 
@@ -221,6 +222,41 @@ class PdfService
             ],
             'parentSignature' => $parentSignature,
             'directorSignature' => $directorPath,
+        ])->output();
+    }
+
+    /**
+     * The aide's FSCD time sheet (resources/views/pdf/timesheet.blade.php),
+     * matching the printed form.
+     *
+     * The aide's signature is already on the record — they sign as they
+     * generate — so only the parent's is passed in, the same shape invoice()
+     * uses for theirs.
+     *
+     * @param  string|null  $parentSignature  A data: URI for the parent's drawn
+     *                                        signature. Null renders the empty
+     *                                        signature box the parent signs.
+     */
+    public function timesheet(Timesheet $timesheet, ?string $parentSignature = null): string
+    {
+        $timesheet->loadMissing(['client.originalIntake', 'client.user', 'therapist']);
+        $intake = $timesheet->client?->originalIntake;
+        $aide = $timesheet->therapist;
+
+        return Pdf::loadView('pdf.timesheet', [
+            'timesheet' => $timesheet,
+            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'clientDetails' => [
+                'name' => $timesheet->client?->displayName() ?? 'Client',
+                'date_of_birth' => $intake?->date_of_birth?->format('Y-M-d') ?? '',
+                // The funding reference captured at intake — an FSCD-funded
+                // child's file number.
+                'fscd_file_number' => $intake->funding_number ?? '',
+            ],
+            'aideName' => $aide !== null ? trim("{$aide->first_name} {$aide->last_name}") : 'Aide',
+            'parentName' => $intake->primary_parent_name ?? 'Parent / Guardian',
+            'aideSignature' => $timesheet->aide_signature,
+            'parentSignature' => $parentSignature ?? $timesheet->parent_signature,
         ])->output();
     }
 

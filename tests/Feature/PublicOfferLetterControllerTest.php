@@ -12,14 +12,6 @@ use Illuminate\Support\Facades\URL;
 
 uses(RefreshDatabase::class);
 
-/** A 1x1 PNG, the smallest thing that clears the signature validator. */
-function signaturePng(): string
-{
-    return 'data:image/png;base64,'.base64_encode(base64_decode(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-    ));
-}
-
 function signedShowUrl(Application $application): string
 {
     return app(OfferLetterService::class)->signedUrl($application);

@@ -59,6 +59,23 @@ class TeamMember extends Model
         $this->attributes['sin_number'] = $value === null ? null : hash('sha256', $value);
     }
 
+    /**
+     * Whether this team member holds an aide position.
+     *
+     * An aide does not bill line-by-line: their record of work is the FSCD
+     * time sheet, so they get Hours and Timesheets where a therapist gets
+     * Billing and Invoices.
+     *
+     * Matched on the title's suffix rather than an exact string — the clinic
+     * runs both "Behavioural & Developmental Aide" and "Behaviour Aide", and
+     * a third would otherwise need a code change. "Behavioural
+     * Consultant/Therapist (BC)" is deliberately not caught.
+     */
+    public function isAide(): bool
+    {
+        return str_ends_with(strtolower(trim((string) $this->position)), 'aide');
+    }
+
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {

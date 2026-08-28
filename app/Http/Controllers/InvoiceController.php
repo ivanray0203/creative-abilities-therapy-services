@@ -17,10 +17,10 @@ use App\Services\AuditLogger;
 use App\Services\BillingFormOptions;
 use App\Services\BillingItemInvoiceGenerator;
 use App\Services\ClientContext;
-use App\Services\GoogleDrive\DriveStorage;
 use App\Services\InvoiceDocumentService;
 use App\Services\PdfService;
 use App\Services\ReferenceNumberGenerator;
+use App\Services\StoredDocumentReader;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -29,7 +29,6 @@ use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -231,7 +230,7 @@ class InvoiceController extends Controller
         $stored = $invoice->signed_invoice ?? $invoice->not_signed_invoice;
         $filename = 'invoice-'.($invoice->invoice_id ?? $invoice->id).'.pdf';
 
-        $contents = filled($stored) ? $this->storedInvoiceContents($stored) : null;
+        $contents = filled($stored) ? app(StoredDocumentReader::class)->contents($stored) : null;
 
         // Nothing on file (or it could not be read) — render the document from
         // the invoice as it stands rather than showing the viewer an error.
@@ -247,33 +246,6 @@ class InvoiceController extends Controller
             // The modal frames this on our own origin.
             'X-Frame-Options' => 'SAMEORIGIN',
         ]);
-    }
-
-    /**
-     * The bytes behind a stored invoice URL.
-     *
-     * Drive's own links either force a download (`webContentLink`) or refuse
-     * to be framed (`webViewLink`), so the file is fetched and served under
-     * this app's origin instead of redirected to. The file id is recovered
-     * from the URL, which keeps invoices filed earlier readable.
-     */
-    private function storedInvoiceContents(string $url): ?string
-    {
-        $localBase = rtrim(Storage::disk('public')->url(''), '/');
-
-        if (str_starts_with($url, $localBase)) {
-            $path = ltrim(substr($url, strlen($localBase)), '/');
-
-            return Storage::disk('public')->exists($path)
-                ? Storage::disk('public')->get($path)
-                : null;
-        }
-
-        if (! preg_match('~(?:[?&]id=|/d/)([A-Za-z0-9_-]{10,})~', $url, $matches)) {
-            return null;
-        }
-
-        return app(DriveStorage::class)->get($matches[1]);
     }
 
     /**

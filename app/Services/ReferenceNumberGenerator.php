@@ -6,7 +6,8 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Generates INT-{year}-{seq} / APP-{year}-{seq} / INV-{year}-{seq} /
- * BIL-{year}-{seq} / PRG-{year}-{seq} / EXP-{year}-{seq} reference numbers.
+ * BIL-{year}-{seq} / TMS-{year}-{seq} / PRG-{year}-{seq} / EXP-{year}-{seq}
+ * reference numbers.
  *
  * The Django reference derives {seq} from a per-year row COUNT, which
  * races under concurrent submissions. This locks the max existing
@@ -32,6 +33,11 @@ class ReferenceNumberGenerator
     public function billingItem(): string
     {
         return $this->next('billing_items', 'BIL', 'billing_number');
+    }
+
+    public function timesheet(): string
+    {
+        return $this->next('timesheets', 'TMS', 'timesheet_number');
     }
 
     public function programRegistration(): string

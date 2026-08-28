@@ -75,6 +75,16 @@ class User extends Authenticatable
         return $this->role === 'client';
     }
 
+    /**
+     * A therapist holding an aide position, who logs hours on a time sheet
+     * rather than billing services. A therapist with no team-member record
+     * is not an aide — they keep Billing and Invoices.
+     */
+    public function isAide(): bool
+    {
+        return $this->isTherapist() && $this->teamMember?->isAide() === true;
+    }
+
     /** @return HasOne<TeamMember, $this> */
     public function teamMember(): HasOne
     {

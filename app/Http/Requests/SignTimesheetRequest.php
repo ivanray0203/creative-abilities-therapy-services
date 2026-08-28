@@ -7,13 +7,13 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * The parent returning a signed invoice. The signature arrives as a PNG
+ * The parent confirming an aide's hours. The signature arrives as a PNG
  * data URI drawn on a canvas, so it is validated by shape rather than as an
  * uploaded file.
  */
-class SignInvoiceRequest extends FormRequest
+class SignTimesheetRequest extends FormRequest
 {
-    /** Authorisation is the controller's policy check, which needs the invoice. */
+    /** Authorisation is the controller's policy check, which needs the timesheet. */
     public function authorize(): bool
     {
         return true;
