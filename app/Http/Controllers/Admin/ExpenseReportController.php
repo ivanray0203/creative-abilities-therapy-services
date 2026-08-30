@@ -59,6 +59,10 @@ class ExpenseReportController extends Controller
         return response()->streamDownload(function () use ($expenses): void {
             $handle = fopen('php://output', 'wb');
 
+            if ($handle === false) {
+                return;
+            }
+
             fputcsv($handle, [
                 'Reference', 'Date', 'Category', 'Payee', 'Description',
                 'Amount', 'GST', 'Total', 'Payment Method', 'Status', 'Recorded By',
@@ -132,7 +136,8 @@ class ExpenseReportController extends Controller
     /**
      * The aggregate is aliased `total_amount`, not `total`: `total` is an
      * appended accessor on the model, and it would shadow the SUM with a
-     * figure computed from columns this query never selected.
+     * figure computed from columns this query never selected. `toBase()` keeps
+     * these grouped rows as plain objects rather than half-filled models.
      *
      * @param  Builder<Expense>  $query
      * @return array<int, array{label: string, total: float, count: int}>
@@ -144,8 +149,9 @@ class ExpenseReportController extends Controller
             ->selectRaw('SUM(amount + tax_amount) as total_amount, COUNT(*) as entries')
             ->groupBy('category')
             ->orderByDesc('total_amount')
+            ->toBase()
             ->get()
-            ->map(fn ($row): array => [
+            ->map(fn (object $row): array => [
                 'label' => (string) $row->category,
                 'total' => round((float) $row->total_amount, 2),
                 'count' => (int) $row->entries,
@@ -172,8 +178,9 @@ class ExpenseReportController extends Controller
             ->selectRaw("{$month} as month, SUM(amount + tax_amount) as total_amount, COUNT(*) as entries")
             ->groupBy('month')
             ->orderBy('month')
+            ->toBase()
             ->get()
-            ->map(fn ($row): array => [
+            ->map(fn (object $row): array => [
                 'label' => (string) $row->month,
                 'total' => round((float) $row->total_amount, 2),
                 'count' => (int) $row->entries,
@@ -192,8 +199,9 @@ class ExpenseReportController extends Controller
             ->selectRaw('SUM(amount + tax_amount) as total_amount, COUNT(*) as entries')
             ->groupBy('payment_method')
             ->orderByDesc('total_amount')
+            ->toBase()
             ->get()
-            ->map(fn ($row): array => [
+            ->map(fn (object $row): array => [
                 'label' => (string) $row->payment_method,
                 'total' => round((float) $row->total_amount, 2),
                 'count' => (int) $row->entries,
@@ -213,8 +221,9 @@ class ExpenseReportController extends Controller
             ->groupBy('payee')
             ->orderByDesc('total_amount')
             ->limit(10)
+            ->toBase()
             ->get()
-            ->map(fn ($row): array => [
+            ->map(fn (object $row): array => [
                 'label' => (string) $row->payee,
                 'total' => round((float) $row->total_amount, 2),
                 'count' => (int) $row->entries,

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ServiceContractLedger;
 use Database\Factories\ClientFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 /**
  * @property array<int, array<string, mixed>>|null $clinical_notes
@@ -197,14 +199,25 @@ class Client extends Model
 
     /**
      * Rebuilds the denormalized `service_availed` cache from the
-     * `client_services` relation, run after any ClientService mutation.
+     * `client_services` relation, run after any ClientService mutation and
+     * after any contract is issued, edited, cancelled or deleted.
+     *
+     * Phase 20 added each service's contracts to the snapshot so the client
+     * page renders the hours from one source rather than growing a second
+     * query per service.
      */
     public function refreshServiceAvailedCache(): void
     {
+        $services = $this->clientServices()
+            ->with(['service', 'therapist', 'contracts'])
+            ->get();
+
+        $remaining = app(ServiceContractLedger::class)->remainingFor(
+            $services->flatMap(fn (ClientService $clientService): Collection => $clientService->contracts),
+        );
+
         $this->update([
-            'service_availed' => $this->clientServices()
-                ->with(['service', 'therapist'])
-                ->get()
+            'service_availed' => $services
                 ->map(fn (ClientService $clientService): array => [
                     'id' => $clientService->id,
                     'service_id' => $clientService->service_id,
@@ -217,6 +230,21 @@ class Client extends Model
                     'funding_source' => $clientService->funding_source,
                     'no_sessions' => $clientService->no_sessions,
                     'goals' => $clientService->goals,
+                    'contracts' => $clientService->contracts
+                        ->map(fn (ServiceContract $contract): array => [
+                            'id' => $contract->id,
+                            'contract_number' => $contract->contract_number,
+                            'allotted_hours' => (float) $contract->allotted_hours,
+                            'remaining_hours' => $remaining[$contract->id] ?? (float) $contract->allotted_hours,
+                            'period_start' => $contract->period_start?->toDateString(),
+                            'period_end' => $contract->period_end?->toDateString(),
+                            // The live answer, not the swept one: the badge
+                            // should read `expired` the day the period ends,
+                            // not the next time the nightly command runs.
+                            'status' => $contract->derivedStatus(),
+                            'notes' => $contract->notes,
+                        ])
+                        ->all(),
                 ])
                 ->all(),
         ]);

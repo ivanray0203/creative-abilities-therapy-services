@@ -189,10 +189,7 @@ export default function OfferLetter({
                             label="Proposed Start Date"
                             value={formatDate(application.preferred_start_date)}
                         />
-                        <DetailRow
-                            label="Location"
-                            value="Home or Community"
-                        />
+                        <DetailRow label="Location" value="Home or Community" />
                         <DetailRow
                             label="Schedule"
                             value="Flexible and based on client referrals and your availability."

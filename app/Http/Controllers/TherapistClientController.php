@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\ClientService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -34,13 +35,17 @@ class TherapistClientController extends Controller
             ->when($status === 'active', fn (Builder $query) => $query->where('status', 'active'))
             ->when($status === 'inactive', fn (Builder $query) => $query->whereIn('status', ['inactive', 'paused', 'completed', 'archive']))
             ->with(['originalIntake', 'clientServices.service'])
-            // Drives the row's "Create Session" action: a client whose
-            // services this therapist has all booked has nothing left to
-            // schedule, and the session form would not offer them anyway.
+            /*
+             * Drives the row's "Create Session" action. Phase 20: a client is
+             * bookable when this therapist holds a service of theirs that
+             * admin has contracted and that still has hours today. The
+             * session form applies the same test, so the button and the form
+             * cannot disagree.
+             */
             ->withExists(['clientServices as has_bookable_service' => function (Builder $services) use ($therapistId): void {
                 $services->where('therapist_id', $therapistId)->whereIn(
                     'client_services.id',
-                    ClientService::query()->select('id')->awaitingSchedule(),
+                    ClientService::query()->select('id')->bookableOn(Carbon::today()),
                 );
             }])
             // No `distinct()`: `forTherapist` scopes with subqueries rather

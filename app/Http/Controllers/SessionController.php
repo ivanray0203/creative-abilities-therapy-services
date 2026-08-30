@@ -8,10 +8,12 @@ use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\Complaint;
 use App\Models\ScheduleSession;
+use App\Models\ServiceContract;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\ClientContext;
+use App\Services\ServiceContractLedger;
 use App\Services\SessionNotifier;
 use Carbon\CarbonInterface;
 use Closure;
@@ -22,6 +24,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -34,6 +37,8 @@ use Inertia\Response;
  */
 class SessionController extends Controller
 {
+    public function __construct(private ServiceContractLedger $ledger) {}
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -120,15 +125,26 @@ class SessionController extends Controller
     public function store(StoreSessionRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $allocations = $request->allocations();
         $therapistId = $request->user()->isAdmin() ? (int) $validated['therapist_id'] : $request->user()->id;
 
-        $session = ScheduleSession::query()->create([
-            ...$this->scheduleAttributes($validated),
-            'therapist_id' => $therapistId,
-            'status' => 'scheduled',
-        ]);
+        /*
+         * The session row and its hours draw are one act. `apply()` rechecks
+         * the balance under a lock and throws if another therapist took the
+         * last hours in between, so creating the session outside this
+         * transaction would leave a booking behind that drew nothing.
+         */
+        $session = DB::transaction(function () use ($request, $validated, $allocations, $therapistId): ScheduleSession {
+            $session = ScheduleSession::query()->create([
+                ...$this->scheduleAttributes($validated, $allocations),
+                'therapist_id' => $therapistId,
+                'status' => 'scheduled',
+            ]);
 
-        $session->clientServices()->sync($this->linkedClientServiceIds($validated));
+            $this->ledger->apply($session, $allocations, $request->sessionMinutes());
+
+            return $session;
+        });
 
         AuditLogger::log('Scheduled session', 'System', "Scheduled session #{$session->id}");
 
@@ -142,7 +158,9 @@ class SessionController extends Controller
         $this->assertOwnsOrAdmin($session, $request->user());
 
         return Inertia::render('sessions/edit', [
-            'session' => $session->load('clientServices:id'),
+            // Loaded whole rather than `clientServices:id`: the form needs
+            // the pivot's `hours` to prefill the split it saved last time.
+            'session' => $session->load('clientServices'),
             'isAdmin' => $request->user()->isAdmin(),
             'therapists' => $request->user()->isAdmin() ? $this->therapists() : [],
             'services' => $this->services(),
@@ -155,16 +173,19 @@ class SessionController extends Controller
         $this->assertOwnsOrAdmin($session, $request->user());
 
         $validated = $request->validated();
+        $allocations = $request->allocations();
         $therapistId = $request->user()->isAdmin() ? (int) $validated['therapist_id'] : $session->therapist_id;
 
         $previousStart = $session->scheduled_start;
 
-        $session->update([
-            ...$this->scheduleAttributes($validated),
-            'therapist_id' => $therapistId,
-        ]);
+        DB::transaction(function () use ($request, $session, $validated, $allocations, $therapistId): void {
+            $session->update([
+                ...$this->scheduleAttributes($validated, $allocations),
+                'therapist_id' => $therapistId,
+            ]);
 
-        $session->clientServices()->sync($this->linkedClientServiceIds($validated));
+            $this->ledger->apply($session, $allocations, $request->sessionMinutes());
+        });
 
         AuditLogger::log('Updated session', 'System', "Updated session #{$session->id}");
 
@@ -300,6 +321,13 @@ class SessionController extends Controller
             'notes' => $validated['notes'] ?? $session->notes,
         ]);
 
+        /*
+         * The contract draw is deliberately left alone. Hours come off a
+         * contract at the length the session was booked for, so a visit that
+         * ran ten minutes over or short does not move the balance. Admin
+         * authorizes scheduled time; `elapsed_time` above still records what
+         * the clock said.
+         */
         AuditLogger::log('Ended session', 'System', "Ended session #{$session->id}", 'info');
 
         return back()->with('success', 'Session ended.');
@@ -475,17 +503,17 @@ class SessionController extends Controller
 
     /**
      * @param  array<string, mixed>  $validated
+     * @param  array<int, array{client_service_id: int, hours: float}>  $allocations
      * @return array<string, mixed>
      */
-    private function scheduleAttributes(array $validated): array
+    private function scheduleAttributes(array $validated, array $allocations): array
     {
         $start = Carbon::parse("{$validated['date']} {$validated['start_time']}");
         $end = Carbon::parse("{$validated['date']} {$validated['end_time']}");
-        $linkedIds = $this->linkedClientServiceIds($validated);
 
         return [
             'client_id' => $validated['client_id'],
-            'service_id' => $validated['service_id'] ?? $this->leadServiceIdOf($linkedIds),
+            'service_id' => $validated['service_id'] ?? $this->leadServiceIdOf(array_column($allocations, 'client_service_id')),
             'location' => $validated['location'] ?? null,
             // Still stored, just derived rather than picked: ClientProgress
             // and the session emails both read it.
@@ -494,27 +522,6 @@ class SessionController extends Controller
             'scheduled_start' => $start,
             'scheduled_end' => $end,
         ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<int, int>
-     */
-    private function linkedClientServiceIds(array $validated): array
-    {
-        $ids = $validated['linked_client_service_ids'] ?? [];
-
-        if (! is_array($ids)) {
-            return [];
-        }
-
-        $unique = [];
-
-        foreach ($ids as $id) {
-            $unique[(int) $id] = true;
-        }
-
-        return array_keys($unique);
     }
 
     /**
@@ -590,12 +597,20 @@ class SessionController extends Controller
     {
         $isAdmin = $user->isAdmin();
 
+        /*
+         * Bookability now depends on a date, because a contract covers one.
+         * The picker is opened today and defaults to today, so that is the
+         * day it asks about; the request validator asks again about whatever
+         * date the therapist finally chose.
+         */
+        $today = Carbon::today();
+
         $bookableClientIds = ClientService::query()
             ->select('client_id')
             ->where('therapist_id', $user->id)
-            ->awaitingSchedule();
+            ->bookableOn($today);
 
-        return Client::query()
+        $clients = Client::query()
             ->when(! $isAdmin, function (Builder $query) use ($bookableClientIds, $user, $session): void {
                 $query->forTherapist($user->id)
                     ->where(function (Builder $selectable) use ($bookableClientIds, $session): void {
@@ -608,9 +623,54 @@ class SessionController extends Controller
             })
             ->with([
                 'originalIntake:id,child_first_name,child_last_name,available_days,preferred_times',
-                'clientServices' => $this->selectableClientServices($user, $session),
+                'clientServices' => $this->selectableClientServices($user, $session, $today),
             ])
             ->get(['id', 'original_intake_id']);
+
+        $this->attachContractSummaries($clients, $today);
+
+        return $clients;
+    }
+
+    /**
+     * Hang the covering contract's numbers on each availed service so the
+     * form can show what is left before the therapist picks anything.
+     *
+     * The balances are fetched for every contract in one query rather than
+     * per service — a full caseload would otherwise cost a `SUM` apiece.
+     *
+     * @param  Collection<int, Client>  $clients
+     */
+    private function attachContractSummaries(Collection $clients, CarbonInterface $date): void
+    {
+        /** @var Collection<int, ClientService> $services */
+        $services = $clients->flatMap(fn (Client $client): Collection => $client->clientServices);
+
+        $covering = $services->mapWithKeys(fn (ClientService $service): array => [
+            $service->id => $service->contracts->first(
+                fn (ServiceContract $contract): bool => $contract->status !== ServiceContract::STATUS_CANCELLED
+                    && $contract->coversDate($date),
+            ),
+        ]);
+
+        $remaining = $this->ledger->remainingFor($covering->filter());
+
+        foreach ($services as $service) {
+            /** @var ServiceContract|null $contract */
+            $contract = $covering->get($service->id);
+
+            $service->setAttribute('contract', $contract === null ? null : [
+                'id' => $contract->id,
+                'contract_number' => $contract->contract_number,
+                'allotted_hours' => (float) $contract->allotted_hours,
+                'remaining_hours' => $remaining[$contract->id] ?? 0.0,
+                'period_start' => $contract->period_start?->toDateString(),
+                'period_end' => $contract->period_end?->toDateString(),
+            ]);
+
+            // The raw contract rows were only ever a means to that summary.
+            $service->unsetRelation('contracts');
+        }
     }
 
     /**
@@ -621,25 +681,35 @@ class SessionController extends Controller
      *
      * @return Closure(Relation<*, *, *>): void
      */
-    private function selectableClientServices(User $user, ?ScheduleSession $session): Closure
+    private function selectableClientServices(User $user, ?ScheduleSession $session, CarbonInterface $date): Closure
     {
-        $bookableIds = ClientService::query()->select('id')->awaitingSchedule();
-
         $alreadyLinkedIds = $session?->clientServices()->pluck('client_services.id')->all() ?? [];
 
-        if ($alreadyLinkedIds !== []) {
-            $bookableIds->orWhereIn('id', $alreadyLinkedIds);
-        }
-
-        return function (Relation $services) use ($bookableIds, $user): void {
-            $services->with('service');
+        return function (Relation $services) use ($alreadyLinkedIds, $user, $date): void {
+            // `contracts` feeds the remaining-hours summary the form shows
+            // against each option, and is dropped again once it has.
+            $services->with(['service', 'contracts']);
 
             if ($user->isAdmin()) {
                 return;
             }
 
             $services->where('therapist_id', $user->id)
-                ->whereIn('client_services.id', $bookableIds);
+                ->where(function (Builder $selectable) use ($alreadyLinkedIds, $date): void {
+                    $selectable->whereIn(
+                        'client_services.id',
+                        ClientService::query()->select('id')->bookableOn($date),
+                    );
+
+                    /*
+                     * A session already holding a service keeps it in the
+                     * list even if its contract has since run dry, or a
+                     * booking made last month could never be corrected.
+                     */
+                    if ($alreadyLinkedIds !== []) {
+                        $selectable->orWhereIn('client_services.id', $alreadyLinkedIds);
+                    }
+                });
         };
     }
 }

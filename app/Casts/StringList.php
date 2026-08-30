@@ -41,7 +41,7 @@ class StringList implements CastsAttributes
             return null;
         }
 
-        return json_encode(array_values($this->toList($value)));
+        return json_encode(array_values($this->toList($value)), JSON_THROW_ON_ERROR);
     }
 
     /**

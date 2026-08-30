@@ -5,7 +5,6 @@ use App\Mail\SessionCancelledMail;
 use App\Mail\SessionRescheduledMail;
 use App\Mail\SessionScheduledMail;
 use App\Models\Client;
-use App\Models\ClientService;
 use App\Models\ScheduleSession;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
@@ -21,7 +20,7 @@ test('a therapist scheduling a session emails both the client and the admins', f
     $therapist = therapistUser();
     $client = clientWithUser();
     $client->update(['primary_therapist_id' => $therapist->id]);
-    ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    contractedService($client, $therapist);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,
@@ -44,7 +43,7 @@ test('the client email falls back to the intake parent email when there is no po
     $therapist = therapistUser();
     $client = Client::factory()->create(['user_id' => null, 'primary_therapist_id' => $therapist->id]);
     $client->originalIntake->update(['primary_parent_email' => 'parent@example.com']);
-    ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    contractedService($client, $therapist);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,

@@ -9,6 +9,7 @@ use App\Models\Intake;
 use App\Models\Invoice;
 use App\Models\TeamMember;
 use App\Models\Timesheet;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 
@@ -284,6 +285,35 @@ class PdfService
                 'email' => $therapist?->email,
             ],
         ])->output();
+    }
+
+    /**
+     * The hour-tracking sheet: every contract in scope, the hours delivered
+     * each month of the window, and what is left.
+     *
+     * `$therapist` null is the clinic-wide sheet an admin prints, which gains
+     * a therapist column — on a single therapist's copy that column would
+     * repeat one name down the page.
+     *
+     * Landscape, because the month columns are the point of the format and a
+     * portrait page would wrap them. The report array is built by
+     * HourTrackingReport and rendered as it stands — nothing is recomputed
+     * here, so the screen and the print cannot disagree.
+     *
+     * @param  array<string, mixed>  $report
+     */
+    public function hourTracking(?User $therapist, array $report, CarbonInterface $from, CarbonInterface $to): string
+    {
+        return Pdf::loadView('pdf.hour-tracking', [
+            'report' => $report,
+            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'therapistName' => $therapist !== null
+                ? (trim("{$therapist->first_name} {$therapist->last_name}") ?: 'Therapist')
+                : 'All therapists',
+            'showTherapist' => $therapist === null,
+            'from' => $from,
+            'to' => $to,
+        ])->setPaper('letter', 'landscape')->output();
     }
 
     /**

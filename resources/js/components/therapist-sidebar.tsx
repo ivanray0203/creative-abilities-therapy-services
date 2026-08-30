@@ -6,6 +6,7 @@ import {
     Clock,
     DollarSign,
     FileText,
+    Hourglass,
     LayoutDashboard,
     LogOut,
     NotebookPen,
@@ -38,6 +39,11 @@ import type { Auth } from '@/types/auth';
  * those two entries is the same, so only the pair swaps.
  */
 const BILLING_ITEMS = [
+    {
+        title: 'Hour Tracking',
+        icon: Hourglass,
+        url: '/therapist/hour-tracking',
+    },
     { title: 'Billing', icon: DollarSign, url: '/therapist/billing' },
     { title: 'Invoices', icon: Receipt, url: '/therapist/invoices' },
 ];

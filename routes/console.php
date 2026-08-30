@@ -9,6 +9,10 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('invoices:mark-overdue')->daily();
+// Phase 20 — reconciles each service contract's cached status with its
+// period and its balance. Nightly is soon enough: the booking gate reads the
+// period and the hours directly, so a stale badge is the worst this can cost.
+Schedule::command('contracts:sweep')->daily();
 // Closes last month's billing on the 1st, both sides of the ledger: each
 // therapist's per-client bills become one statement sent to the admins, and
 // each client gets the clinic's own invoice as a draft to review.

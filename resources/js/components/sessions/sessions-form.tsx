@@ -14,14 +14,24 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Client, ServiceOffering } from '@/types/client';
+import type { Client, ClientService, ServiceOffering } from '@/types/client';
 import type { TherapistOption } from '@/types/intake';
 import type { ScheduleSession } from '@/types/session';
+
+/**
+ * One availed service the visit covers, and the share of it that service
+ * accounts for. `hours` is left blank to accept the even split the server
+ * would apply.
+ */
+interface ServiceAllocation {
+    client_service_id: number;
+    hours: string;
+}
 
 interface SessionFormData {
     client_id: string;
     therapist_id: string;
-    linked_client_service_ids: number[];
+    linked_client_services: ServiceAllocation[];
     service_id: string;
     location: string;
     date: string;
@@ -43,6 +53,32 @@ function minutesBetween(startTime: string, endTime: string): number | null {
     return Number.isFinite(minutes) ? minutes : null;
 }
 
+/**
+ * The even split the server applies when no hours are typed, remainder on
+ * the last service so the parts still add up to the whole.
+ *
+ * Mirrors ServiceContractLedger::defaultAllocations() — if the two ever
+ * disagree the form shows a total the server would reject.
+ */
+function evenSplit(count: number, totalHours: number): number[] {
+    if (count === 0) {
+        return [];
+    }
+
+    const share = Math.round((totalHours / count) * 100) / 100;
+
+    return Array.from({ length: count }, (_, index) =>
+        index === count - 1
+            ? Math.round((totalHours - share * (count - 1)) * 100) / 100
+            : share,
+    );
+}
+
+/** Trims a trailing `.00` so 40 hours does not read as "40.00 hours". */
+function formatHours(hours: number): string {
+    return String(Math.round(hours * 100) / 100);
+}
+
 function initialValues(
     session?: ScheduleSession | null,
     preselectedClientId?: number | null,
@@ -57,8 +93,15 @@ function initialValues(
               ? String(preselectedClientId)
               : '',
         therapist_id: session ? String(session.therapist_id) : '',
-        linked_client_service_ids: (session?.client_services ?? []).map(
-            (clientService) => clientService.id,
+        linked_client_services: (session?.client_services ?? []).map(
+            (clientService) => ({
+                client_service_id: clientService.id,
+                // Prefilled from the ledger row this session already wrote,
+                // so reopening a booking shows the split it was saved with.
+                hours: clientService.pivot
+                    ? formatHours(Number(clientService.pivot.hours))
+                    : '',
+            }),
         ),
         service_id: session?.service_id ? String(session.service_id) : '',
         location: session?.location ?? '',
@@ -73,6 +116,10 @@ function initialValues(
  * Shared admin/therapist "Add/Edit Session" form, reference:
  * cats-frontend/src/forms/SessionsForm.tsx. `scheduled_start`/`scheduled_end`
  * are computed server-side from date + start_time + duration.
+ *
+ * Phase 20 turned the availed-service picker into an hours claim: every
+ * service offered here has a contract behind it, and the visit's length is
+ * divided between the ones chosen.
  */
 export default function SessionsForm({
     session,
@@ -111,14 +158,70 @@ export default function SessionsForm({
         [data.start_time, data.end_time],
     );
 
-    const clientServiceOptions = useMemo(
-        () =>
-            (selectedClient?.client_services ?? []).map((clientService) => ({
-                value: clientService.id,
-                label: clientService.service?.name ?? 'Service',
-            })),
+    const sessionHours = (durationMinutes ?? 0) / 60;
+
+    // Memoised for its own sake: the `?? []` would otherwise hand back a new
+    // array each render and re-run every hook that reads it.
+    const availedServices = useMemo(
+        () => selectedClient?.client_services ?? [],
         [selectedClient],
     );
+
+    const clientServiceOptions = useMemo(
+        () =>
+            availedServices.map((clientService) => ({
+                value: clientService.id,
+                label: contractLabel(clientService),
+            })),
+        [availedServices],
+    );
+
+    const selectedIds = data.linked_client_services.map(
+        (allocation) => allocation.client_service_id,
+    );
+
+    const defaults = evenSplit(selectedIds.length, sessionHours);
+
+    /**
+     * The hours actually claimed, reading a blank box as the even share the
+     * server would fill in. Only meaningful once the times are set.
+     */
+    const claimedHours = data.linked_client_services.reduce(
+        (total, allocation, index) =>
+            total +
+            (allocation.hours === ''
+                ? (defaults[index] ?? 0)
+                : Number(allocation.hours) || 0),
+        0,
+    );
+
+    const splitMatches =
+        durationMinutes === null ||
+        Math.abs(claimedHours - sessionHours) <= 0.011;
+
+    const changeSelection = (ids: number[]) => {
+        setData(
+            'linked_client_services',
+            ids.map((id) => ({
+                client_service_id: id,
+                hours:
+                    data.linked_client_services.find(
+                        (allocation) => allocation.client_service_id === id,
+                    )?.hours ?? '',
+            })),
+        );
+    };
+
+    const changeHours = (id: number, hours: string) => {
+        setData(
+            'linked_client_services',
+            data.linked_client_services.map((allocation) =>
+                allocation.client_service_id === id
+                    ? { ...allocation, hours }
+                    : allocation,
+            ),
+        );
+    };
 
     const submit = () => {
         const prefix = isAdmin ? '/admin' : '/therapist';
@@ -142,7 +245,7 @@ export default function SessionsForm({
                             value={data.client_id}
                             onValueChange={(value) => {
                                 setData('client_id', value);
-                                setData('linked_client_service_ids', []);
+                                setData('linked_client_services', []);
                             }}
                         >
                             <SelectTrigger
@@ -210,8 +313,9 @@ export default function SessionsForm({
 
                     {/*
                      * A single visit can cover more than one availed service,
-                     * so this dropdown takes several answers. Each service
-                     * leaves the list once it has been booked.
+                     * so this dropdown takes several answers. A service only
+                     * appears while a contract covers today and has hours
+                     * left on it.
                      */}
                     <div>
                         <Label htmlFor="session-client-services">
@@ -221,20 +325,18 @@ export default function SessionsForm({
                             id="session-client-services"
                             className="mt-2 rounded-[10px]"
                             options={clientServiceOptions}
-                            selected={data.linked_client_service_ids}
-                            onChange={(selected) =>
-                                setData('linked_client_service_ids', selected)
-                            }
+                            selected={selectedIds}
+                            onChange={changeSelection}
                             placeholder="Select availed services"
                             emptyLabel={
                                 selectedClient
-                                    ? 'No availed services left to schedule'
+                                    ? 'No contracted services with hours left'
                                     : 'Select a client first'
                             }
                         />
-                        {errors.linked_client_service_ids && (
+                        {errors.linked_client_services && (
                             <p className="mt-1 text-sm text-destructive">
-                                {errors.linked_client_service_ids}
+                                {errors.linked_client_services}
                             </p>
                         )}
                     </div>
@@ -347,6 +449,88 @@ export default function SessionsForm({
                     </div>
 
                     {/*
+                     * The split only needs saying once more than one service
+                     * is on the visit. A single service takes the whole of it
+                     * and there is nothing to divide.
+                     */}
+                    {data.linked_client_services.length > 1 && (
+                        <div className="md:col-span-2">
+                            <Label>Hours per service</Label>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                Leave a box empty to split the visit evenly.
+                                Each service draws from its own contract.
+                            </p>
+
+                            <div className="mt-3 space-y-2">
+                                {data.linked_client_services.map(
+                                    (allocation, index) => {
+                                        const clientService =
+                                            availedServices.find(
+                                                (candidate) =>
+                                                    candidate.id ===
+                                                    allocation.client_service_id,
+                                            );
+
+                                        return (
+                                            <div
+                                                key={
+                                                    allocation.client_service_id
+                                                }
+                                                className="flex flex-row items-center justify-between gap-3 rounded-[5px] border p-3"
+                                            >
+                                                <div>
+                                                    <p className="text-sm">
+                                                        {clientService?.service
+                                                            ?.name ?? 'Service'}
+                                                    </p>
+                                                    {clientService?.contract && (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {formatHours(
+                                                                clientService
+                                                                    .contract
+                                                                    .remaining_hours,
+                                                            )}{' '}
+                                                            hours left
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <Input
+                                                    type="number"
+                                                    min={0}
+                                                    step="0.25"
+                                                    className="w-28 rounded-[10px]"
+                                                    aria-label={`Hours for ${clientService?.service?.name ?? 'service'}`}
+                                                    placeholder={formatHours(
+                                                        defaults[index] ?? 0,
+                                                    )}
+                                                    value={allocation.hours}
+                                                    onChange={(event) =>
+                                                        changeHours(
+                                                            allocation.client_service_id,
+                                                            event.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        );
+                                    },
+                                )}
+                            </div>
+
+                            <p
+                                className={
+                                    splitMatches
+                                        ? 'mt-2 text-sm text-muted-foreground'
+                                        : 'mt-2 text-sm text-destructive'
+                                }
+                            >
+                                {formatHours(claimedHours)} of{' '}
+                                {formatHours(sessionHours)} hours allocated
+                            </p>
+                        </div>
+                    )}
+
+                    {/*
                      * A therapist has no Therapist field to hang this on, so
                      * a clash with their own diary would otherwise reject the
                      * form with nothing on screen to explain it.
@@ -435,8 +619,56 @@ export default function SessionsForm({
                             ))}
                         </div>
                     </div>
+
+                    {/*
+                     * The contract is what decides whether a service can be
+                     * booked at all, so what is left on it belongs beside the
+                     * picker rather than a click away.
+                     */}
+                    {availedServices.length > 0 && (
+                        <div className="mt-5 border-t pt-5">
+                            <p className="text-xs text-muted-foreground">
+                                Contracted Hours
+                            </p>
+                            <div className="mt-2 space-y-2">
+                                {availedServices.map((clientService) => (
+                                    <div
+                                        key={clientService.id}
+                                        className="text-sm"
+                                    >
+                                        <p>
+                                            {clientService.service?.name ??
+                                                'Service'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {clientService.contract
+                                                ? `${formatHours(clientService.contract.remaining_hours)} of ${formatHours(clientService.contract.allotted_hours)} hours left, to ${clientService.contract.period_end ?? '?'}`
+                                                : 'No contract for today'}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>
     );
+}
+
+/**
+ * A picker option carrying the two numbers that decide whether it can be
+ * chosen: what is left, and how long that lasts.
+ */
+function contractLabel(clientService: ClientService): string {
+    const name = clientService.service?.name ?? 'Service';
+    const contract = clientService.contract;
+
+    if (!contract) {
+        return name;
+    }
+
+    return `${name} — ${formatHours(contract.remaining_hours)}h left${
+        contract.period_end ? `, to ${contract.period_end}` : ''
+    }`;
 }

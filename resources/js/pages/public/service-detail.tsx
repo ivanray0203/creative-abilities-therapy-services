@@ -5,8 +5,8 @@ import ScrollToContactButton from '@/components/scroll-to-contact-button';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import PublicLayout from '@/layouts/public-layout';
-import { findService  } from '@/lib/content/service-list';
-import type {TitledPoint} from '@/lib/content/service-list';
+import { findService } from '@/lib/content/service-list';
+import type { TitledPoint } from '@/lib/content/service-list';
 
 /** Section heading shared by every block on the page. */
 function SectionHeading({

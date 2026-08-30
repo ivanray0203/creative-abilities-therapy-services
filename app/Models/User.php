@@ -132,4 +132,15 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserConsentAcceptance::class);
     }
+
+    /**
+     * Contracts this therapist is authorized on — the snapshot taken when each
+     * was issued, not the availed service's current assignment.
+     *
+     * @return HasMany<ServiceContract, $this>
+     */
+    public function serviceContracts(): HasMany
+    {
+        return $this->hasMany(ServiceContract::class, 'therapist_id');
+    }
 }

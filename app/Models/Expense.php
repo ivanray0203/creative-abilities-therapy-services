@@ -9,10 +9,14 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * A single item of clinic spending. `amount` is the pre-tax subtotal and
  * `tax_amount` the GST, so reporting can show both a net and a gross figure.
+ *
+ * @property Carbon $expense_date
+ * @property-read numeric-string $total
  */
 #[Fillable([
     'reference_number', 'expense_date', 'category', 'payee', 'description',
@@ -67,7 +71,11 @@ class Expense extends Model
         ];
     }
 
-    /** Pre-tax amount plus GST — what actually left the bank account. */
+    /**
+     * Pre-tax amount plus GST — what actually left the bank account.
+     *
+     * @return Attribute<numeric-string, never>
+     */
     protected function total(): Attribute
     {
         return Attribute::get(
@@ -75,7 +83,7 @@ class Expense extends Model
         );
     }
 
-    /** @var array<int, string> */
+    /** @var list<string> */
     protected $appends = ['total'];
 
     /**

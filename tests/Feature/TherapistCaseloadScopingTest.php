@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Client;
-use App\Models\ClientService;
 use App\Models\ScheduleSession;
 
 /**
@@ -19,7 +18,7 @@ test('the session form only offers clients on the therapist\'s own caseload', fu
     $careTeam->careTeam()->attach($therapist->id);
 
     foreach ([$primary, $assigned, $careTeam] as $client) {
-        ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+        contractedService($client, $therapist);
     }
 
     Client::factory()->create(); // another therapist's client
@@ -82,7 +81,7 @@ test('a therapist cannot reschedule a session onto a client outside their caselo
 test('a therapist can schedule for a client on their caseload', function () {
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    contractedService($client, $therapist);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,

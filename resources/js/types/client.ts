@@ -36,8 +36,76 @@ export interface ServiceOffering {
     base_price: string | null;
 }
 
+export type ServiceContractStatus =
+    'active' | 'exhausted' | 'expired' | 'cancelled';
+
+/**
+ * Admin's authorization for one availed service: a pool of hours over a
+ * fixed period, matching `ServiceContract` (app/Models/ServiceContract.php).
+ *
+ * `remaining_hours` and `status` are computed server-side rather than read
+ * from columns — the balance is summed from the session ledger, and the
+ * status shown is the live one rather than whatever the nightly sweep last
+ * wrote.
+ */
+export interface ServiceContractSummary {
+    id: number;
+    contract_number: string;
+    allotted_hours: number;
+    remaining_hours: number;
+    period_start: string | null;
+    period_end: string | null;
+    status: ServiceContractStatus;
+    notes: string | null;
+}
+
+/**
+ * The covering contract as the session form sees it, hung on each availed
+ * service by SessionController::attachContractSummaries().
+ */
+export interface BookableContract {
+    id: number;
+    contract_number: string;
+    allotted_hours: number;
+    remaining_hours: number;
+    period_start: string | null;
+    period_end: string | null;
+}
+
+/**
+ * A contract as the admin client page reads it, straight off the model.
+ *
+ * `remaining_hours` and `derived_status` are appended server-side by
+ * Admin\ClientController::attachContractBalances(): the balance is summed
+ * from the session ledger, and the status is the live one rather than
+ * whatever the nightly sweep last wrote to the column.
+ */
+export interface ServiceContract {
+    id: number;
+    contract_number: string;
+    client_service_id: number;
+    therapist_id: number | null;
+    issued_by_id: number | null;
+    /** Decimal cast, so a string on the wire. */
+    allotted_hours: string;
+    /** Which funder pays for these hours; null until an admin sets it. */
+    funding_code: string | null;
+    period_start: string;
+    period_end: string;
+    status: ServiceContractStatus;
+    notes: string | null;
+    remaining_hours: number;
+    derived_status: ServiceContractStatus;
+}
+
 export interface ClientService {
     id: number;
+    /**
+     * Phase 21 — the funding code the Issue Contract form opens on, from the
+     * funder already recorded for the service or the child. A suggestion the
+     * admin can change or clear, not a value the server enforces.
+     */
+    default_funding_code?: string | null;
     client_id: number;
     service_id: number;
     therapist_id: number | null;
@@ -51,6 +119,12 @@ export interface ClientService {
     updated_at: string;
     service?: ServiceOffering | null;
     therapist?: TherapistOption | null;
+    /** Session pickers only: the contract covering the day being booked. */
+    contract?: BookableContract | null;
+    /** Admin client page: every contract issued against this service. */
+    contracts?: ServiceContract[];
+    /** Set when the service arrives through a session's ledger rows. */
+    pivot?: { hours: string | number; service_contract_id: number | null };
 }
 
 export interface ServiceAvailedEntry {
@@ -65,6 +139,7 @@ export interface ServiceAvailedEntry {
     funding_source: string | null;
     no_sessions: number;
     goals: string | null;
+    contracts: ServiceContractSummary[];
 }
 
 export interface ClientDocument {
@@ -107,8 +182,8 @@ export interface Client {
     care_team?: TherapistOption[];
     client_services?: ClientService[];
     /**
-     * Therapist caseload only: whether this therapist still has an availed
-     * service of this client's left to book.
+     * Therapist caseload only: whether this therapist holds a contracted
+     * service of this client's with hours left today.
      */
     has_bookable_service?: boolean;
     documents?: ClientDocument[];

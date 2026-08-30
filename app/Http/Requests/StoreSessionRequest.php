@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Client;
 use App\Models\ClientService;
 use App\Models\ScheduleSession;
+use App\Services\ServiceContractLedger;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +19,10 @@ use Illuminate\Validation\Validator;
  * `therapist_id` is only required from admins — a therapist submitting this
  * form is always scheduling for themselves, enforced in the controller
  * rather than here since it depends on the acting user.
+ *
+ * Phase 20 turned the availed-service picker into an hours claim: each
+ * selected service carries the share of the visit it accounts for, and that
+ * share has to fit inside the contract admin issued for it.
  */
 class StoreSessionRequest extends FormRequest
 {
@@ -34,9 +39,15 @@ class StoreSessionRequest extends FormRequest
         return [
             'client_id' => ['required', 'integer', 'exists:clients,id', $this->clientOnOwnCaseload()],
             'therapist_id' => [$this->user()?->isAdmin() === true ? 'required' : 'nullable', 'integer', 'exists:users,id'],
-            // One visit can cover several of the child's availed services.
-            'linked_client_service_ids' => ['nullable', 'array'],
-            'linked_client_service_ids.*' => ['integer', 'exists:client_services,id'],
+            /*
+             * One visit can cover several of the child's availed services,
+             * and each one draws from its own contract, so the picker posts
+             * an hours figure alongside the id. Omit every `hours` and the
+             * visit is split evenly — see `allocations()`.
+             */
+            'linked_client_services' => ['nullable', 'array'],
+            'linked_client_services.*.client_service_id' => ['required', 'integer', 'exists:client_services,id'],
+            'linked_client_services.*.hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
             'service_id' => ['nullable', 'integer', 'exists:service_offerings,id'],
             'location' => ['nullable', 'string', 'max:255'],
             'date' => ['required', 'date'],
@@ -51,10 +62,10 @@ class StoreSessionRequest extends FormRequest
 
     /**
      * Reject a session that overlaps one already booked for the same
-     * therapist or the same child.
+     * therapist or the same child, or that claims hours no contract has.
      *
      * Runs after the field rules so the times are known to be parseable, and
-     * bails if any input it depends on already failed.
+     * each check bails if any input it depends on already failed.
      *
      * @return array<int, Closure>
      */
@@ -62,11 +73,11 @@ class StoreSessionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
-                if ($validator->errors()->hasAny(['client_id', 'linked_client_service_ids'])) {
+                if ($validator->errors()->hasAny(['client_id', 'linked_client_services'])) {
                     return;
                 }
 
-                $this->failOnUnbookableServices($validator);
+                $this->failOnServicesOffCaseload($validator);
             },
             function (Validator $validator): void {
                 if ($validator->errors()->hasAny(['client_id', 'therapist_id', 'date', 'start_time', 'end_time'])) {
@@ -102,7 +113,89 @@ class StoreSessionRequest extends FormRequest
                     'This client already has a session booked from :from to :to.',
                 );
             },
+            function (Validator $validator): void {
+                /*
+                 * Only the inputs this check reads. Bailing on *any* earlier
+                 * error would hide the contract reason behind the vaguer
+                 * caseload one whenever both fired.
+                 */
+                if ($validator->errors()->hasAny(['client_id', 'date', 'start_time', 'end_time', 'linked_client_services'])) {
+                    return;
+                }
+
+                $this->failOnContractProblems($validator);
+            },
         ];
+    }
+
+    /**
+     * The availed services this session covers and the hours each one draws,
+     * with the even split filled in where the form left them blank.
+     *
+     * Partial answers are not honoured: if any service was left without an
+     * hours figure the whole visit is split evenly, because a mix of typed
+     * and inferred shares is a total nobody intended.
+     *
+     * @return array<int, array{client_service_id: int, hours: float}>
+     */
+    public function allocations(): array
+    {
+        $picked = $this->collect('linked_client_services')
+            ->map(fn (mixed $row): array => [
+                'client_service_id' => (int) (is_array($row) ? ($row['client_service_id'] ?? 0) : 0),
+                // `isset` already rules out null, so a blank box is the only
+                // other way a row arrives without an hours figure.
+                'hours' => is_array($row) && isset($row['hours']) && $row['hours'] !== ''
+                    ? round((float) $row['hours'], 2)
+                    : null,
+            ])
+            ->filter(fn (array $row): bool => $row['client_service_id'] > 0)
+            ->unique('client_service_id')
+            ->values();
+
+        if ($picked->isEmpty()) {
+            return [];
+        }
+
+        $ledger = app(ServiceContractLedger::class);
+
+        if ($picked->contains(fn (array $row): bool => $row['hours'] === null)) {
+            return $ledger->defaultAllocations(
+                $picked->pluck('client_service_id')->all(),
+                $this->sessionMinutes(),
+            );
+        }
+
+        return $picked->map(fn (array $row): array => [
+            'client_service_id' => $row['client_service_id'],
+            'hours' => (float) $row['hours'],
+        ])->all();
+    }
+
+    /**
+     * The booked length of the visit, which is what the hours split has to
+     * add up to. Zero when the times have not been given yet.
+     */
+    public function sessionMinutes(): int
+    {
+        if (! is_string($this->date) || ! is_string($this->start_time) || ! is_string($this->end_time)) {
+            return 0;
+        }
+
+        try {
+            $start = Carbon::parse("{$this->date} {$this->start_time}");
+            $end = Carbon::parse("{$this->date} {$this->end_time}");
+        } catch (\Exception) {
+            return 0;
+        }
+
+        return max(0, (int) $start->diffInMinutes($end));
+    }
+
+    /** The day the session falls on, which is the day its contracts must cover. */
+    public function sessionDate(): Carbon
+    {
+        return Carbon::parse((string) $this->date);
     }
 
     /**
@@ -134,56 +227,63 @@ class StoreSessionRequest extends FormRequest
 
     /**
      * Every availed service picked has to belong to the child being booked,
-     * and — for a therapist — has to be one of their own that is still
-     * awaiting a session. That last part is what stops the same service being
-     * scheduled twice: once booked it leaves the picker, and this rejects it
-     * if it's posted anyway. Services already linked to the session being
-     * edited are exempt, since that session is what booked them.
+     * and — for a therapist — has to be one of their own.
+     *
+     * Whether it may be *scheduled* is a separate question with its own
+     * answer: that is the contract's job, checked in
+     * `failOnContractProblems()` so a therapist is told which of the two
+     * things is wrong.
      */
-    private function failOnUnbookableServices(Validator $validator): void
+    private function failOnServicesOffCaseload(Validator $validator): void
     {
-        $ids = $this->collect('linked_client_service_ids')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->unique();
+        $ids = collect($this->allocations())->pluck('client_service_id');
 
         if ($ids->isEmpty()) {
             return;
         }
 
         $user = $this->user();
-        $alreadyLinked = $this->linkedClientServiceIds();
 
-        $bookable = ClientService::query()
+        $owned = ClientService::query()
             ->whereIn('id', $ids)
             ->where('client_id', $this->integer('client_id'))
-            ->when($user?->isAdmin() !== true, function (Builder $query) use ($user, $alreadyLinked): void {
-                $bookableIds = ClientService::query()->select('id')->awaitingSchedule();
-
-                if ($alreadyLinked !== []) {
-                    $bookableIds->orWhereIn('id', $alreadyLinked);
-                }
-
-                $query->where('therapist_id', $user?->id)->whereIn('id', $bookableIds);
-            })
+            ->when($user?->isAdmin() !== true, fn (Builder $query) => $query->where('therapist_id', $user?->id))
             ->pluck('id');
 
-        if ($ids->diff($bookable)->isNotEmpty()) {
+        if ($ids->diff($owned)->isNotEmpty()) {
             $validator->errors()->add(
-                'linked_client_service_ids',
-                'One of the selected services is not available to schedule for this client.',
+                ServiceContractLedger::ERROR_KEY,
+                'One of the selected services does not belong to this client.',
             );
         }
     }
 
     /**
-     * The availed services the session being edited already covers. Empty
-     * when storing.
+     * Contract gate: the hours claimed have to add up to the visit, and each
+     * one has to fit inside a contract that covers the session's date.
      *
-     * @return array<int, int>
+     * This pass is advisory — it exists so the therapist sees a field error
+     * rather than an exception page. `ServiceContractLedger::apply()` repeats
+     * it under a row lock, which is what actually decides.
      */
-    protected function linkedClientServiceIds(): array
+    private function failOnContractProblems(Validator $validator): void
     {
-        return [];
+        $allocations = $this->allocations();
+
+        if ($allocations === []) {
+            return;
+        }
+
+        $problems = app(ServiceContractLedger::class)->problems(
+            $allocations,
+            $this->sessionDate(),
+            $this->sessionMinutes(),
+            $this->ignoredSessionId(),
+        );
+
+        foreach ($problems as $problem) {
+            $validator->errors()->add(ServiceContractLedger::ERROR_KEY, $problem);
+        }
     }
 
     /**
@@ -200,8 +300,9 @@ class StoreSessionRequest extends FormRequest
     }
 
     /**
-     * The session being edited, so an update doesn't collide with itself.
-     * Null when storing.
+     * The session being edited, so an update doesn't collide with itself —
+     * not for its slot, and not for the hours it has already drawn. Null when
+     * storing.
      */
     protected function ignoredSessionId(): ?int
     {
@@ -221,7 +322,7 @@ class StoreSessionRequest extends FormRequest
     ): void {
         $clash = $query
             // A cancelled or missed session frees its slot again.
-            ->whereNotIn('status', ['cancelled', 'no_show'])
+            ->whereNotIn('status', ScheduleSession::HOURS_RELEASING_STATUSES)
             ->when(
                 $this->ignoredSessionId() !== null,
                 fn (Builder $inner) => $inner->whereKeyNot($this->ignoredSessionId()),
@@ -242,14 +343,14 @@ class StoreSessionRequest extends FormRequest
     }
 
     /**
-     * Therapists may only schedule for clients on their own caseload who
-     * still have an availed service of theirs left to book. Admins are
-     * unrestricted. This mirrors the scoping applied to the form's client
-     * dropdown, so a posted `client_id` can't reach outside it.
+     * Therapists may only schedule for clients on their own caseload who have
+     * an availed service of theirs that is authorized for the session's date.
+     * Admins are unrestricted. This mirrors the scoping applied to the form's
+     * client dropdown, so a posted `client_id` can't reach outside it.
      *
-     * Rescheduling is exempt from the second half — the client of the session
-     * being edited stays valid even though that session is what made their
-     * remaining service no longer awaiting a booking.
+     * Rescheduling is exempt from the second half: the client of the session
+     * being edited stays valid even if their contract has since run dry,
+     * otherwise a booked session could never be moved or corrected.
      */
     private function clientOnOwnCaseload(): Closure
     {
@@ -271,18 +372,23 @@ class StoreSessionRequest extends FormRequest
                 return;
             }
 
-            if ($this->ignoredSessionId() !== null) {
+            /*
+             * When the therapist named the services themselves, the contract
+             * check answers this question far better — "0 of 40 hours left"
+             * rather than "nothing available". Let it.
+             */
+            if ($this->ignoredSessionId() !== null || $this->sessionMinutes() === 0 || $this->allocations() !== []) {
                 return;
             }
 
             $hasServiceLeft = ClientService::query()
                 ->where('client_id', $value)
                 ->where('therapist_id', $user->id)
-                ->awaitingSchedule()
+                ->bookableOn($this->sessionDate())
                 ->exists();
 
             if (! $hasServiceLeft) {
-                $fail('This client has no remaining service of yours left to schedule.');
+                $fail('This client has no contracted service of yours available on that date.');
             }
         };
     }

@@ -8,11 +8,13 @@ use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
 use App\Models\IntakeTherapistApproval;
+use App\Models\ServiceContract;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\PdfService;
+use App\Services\ServiceContractLedger;
 use App\Support\ClientProgress;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -108,9 +110,12 @@ class ClientController extends Controller
             'careTeam',
             'clientServices.service',
             'clientServices.therapist',
+            'clientServices.contracts',
             'documents',
             'invoices',
         ]);
+
+        $this->attachContractBalances($client);
 
         return Inertia::render('admin/clients/show', [
             'client' => $client,
@@ -121,7 +126,53 @@ class ClientController extends Controller
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'code']),
+            /*
+             * Sent down rather than repeated in the contract modal. The
+             * validator rejects anything outside this list, so a hard-coded
+             * copy that fell behind would let an admin blank a code the
+             * backfill had written simply by opening the form.
+             */
+            'fundingCodes' => ServiceContract::FUNDING_CODES,
         ]);
+    }
+
+    /**
+     * Phase 20 — hang each contract's live balance and status on the model so
+     * the Contracts tab reads them straight off the props.
+     *
+     * Neither is a column: the balance is summed from the session ledger, and
+     * the status shown is the one that is true right now rather than whatever
+     * the nightly sweep last wrote. Balances for every contract on the page
+     * are fetched in one query.
+     */
+    private function attachContractBalances(Client $client): void
+    {
+        $contracts = $client->clientServices->flatMap(
+            fn (ClientService $clientService): Collection => $clientService->contracts,
+        );
+
+        $remaining = app(ServiceContractLedger::class)->remainingFor($contracts);
+
+        foreach ($contracts as $contract) {
+            $contract->setAttribute('remaining_hours', $remaining[$contract->id] ?? (float) $contract->allotted_hours);
+            $contract->setAttribute('derived_status', $contract->derivedStatus());
+        }
+
+        /*
+         * Phase 21 — the funding code the Issue Contract form opens on, from
+         * the funder already recorded for the service or the child.
+         *
+         * A suggestion rather than a default: it is pre-selected where the
+         * admin can see and change it, so leaving a contract without a code
+         * stays a choice they can make rather than one the server overrules.
+         */
+        foreach ($client->clientServices as $clientService) {
+            // The client (and its intake) is already in memory; handing it
+            // over keeps `defaultFundingCode()` from fetching it per service.
+            $clientService->setRelation('client', $client);
+
+            $clientService->setAttribute('default_funding_code', $clientService->defaultFundingCode());
+        }
     }
 
     /**
@@ -281,6 +332,22 @@ class ClientController extends Controller
         $this->guardServiceBelongsToClient($client, $clientService);
 
         $validated = $this->validateClientService($request);
+
+        /*
+         * Phase 20 — a contract snapshots the therapist it authorizes. Moving
+         * the service to someone else would leave funded hours pointing at a
+         * therapist the funder never approved, so the contract has to be
+         * cancelled first and reissued against the new one.
+         */
+        $reassigning = array_key_exists('therapist_id', $validated)
+            && (int) $validated['therapist_id'] !== (int) $clientService->therapist_id;
+
+        if ($reassigning && $clientService->contracts()->where('status', '!=', ServiceContract::STATUS_CANCELLED)->exists()) {
+            return back()->with(
+                'error',
+                'This service has a live contract. Cancel it before moving the service to another therapist.',
+            );
+        }
 
         $clientService->update($validated);
         $client->refreshServiceAvailedCache();

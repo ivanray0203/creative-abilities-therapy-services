@@ -143,6 +143,14 @@ export default function ServiceSessions({
                                         <th className="pb-3">Time</th>
                                         <th className="pb-3">Therapist</th>
                                         <th className="pb-3">Location</th>
+                                        {/*
+                                         * Phase 20 — what this visit drew
+                                         * from the service's contract. The
+                                         * page is already the per-service
+                                         * history, so the ledger belongs
+                                         * here rather than somewhere new.
+                                         */}
+                                        <th className="pb-3">Hours</th>
                                         <th className="pb-3">Status</th>
                                     </tr>
                                 </thead>
@@ -172,6 +180,13 @@ export default function ServiceSessions({
                                             </td>
                                             <td className="py-3">
                                                 {session.location || '-'}
+                                            </td>
+                                            <td className="py-3">
+                                                {session.pivot
+                                                    ? Number(
+                                                          session.pivot.hours,
+                                                      )
+                                                    : '-'}
                                             </td>
                                             <td className="py-3">
                                                 <SessionStatusBadge

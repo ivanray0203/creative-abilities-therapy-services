@@ -1,6 +1,9 @@
 # Phase 20 — Service Contracts & Hour Budgets
 
-> **Status: planned.** Nothing implemented yet.
+> **Status: implemented.** 581 tests passing, Pint clean, static analysis clean of
+> new findings, TypeScript and the Vite build green. The three migrations have been
+> run on the development database. Decisions taken during the work are recorded
+> inline below; the open questions at the foot are still open.
 
 ## Goal
 
@@ -18,7 +21,7 @@ Like Phases 17–19, this is not part of the parity port. The reference had no s
 
 | question | answer |
 | --- | --- |
-| when hours are drawn | reserved at booking, released on cancel/no-show, reconciled to actual on completion |
+| when hours are drawn | drawn at booking from the session's booked duration, released on cancel/no-show; the clock never adjusts them |
 | multi-service sessions | hours split explicitly per linked service, stored on the existing pivot |
 | unused hours at period end | expire; admin issues the next contract |
 | existing data | a migration backfills one contract per existing availed service |
@@ -57,6 +60,25 @@ protected function bookableOn(Builder $query, CarbonInterface $date): void
 ```
 
 → *has a contract whose period covers `$date` and whose remaining balance is above zero*.
+
+### As implemented
+
+Two scopes on `ServiceContract` rather than one, because the pickers and the ledger
+want different questions answered:
+
+- `coveringOn($date)` — not cancelled, and the period covers the day. This is the
+  contract a session *belongs to*.
+- `openOn($date)` — `coveringOn`, plus a balance above zero. This is what
+  `ClientService::bookableOn()` filters on.
+
+The split matters on an edit. A session that has spent its contract dry still has to be
+movable, and the therapist should read "0 of 40 hours left" rather than "there is no
+contract" — so `ClientService::contractOn()` resolves through `coveringOn`, and the
+hours are checked separately with the session's own draw excluded.
+
+`bookableOn` is a `whereIn` against a contract subquery rather than a `whereHas`
+closure: the closure form left the builder's generic unresolved for static analysis at
+every call site.
 
 ### Watch for
 
@@ -108,6 +130,10 @@ One row per `(session, availed service)` — the unique index
 `session_client_service_unique` already guarantees that — carrying how many hours that
 session drew and **which contract it drew from**.
 
+**As implemented**, the pivot got a class of its own, `SessionServiceAllocation`, wired
+in with `->using()` on all three relations. Two extra columns implied at four call sites
+were worth declaring once, and it puts a `decimal:2` cast on `hours`.
+
 Freezing the contract id matters. Without it, a session booked in August would silently
 re-attach to September's contract the moment the balance is recomputed, and last month's
 history would rewrite itself.
@@ -150,6 +176,10 @@ DELETE clients/{client}/services/{clientService}/contracts/{contract}
 `UpdateServiceContractRequest`. `guardServiceBelongsToClient()` in
 `Admin\ClientController` is the shape to copy for the nesting guard — a mismatch is a
 404, not a 403, matching the rest of the app.
+
+**As implemented**, `UpdateServiceContractRequest` is an empty subclass. Both rules that
+only bite on an edit read the bound contract off the route, so the parent covers issuing
+and amending without a second rule set.
 
 Validation:
 
@@ -200,6 +230,14 @@ session's derived duration split evenly across the picked services. Replace the 
 outright and update `sessions-form.tsx` in the same change — leaving both accepted means
 two code paths to keep honest.
 
+**Decided during the work:** a partly-filled split is not honoured. If any service was
+left without an hours figure, the whole visit is split evenly, because a mix of typed and
+inferred shares adds up to a total nobody intended.
+
+**Decided during the work:** `clientOnOwnCaseload` stands down whenever the therapist
+named services explicitly. Both rules would otherwise fire and the vaguer message —
+"no contracted service available on that date" — would mask the precise one.
+
 **A `ServiceContractLedger` service** in `app/Services/` owns the arithmetic:
 
 | method | job |
@@ -235,29 +273,38 @@ is advisory.
 
 ---
 
-## 5. Reconciling on completion
+## 5. Completion does not touch the ledger
 
-### Approach
+### Reversed after the first implementation
 
-`SessionController::endSession()` computes elapsed seconds from `start_time` to `now()`
-and stores `elapsed_time` as `H:i:s`. At that moment, rewrite each pivot row's `hours`
-pro-rata from the **actual** elapsed time, keeping the proportions the therapist set at
-booking.
+The original design trued each pivot row's `hours` up to the **actual** elapsed time when
+the therapist clocked out: a 2-hour visit split 1.0 / 1.0 that ran 1h50m became
+0.92 / 0.92. **That is no longer the rule.** A contract now pays for **booked** time.
+`ServiceContractLedger::reconcile()` and `ServiceContract::overDeliveredHours()` are
+gone, and `SessionController::endSession()` writes `elapsed_time` and nothing else.
 
-A 2-hour visit split 1.0 / 1.0 that actually ran 1h50m becomes 0.92 / 0.92.
+### Why
+
+- **What admin authorized is scheduled time.** The contract is agreed against a plan of
+  visits, so the pool has to drain by the same unit it was sized in. Draining by the
+  clock means the balance a therapist saw when booking and the balance they get are
+  different numbers, for reasons outside their control.
+- **A balance that moves after the fact cannot be planned against.** Under
+  reconciliation, a 40-hour pool booked to the hour might hold 41 or 38 hours of visits
+  depending on how the month ran. Neither the admin issuing the contract nor the funder
+  reading it could say in advance how many sessions it bought.
+- **It removed the only way to overdraw.** Every draw is now checked against the
+  remaining balance before it is written, so `remainingHours()` cannot go negative and
+  the sweep's `exhausted` never covers hours nobody authorized.
+- Shortening the pool is still possible and still deliberate: an admin edits the
+  session's times, which re-runs `apply()` and rewrites the draw.
 
 ### Watch for
 
-- **An overrun may push a contract past its allotment. Allow it.** The work happened;
-  refusing to record it would be worse than the overdraft. Surface it as an
-  over-delivery figure on the contract card and let the sweep mark the contract
-  `exhausted`. Clamping at remaining would quietly under-record delivered therapy.
-- **Compute from `start_time` / `end_time`, not by parsing `elapsed_time` back.** It is a
-  display string; the duration migration's note about `preg_match` on a formatted value
-  is the cautionary tale.
-- **A session ended with no `start_time` yields zero elapsed.** Leave the booked hours in
-  place rather than zeroing a real draw — that path means the therapist forgot to clock
-  in, not that nothing happened.
+- **`elapsed_time` is still recorded**, and timesheets still read it. Do not let the two
+  ideas merge again — one is what happened, the other is what was authorized.
+- **A session ended with no `start_time` keeps its draw**, as it always did. That path
+  now needs no special handling at all: nothing on the end route touches hours.
 
 ---
 
@@ -289,9 +336,13 @@ the caseload row's "Create Session" button and the form agree.
 
 ## 7. What admin and client see
 
-- `admin/clients/show.tsx`, services tab: a contract row per availed service —
-  allotted / used / remaining / period / status — with add and edit actions, beside the
-  existing `add-client-service-modal.tsx`.
+- **As implemented:** there was no services tab to extend — the availed services are a
+  read-only card on Overview. Contracts got a tab of their own on
+  `admin/clients/show.tsx`, one block per availed service showing
+  allotted / used / remaining / period / status, with issue, edit, cancel and delete.
+  A remaining figure below zero is shown in red rather than floored. Nothing should be
+  able to produce one now that draws are checked before they are written, so a red
+  figure means a bug or a hand-edited row rather than a normal overrun.
 - `admin/clients/service-sessions.tsx`: an hours column per session. The page is already
   the per-service session history, so the ledger belongs there and nowhere new.
 - Client portal: **open question** (below) — whether a parent sees their remaining hours.
@@ -340,9 +391,18 @@ One migration, run after the schema is settled:
 
 ## 10. Tests
 
-New: `ServiceContractTest`, `ServiceContractLedgerTest` (unit), `ServiceContractSweepTest`.
-Edits: `SessionControllerTest`, `SessionConflictTest`, `SessionStartEndTest`,
-`TherapistCaseloadScopingTest`, `AdminClientControllerTest`, `SchemaSmokeTest`.
+**As implemented.** New: `ServiceContractTest`, `ServiceContractLedgerTest`,
+`ServiceContractSweepTest`, `ServiceContractBackfillTest`. All four are feature tests —
+the ledger needs a database, and `tests/Pest.php` only binds `RefreshDatabase` in
+`Feature` and `Browser`.
+
+Edited: `SessionControllerTest`, `SessionConflictTest`, `SessionNotificationTest`,
+`TherapistCaseloadScopingTest`, `TherapistClientControllerTest`, plus a
+`contractedService()` helper in `tests/Pest.php` and an hours-aware
+`ScheduleSessionFactory::linkedTo()`.
+
+The backfill is tested by requiring the migration file and calling `up()` against
+pre-contract data, since the suite has already run it once against an empty database.
 
 Cases that have to pass:
 
@@ -354,7 +414,7 @@ Cases that have to pass:
 - a session dated outside the period → rejected
 - a two-service session draws from two contracts independently
 - a split that does not total the session length → rejected
-- ending short returns hours; ending long records over-delivery and marks the contract exhausted
+- ending short and ending long both leave the draw at the booked duration, and `elapsed_time` is still recorded
 - editing a session excludes its own draw from the balance
 - an expired contract is unbookable even with hours left
 - the sweep flips `active` → `expired` and `active` → `exhausted`
@@ -366,7 +426,7 @@ Cases that have to pass:
 
 1. Migrations, models, factories, `ReferenceNumberGenerator::contract()`
 2. `ServiceContractLedger` + form-request rules — the backend gate, tested headless
-3. `SessionController` store/update wiring, then `endSession()` reconciliation
+3. `SessionController` store/update wiring
 4. Retire `awaitingSchedule` across all five call sites
 5. Admin contract CRUD + audit logging
 6. Frontend: sessions form first, admin services tab second
@@ -390,12 +450,21 @@ Cases that have to pass:
 - Existing clients keep working after deploy with no admin action.
 - `vendor/bin/pint --dirty` clean; the full suite green.
 
+All met. The one behaviour worth restating: a session may now be booked against the same
+availed service many times, which is the direct inverse of what the suite asserted
+before this phase.
+
 ---
 
 ## Open questions
 
+Left open deliberately; each needs a product call rather than a technical one. The
+current code takes the conservative reading of all three.
+
 - Does the client portal show a parent their remaining hours, or is the budget internal?
+  **Currently internal** — nothing was added to the client portal.
 - May an admin override the gate and book past the allotment, or does the rule bind
-  everyone?
+  everyone? **Currently binds everyone.** An admin who needs more hours raises the
+  allotment, which is a recorded act; a silent override would not be.
 - Should contract hours feed `BillingItem.quantity`, so billing and the contract cannot
-  disagree? Related to Phase 9 and worth a separate decision.
+  disagree? Related to Phase 9 and worth a separate decision. **Not wired up.**

@@ -1,9 +1,9 @@
 <?php
 
 use App\Models\Client;
-use App\Models\ClientService;
 use App\Models\ScheduleSession;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 
 /**
  * Phase 18 — nothing previously stopped a therapist or a child being booked
@@ -22,9 +22,18 @@ function bookedNineToTen(): array
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
 
-    // Left unbooked, so the child stays offerable in the therapist's client
-    // picker and the conflict rules are what's actually under test here.
-    ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    /*
+     * Contracted across a window wide enough to cover both today, which the
+     * client picker asks about, and the September date these bookings use.
+     * Phase 20 made a contract the price of entry, and the conflict rules are
+     * what is actually under test here.
+     */
+    $booked = Carbon::parse('2026-09-01');
+
+    contractedService($client, $therapist, contract: [
+        'period_start' => now()->min($booked)->copy()->subYear()->toDateString(),
+        'period_end' => now()->max($booked)->copy()->addYear()->toDateString(),
+    ]);
 
     $session = ScheduleSession::factory()->create([
         'therapist_id' => $therapist->id,
