@@ -33,9 +33,12 @@ class GenerateMonthlyTherapistInvoicesCommand extends Command
     ): int {
         $option = $this->option('month');
 
+        // The leading `!` zeroes the fields the format leaves out. Without it
+        // Carbon fills the day in from today, so closing 2026-06 on the 31st
+        // asks for June 31st and lands in July.
         try {
             $month = $option
-                ? Carbon::createFromFormat('Y-m', (string) $option)?->startOfMonth()
+                ? Carbon::createFromFormat('!Y-m', (string) $option)?->startOfMonth()
                 : now()->subMonthNoOverflow()->startOfMonth();
         } catch (InvalidFormatException) {
             $month = null;
