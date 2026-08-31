@@ -75,6 +75,16 @@ class User extends Authenticatable
         return $this->role === 'client';
     }
 
+    /**
+     * A therapist holding an aide position, who logs hours on a time sheet
+     * rather than billing services. A therapist with no team-member record
+     * is not an aide — they keep Billing and Invoices.
+     */
+    public function isAide(): bool
+    {
+        return $this->isTherapist() && $this->teamMember?->isAide() === true;
+    }
+
     /** @return HasOne<TeamMember, $this> */
     public function teamMember(): HasOne
     {
@@ -121,5 +131,16 @@ class User extends Authenticatable
     public function consentAcceptances(): HasMany
     {
         return $this->hasMany(UserConsentAcceptance::class);
+    }
+
+    /**
+     * Contracts this therapist is authorized on — the snapshot taken when each
+     * was issued, not the availed service's current assignment.
+     *
+     * @return HasMany<ServiceContract, $this>
+     */
+    public function serviceContracts(): HasMany
+    {
+        return $this->hasMany(ServiceContract::class, 'therapist_id');
     }
 }

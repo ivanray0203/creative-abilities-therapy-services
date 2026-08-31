@@ -199,6 +199,14 @@ class TeamMemberController extends Controller
 
         $teamMember->update($this->teamMemberAttributes($validated));
 
+        // The name lives on the paired User, not on the team member row, so
+        // without this the edit form's First/Last Name fields post a change
+        // that Eloquent quietly drops.
+        $teamMember->user?->update([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+        ]);
+
         $this->syncUserActiveState($teamMember);
 
         AuditLogger::log('Updated team member', 'Users', "Updated team member #{$teamMember->id}");
@@ -477,11 +485,20 @@ class TeamMemberController extends Controller
     }
 
     /**
+     * The team member's own columns. Email and name belong to the paired
+     * User and are written there instead.
+     *
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
     private function teamMemberAttributes(array $validated): array
     {
-        return collect($validated)->except(['email'])->all();
+        return collect($validated)
+            ->except(['email', 'first_name', 'last_name'])
+            // The SIN is stored one-way hashed, so the form has nothing to
+            // render back into the field and always posts it blank. Writing
+            // that through would wipe a number the record cannot reproduce.
+            ->reject(fn (mixed $value, string $key): bool => $key === 'sin_number' && blank($value))
+            ->all();
     }
 }

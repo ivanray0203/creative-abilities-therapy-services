@@ -7,7 +7,7 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
     pending: 'New',
     reviewing: 'Under Review',
     interview_scheduled: 'Interview Scheduled',
-    shortlisted: 'Shortlisted',
+    offer_sent: 'Offer Sent',
     hired: 'Hired',
     declined: 'Declined',
 };
@@ -17,7 +17,7 @@ const STATUS_CLASSES: Record<ApplicationStatus, string> = {
     reviewing: 'bg-blue-100 text-blue-700 border border-blue-400',
     interview_scheduled:
         'bg-yellow-100 text-yellow-800 border border-yellow-400',
-    shortlisted: 'bg-teal-100 text-teal-700 border border-teal-400',
+    offer_sent: 'bg-orange-100 text-orange-700 border border-orange-400',
     hired: 'bg-green-100 text-green-700 border border-green-400',
     declined: 'bg-red-100 text-red-700 border border-red-400',
 };

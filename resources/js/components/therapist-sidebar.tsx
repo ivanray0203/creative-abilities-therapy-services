@@ -3,10 +3,13 @@ import {
     Calendar,
     ClipboardIcon,
     ClipboardList,
+    Clock,
     DollarSign,
     FileText,
+    Hourglass,
     LayoutDashboard,
     LogOut,
+    NotebookPen,
     Receipt,
     User,
     Users,
@@ -24,17 +27,39 @@ import {
     useSidebar,
 } from '@/components/ui/sidebar';
 import { useAuthUser } from '@/hooks/use-auth-user';
+import { isAidePosition } from '@/lib/aide';
 import { getInitials } from '@/lib/helpers';
 import { isActiveNavItem } from '@/lib/navigation';
+import type { Auth } from '@/types/auth';
 
-const menuItems = [
+/*
+ * The therapist portal splits down the middle at the billing step. A
+ * therapist bills services and raises invoices; an aide logs hours and
+ * generates the time sheet the parent signs. Everything either side of
+ * those two entries is the same, so only the pair swaps.
+ */
+const BILLING_ITEMS = [
+    {
+        title: 'Hour Tracking',
+        icon: Hourglass,
+        url: '/therapist/hour-tracking',
+    },
+    { title: 'Billing', icon: DollarSign, url: '/therapist/billing' },
+    { title: 'Invoices', icon: Receipt, url: '/therapist/invoices' },
+];
+
+const AIDE_ITEMS = [
+    { title: 'Hours', icon: Clock, url: '/therapist/hours' },
+    { title: 'Timesheets', icon: NotebookPen, url: '/therapist/timesheets' },
+];
+
+const menuItemsFor = (isAide: boolean) => [
     { title: 'Dashboard', icon: LayoutDashboard, url: '/therapist' },
     { title: 'Calendar', icon: Calendar, url: '/therapist/calendar' },
     { title: 'Sessions', icon: ClipboardIcon, url: '/therapist/sessions' },
     { title: 'Clients', icon: Users, url: '/therapist/clients' },
     { title: 'Reviews', icon: ClipboardList, url: '/therapist/intake' },
-    { title: 'Billing', icon: DollarSign, url: '/therapist/billing' },
-    { title: 'Invoices', icon: Receipt, url: '/therapist/invoices' },
+    ...(isAide ? AIDE_ITEMS : BILLING_ITEMS),
     { title: 'Complaints', icon: FileText, url: '/therapist/complaints' },
     { title: 'Profile', icon: User, url: '/therapist/profile' },
 ];
@@ -42,7 +67,11 @@ const menuItems = [
 export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
     const { open } = useSidebar();
     const user = useAuthUser();
-    const currentUrl = usePage().url;
+    const page = usePage<{ auth: Auth }>();
+    const currentUrl = page.url;
+    const menuItems = menuItemsFor(
+        isAidePosition(page.props.auth.team_member?.position),
+    );
 
     return (
         <Sidebar className="border-r border-sidebar-border">

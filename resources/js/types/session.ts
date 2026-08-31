@@ -43,6 +43,11 @@ export interface ScheduleSession {
     service?: ServiceOffering | null;
     /** The availed services this one visit delivers. */
     client_services?: ClientService[];
+    /**
+     * Present when the session arrives through one availed service's own
+     * list: the ledger row saying what this visit drew for that service.
+     */
+    pivot?: { hours: string | number; service_contract_id: number | null };
 }
 
 /**

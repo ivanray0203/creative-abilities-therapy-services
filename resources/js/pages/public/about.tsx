@@ -1,5 +1,5 @@
-import { Head } from '@inertiajs/react';
-import { HandCoinsIcon, Heart, Sparkle, Target, Users } from 'lucide-react';
+import { Head, Link } from '@inertiajs/react';
+import { HandCoinsIcon, Heart, Target, Users } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
 import CaringHandsHeart from '@/components/icons/caring-hands-heart';
@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import PublicLayout from '@/layouts/public-layout';
 import { Approach, Approach2, Philosophy } from '@/lib/content/about';
+
+const EVERYDAY_SKILLS = [
+    { emoji: '💪', label: 'Confidence' },
+    { emoji: '🌟', label: 'Independence' },
+    { emoji: '🎯', label: 'Everyday Skills' },
+    { emoji: '🤝', label: 'Meaningful Participation' },
+];
 
 export default function About() {
     return (
@@ -35,30 +42,29 @@ export default function About() {
                         <p className="m-5 text-center text-sm text-charcoal-gray md:text-base lg:text-lg">
                             Empowering Every{' '}
                             <span className="text-primary">Child, </span>
-                            Celebrating Every{' '}
+                            Embracing Every{' '}
                             <span className="text-primary">Ability</span>
                         </p>
 
                         {/* Description */}
                         <p className="max-w-4xl text-center text-sm md:text-base lg:text-lg lg:leading-loose">
-                            Creative Abilities Therapy Services is dedicated to
-                            supporting children in reaching their fullest
-                            potential through a range of individualized,
-                            evidence-based therapies. We provide comprehensive
-                            behavioural support, occupational therapy,
-                            speech-language therapy, physiotherapy,
-                            psychological services, and more — all in alignment
-                            with Alberta's regulatory standards.
+                            Creative Abilities Therapy Services provides
+                            individualized, evidence-based therapy and
+                            developmental support for children and families. Our
+                            multidisciplinary team works together to support
+                            each child&rsquo;s unique strengths, needs, and
+                            goals while promoting meaningful growth,
+                            participation, and independence.
                         </p>
 
                         {/* Additional Info */}
                         <p className="mt-6 max-w-4xl text-center text-sm text-charcoal-gray md:text-base lg:text-lg lg:leading-loose">
                             Our compassionate, multidisciplinary team works
-                            collaboratively to help children overcome
-                            behavioural and developmental challenges in a warm
-                            and supportive environment. We serve children in
-                            their homes, schools, and social settings throughout
-                            Calgary and surrounding areas.
+                            collaboratively with children and families to
+                            provide support in environments that are meaningful
+                            to everyday life. Services may be provided at home,
+                            in the community, and in other appropriate settings
+                            throughout Calgary and surrounding communities.
                         </p>
                     </div>
                 </section>
@@ -91,29 +97,29 @@ export default function About() {
                                 </div>
 
                                 <h2 className="text-2xl font-bold text-charcoal-gray sm:text-3xl">
-                                    Empowering Every Child, Celebrating Every
-                                    Ability
+                                    Empowering Every Child, Embracing Every
+                                    Ability.
                                 </h2>
 
                                 <p className="text-sm leading-relaxed text-black sm:text-base">
-                                    Our mission is to empower every child and
-                                    celebrate every ability through innovative
-                                    programs and activities. We believe that
-                                    each child has unique strengths, and our
-                                    goal is to help them build the confidence
-                                    and skills needed to thrive.
+                                    Our mission is to empower every child by
+                                    recognizing their unique strengths,
+                                    abilities, and needs. We provide
+                                    individualized, family-centred support that
+                                    helps children build confidence, develop
+                                    meaningful skills, and participate more
+                                    fully in everyday life.
                                 </p>
 
                                 <p className="text-sm leading-relaxed text-black sm:text-base">
-                                    Whether it's developing communication,
-                                    emotional regulation, positive behaviour, or
-                                    physical abilities, we focus on meaningful,
-                                    lasting progress. Through a family-centered
-                                    approach and diverse therapeutic programs,
-                                    we partner with parents and caregivers to
-                                    ensure each child receives the support they
-                                    need to succeed at home, in school, and in
-                                    their community.
+                                    We focus on meaningful progress in areas
+                                    that support everyday life, including
+                                    communication, sensory processing, emotional
+                                    regulation, behaviour, physical development,
+                                    and independence. Through a family-centred
+                                    approach, we work closely with parents and
+                                    caregivers to support each child at home, in
+                                    school, and in their community.
                                 </p>
                             </div>
                         </div>
@@ -135,17 +141,17 @@ export default function About() {
 
                         {/* Subtitle */}
                         <p className="m-5 text-center text-sm text-charcoal-gray md:text-base lg:text-lg">
-                            We Don't Just See Potential, We Nurture It
+                            Helping Children Play, Grow, and Thrive
                         </p>
 
                         {/* Description */}
                         <p className="max-w-4xl px-2 text-center text-sm leading-relaxed md:px-0 md:text-base lg:text-lg">
-                            By embracing each child's abilities and empowering
-                            them to overcome obstacles, we help them thrive in
-                            their environment and unlock new possibilities. Our
-                            goal is to help your child participate meaningfully
-                            in daily life, develop functional skills, and
-                            enhance their overall well-being.
+                            We believe children learn and grow best when they
+                            feel supported, understood, and encouraged. Through
+                            play, connection, and individualized support, we
+                            help children build functional skills, participate
+                            more fully in everyday life, and grow in confidence
+                            and independence.
                         </p>
 
                         {/* Cards */}
@@ -183,31 +189,23 @@ export default function About() {
                         {/* Full-width bar */}
                         <div className="mt-10 flex w-full max-w-6xl flex-col items-center justify-center rounded-sm bg-primary/80 px-5 py-10 shadow-2xl md:px-20">
                             <p className="text-center text-lg text-white md:text-xl">
-                                Building Essential Skills for Lifelong Success
+                                Building Skills for Everyday Life
                             </p>
 
                             <div className="mt-10 grid w-full grid-cols-2 gap-6 text-center sm:grid-cols-2 md:grid-cols-4">
-                                <div className="flex flex-col items-center gap-2 text-white">
-                                    <p className="text-4xl">💪</p>
-                                    <p className="text-base">Confidence</p>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-2 text-white">
-                                    <p className="text-4xl">🎯</p>
-                                    <p className="text-base">Skills</p>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-2 text-white">
-                                    <p className="text-4xl">🌟</p>
-                                    <p className="text-base">Independence</p>
-                                </div>
-
-                                <div className="flex flex-col items-center gap-2 text-white">
-                                    <p className="text-4xl">🤝</p>
-                                    <p className="text-base">
-                                        Meaningful Participation
-                                    </p>
-                                </div>
+                                {EVERYDAY_SKILLS.map((skill) => (
+                                    <div
+                                        key={skill.label}
+                                        className="flex flex-col items-center gap-2 text-white"
+                                    >
+                                        <p className="text-4xl">
+                                            {skill.emoji}
+                                        </p>
+                                        <p className="text-base">
+                                            {skill.label}
+                                        </p>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -314,195 +312,34 @@ export default function About() {
                                     </p>
                                 </div>
                                 <h2 className="text-xl font-bold">
-                                    Passionate Professionals
+                                    A Collaborative Multidisciplinary Team
                                 </h2>
                                 <p className="leading-relaxed text-black">
-                                    Our team is made up of experienced
-                                    professionals who are passionate about
-                                    helping children grow. We include
-                                    Occupational Therapists, Speech-Language
-                                    Pathologists, Physiotherapists,
-                                    Psychologists, Behavioural Consultants, and
-                                    Child Development Facilitators. Together, we
-                                    offer culturally sensitive, inclusive care
-                                    that respects each family's background and
-                                    goals. By working together, we help children
-                                    build essential life skills, enhance their
-                                    well-being, and fully participate in daily
-                                    life.
+                                    Our team includes Speech-Language
+                                    Pathologists, Psychologists, Occupational
+                                    Therapists, Physiotherapists, Behavioural
+                                    Consultants, Behavioural &amp; Developmental
+                                    Aides, and Community and Respite Aides who
+                                    work collaboratively to support children and
+                                    families. Together, we provide
+                                    individualized, inclusive care that reflects
+                                    each child&rsquo;s strengths, needs, and
+                                    goals.
                                 </p>
-                                <p className="leading-relaxed text-black">
-                                    Together, we offer culturally sensitive,
-                                    inclusive care that respects each family's
-                                    background and goals. By working together,
-                                    we help children build essential life
-                                    skills, enhance their well-being, and fully
-                                    participate in daily life.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                {/* Meet Our Founder */}
-                <section
-                    id="founder"
-                    className="bg-gradient-to-br from-secondary-orange/10 to-transparent py-20"
-                >
-                    <div className="container mx-auto">
-                        <div className="grid items-center gap-12 lg:grid-cols-2">
-                            {/* Text Content */}
-                            <div className="space-y-6">
-                                <div className="inline-block rounded-sm bg-secondary-orange/20 p-3 text-primary">
-                                    <p className="flex items-center gap-3">
-                                        <Sparkle />{' '}
-                                        <span>Meet Our Founder</span>
-                                    </p>
-                                </div>
-
-                                <p className="text-xl font-semibold text-primary md:text-2xl">
-                                    Passionate Professionals Dedicated to Your
-                                    Child's Success
-                                </p>
-
-                                <p className="text-lg leading-relaxed text-foreground md:text-xl">
-                                    Our founder brings expertise in occupational
-                                    therapy with specialized training in sensory
-                                    processing and feeding therapy. With a deep
-                                    commitment to supporting families,
-                                    especially newcomers to Canada, we provide
-                                    comprehensive, compassionate care for every
-                                    child and family we serve.
-                                </p>
-                            </div>
-
-                            {/* Image */}
-                            <div className="relative w-full">
-                                <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 shadow-2xl">
-                                    <img
-                                        src="/images/FamilyPicture.png"
-                                        alt="Founder"
-                                        className="h-full w-full object-cover"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <div className="mt-10 px-4 md:px-10">
-                    <div className="mb-10 overflow-hidden rounded-[10px] shadow-lg hover:shadow-2xl">
-                        <div className="flex flex-col lg:flex-row">
-                            {/* Image */}
-                            <div className="relative h-64 w-full flex-shrink-0 lg:h-auto lg:w-1/2">
-                                <img
-                                    src="/images/Ann_Founder.png"
-                                    alt="Founder"
-                                    className="h-full w-full object-cover"
-                                />
-                            </div>
-
-                            {/* Info */}
-                            <div className="flex-1 bg-white p-4 lg:p-10">
-                                {/* Title */}
-                                <p className="text-lg">Mary Ann Lerit B.Sc</p>
-
-                                <p className="pt-2 text-xl">
-                                    Registered Occupational Therapist
-                                </p>
-                                <p className="pt-3">
-                                    Sensory Processing Therapy & Sequential Oral
-                                    Sensory Feeding
-                                </p>
-
-                                {/* Description */}
-                                <p className="pt-2 lg:pt-5">
-                                    Mary Ann (aka Ann) holds a Bachelor of
-                                    Science in Occupational Therapy from St.
-                                    Jude College in Manila, Philippines. Since
-                                    2016, she has been a Registered Occupational
-                                    Therapist in Alberta through the Alberta
-                                    College of Occupational Therapists, and she
-                                    is a member of the Canadian Association of
-                                    Occupational Therapists.
-                                </p>
-
-                                <p className="pt-2 lg:pt-5">
-                                    Ann brings extensive professional experience
-                                    in providing pediatric support to families
-                                    of children with disabilities. Her work
-                                    spans elementary schools, nonprofit
-                                    agencies, and hospitals both in Canada and
-                                    internationally. She has specialized
-                                    training in Sensory Processing Therapy and
-                                    Sequential Oral Sensory Feeding.
-                                </p>
-
-                                <p className="pt-2 lg:pt-5">
-                                    As an immigrant to Canada, Ann is passionate
-                                    about supporting immigrant families with
-                                    children with disabilities. She was inspired
-                                    by her community and her family to open an
-                                    agency that focuses on holistic support for
-                                    all. In her free time, she enjoys travelling
-                                    across North America and hiking the Rocky
-                                    Mountains with her son and husband.
-                                </p>
-
-                                {/* Credentials */}
-                                <p className="flex flex-row gap-2 pt-10">
-                                    <LucideIcons.GraduationCap /> Credentials &
-                                    Certifications
-                                </p>
-
-                                <div className="mt-2 border-b pb-3">
-                                    {[
-                                        'Bachelor of Science in Occupational Therapy, St. Jude College, Manila, Philippines',
-                                        'Registered Occupational Therapist with Alberta College of Occupational Therapists (since 2016)',
-                                        'Member of the Canadian Association of Occupational Therapists',
-                                        'Specialized Training in Sensory Processing Therapy',
-                                        'Specialized Training in Sequential Oral Sensory Feeding',
-                                    ].map((c) => (
-                                        <p
-                                            key={c}
-                                            className="flex flex-row gap-2 pt-2 text-sm"
+                                <div>
+                                    <Button asChild className="rounded">
+                                        <Link
+                                            href="/team"
+                                            onClick={() => window.scroll(0, 0)}
                                         >
-                                            <LucideIcons.Medal className="h-4 w-4" />{' '}
-                                            {c}
-                                        </p>
-                                    ))}
-                                </div>
-
-                                <div className="flex flex-row gap-3">
-                                    <Button
-                                        asChild
-                                        className="mt-10 rounded bg-primary"
-                                    >
-                                        <a
-                                            href="#contact_us"
-                                            onClick={(e) => {
-                                                const el =
-                                                    document.getElementById(
-                                                        'contact_us',
-                                                    );
-
-                                                if (el) {
-                                                    e.preventDefault();
-                                                    el.scrollIntoView({
-                                                        behavior: 'smooth',
-                                                    });
-                                                }
-                                            }}
-                                        >
-                                            <LucideIcons.Mail /> Contact Mary
-                                            Ann
-                                        </a>
+                                            Meet Our Team
+                                        </Link>
                                     </Button>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </section>
 
                 {/* Approach */}
                 <section id="approach" className="bg-peach-cream/20">
@@ -520,12 +357,12 @@ export default function About() {
                             How We Support Children and Families
                         </p>
                         <p className="text-md px-[20%] leading-loose">
-                            At Creative Abilities Therapy Services, we
-                            understand that parents play a crucial role in their
-                            child's success. That's why we emphasize
-                            collaboration and partnership with families to
-                            develop customized intervention plans tailored to
-                            each child's unique strengths and challenges.
+                            At Creative Abilities Therapy Services, we recognize
+                            that families play an important role in a
+                            child&rsquo;s growth and development. We work
+                            collaboratively with parents and caregivers to
+                            develop individualized support plans that reflect
+                            each child&rsquo;s strengths, needs, and goals.
                         </p>
                     </div>
 
@@ -613,42 +450,44 @@ export default function About() {
                             <div className="space-y-6">
                                 <div className="flex flex-row gap-3 text-primary">
                                     <p className="flex flex-row gap-3 rounded-lg bg-primary/10 p-3">
-                                        <LucideIcons.Cookie /> Child Development
-                                        Facilitators
+                                        <LucideIcons.Cookie /> Behavioural &amp;
+                                        Developmental Aides
                                     </p>
                                 </div>
                                 <h2 className="text-base">
-                                    Nurturing Safe Spaces for Growth
+                                    Creating Supportive Spaces for Growth
                                 </h2>
                                 <p className="leading-relaxed text-black">
-                                    As Child Development Facilitators, we
-                                    understand the importance of nurturing
-                                    environments where children feel safe to
-                                    explore, learn, and grow. We support
-                                    development through play, social
-                                    interaction, and connection—ensuring that
-                                    each child feels supported and celebrated.
+                                    Our Behavioural &amp; Developmental Aides
+                                    provide individualized support that helps
+                                    children build skills through play, social
+                                    interaction, everyday routines, and
+                                    meaningful activities. They work
+                                    collaboratively with families and the
+                                    child&rsquo;s service team to support goals
+                                    related to development, participation,
+                                    confidence, and independence.
                                 </p>
                                 <p className="leading-relaxed text-black">
-                                    We believe in a collaborative
-                                    approach—parents are at the heart of a
-                                    child's support system. Together, we empower
-                                    your child to build essential life skills,
-                                    foster positive behaviours, and lay the
-                                    foundation for lifelong success. We focus on
-                                    helping children participate meaningfully in
-                                    daily life, develop functional skills, and
-                                    enhance their overall well-being.
+                                    Our Behavioural &amp; Developmental Aides
+                                    work collaboratively with families and the
+                                    child&rsquo;s service team to support
+                                    consistency across everyday routines and
+                                    environments. Through individualized
+                                    strategies and ongoing communication, they
+                                    help children build functional skills,
+                                    positive behaviours, confidence, and greater
+                                    independence.
                                 </p>
 
                                 <p className="leading-relaxed text-black">
                                     At Creative Abilities Therapy Services, we
-                                    don't just provide services—we build
-                                    lifelong partnerships with families. We
-                                    guide them through challenges, celebrate
-                                    milestones, and work hand-in-hand to ensure
-                                    that children grow, develop, and reach their
-                                    fullest potential.
+                                    value strong, collaborative relationships
+                                    with families. We work alongside parents and
+                                    caregivers to support progress, celebrate
+                                    meaningful milestones, and help children
+                                    build skills that support their growth,
+                                    participation, and independence.
                                 </p>
                             </div>
                         </div>
@@ -665,7 +504,7 @@ About.layout = (page: React.ReactNode) => (
             show_ready: true,
             show_contact: false,
             title: "Let's Work Together",
-            desc: "Connect with our compassionate team today to learn how we can support your child's unique journey and help them reach their fullest potential.",
+            desc: "Connect with our team to learn more about our services and how we can support your child's strengths, needs, goals, and everyday participation.",
             is_career: false,
         }}
     >

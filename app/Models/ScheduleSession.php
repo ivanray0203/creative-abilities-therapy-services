@@ -32,6 +32,16 @@ class ScheduleSession extends Model
     /** @use HasFactory<ScheduleSessionFactory> */
     use HasFactory;
 
+    /**
+     * Statuses that free everything the session was holding: its slot in the
+     * conflict check, and its hours in the contract balance. A session in one
+     * of these states keeps its rows so the history stays readable, but it
+     * stops counting against anything.
+     *
+     * @var array<int, string>
+     */
+    public const HOURS_RELEASING_STATUSES = ['cancelled', 'no_show'];
+
     protected function casts(): array
     {
         return [
@@ -66,11 +76,16 @@ class ScheduleSession extends Model
      * The availed services this session delivers. A single visit can cover
      * more than one of the child's services.
      *
-     * @return BelongsToMany<ClientService, $this>
+     * @return BelongsToMany<ClientService, $this, SessionServiceAllocation>
      */
     public function clientServices(): BelongsToMany
     {
-        return $this->belongsToMany(ClientService::class)->withTimestamps();
+        return $this->belongsToMany(ClientService::class)
+            // Phase 20 — the pivot is also the hours ledger: what this
+            // session drew for that availed service, and from which contract.
+            ->using(SessionServiceAllocation::class)
+            ->withPivot(['hours', 'service_contract_id'])
+            ->withTimestamps();
     }
 
     /** @return HasMany<Invoice, $this> */

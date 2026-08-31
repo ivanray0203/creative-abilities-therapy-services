@@ -5,6 +5,7 @@ import { useState } from 'react';
 import AddClientServiceModal from '@/components/admin/add-client-service-modal';
 import AssignTherapistModal from '@/components/admin/assign-therapist-modal';
 import { ClientStatusBadge } from '@/components/admin/client/badges';
+import ContractsTab from '@/components/admin/client/contracts-tab';
 import DocumentsTab from '@/components/admin/client/documents-tab';
 import FundingTab from '@/components/admin/client/funding-tab';
 import InvoicesTab from '@/components/admin/client/invoices-tab';
@@ -26,6 +27,8 @@ interface ClientShowProps {
     progress: ClientProgress;
     therapists: TherapistOption[];
     services: ServiceOffering[];
+    /** The funding codes a contract may carry, from `ServiceContract::FUNDING_CODES`. */
+    fundingCodes: string[];
 }
 
 /** Admin client detail page, ported from cats-frontend/src/pages/admin/ClientDetailPage.tsx. */
@@ -35,6 +38,7 @@ export default function AdminClientShow({
     progress,
     therapists,
     services,
+    fundingCodes,
 }: ClientShowProps) {
     const [assignOpen, setAssignOpen] = useState(false);
     const [addServiceOpen, setAddServiceOpen] = useState(false);
@@ -115,6 +119,7 @@ export default function AdminClientShow({
                     <TabsList className="flex w-full flex-wrap justify-start">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="sessions">Sessions</TabsTrigger>
+                        <TabsTrigger value="contracts">Contracts</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                         <TabsTrigger value="funding">Funding</TabsTrigger>
                         <TabsTrigger value="invoices">Invoices</TabsTrigger>
@@ -132,6 +137,16 @@ export default function AdminClientShow({
                     </TabsContent>
                     <TabsContent value="sessions">
                         <SessionsTab client={client} />
+                    </TabsContent>
+                    {/*
+                     * Phase 20 — the hours admin has authorized per availed
+                     * service. Nothing can be scheduled without one.
+                     */}
+                    <TabsContent value="contracts">
+                        <ContractsTab
+                            client={client}
+                            fundingCodes={fundingCodes}
+                        />
                     </TabsContent>
                     <TabsContent value="documents">
                         <DocumentsTab client={client} />

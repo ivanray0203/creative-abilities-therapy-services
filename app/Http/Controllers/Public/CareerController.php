@@ -12,7 +12,7 @@ class CareerController extends Controller
     public function index(): Response
     {
         return Inertia::render('public/careers', [
-            'careers' => Career::query()->where('is_active', true)->orderByDesc('due_date')->get(),
+            'careers' => Career::query()->where('is_active', true)->orderBy('sort_order')->orderByDesc('due_date')->get(),
         ]);
     }
 

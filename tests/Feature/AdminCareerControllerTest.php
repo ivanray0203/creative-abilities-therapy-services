@@ -92,3 +92,92 @@ test('an admin can delete a position', function () {
     $response->assertRedirect('/admin/careers');
     expect(Career::count())->toBe(0);
 });
+
+/**
+ * The posting narrative (`detail`) is what the public posting page renders,
+ * so the admin form has to round-trip every section of it.
+ */
+test('an admin can save the full posting narrative', function () {
+    $detail = [
+        'intro' => ['First intro paragraph.', 'Second intro paragraph.'],
+        'role_summary' => 'What this role does day to day.',
+        'responsibilities_lead_in' => 'Responsibilities may include:',
+        'qualifications_lead_in' => 'Applicants should have:',
+        'qualifications_note' => 'Related experience is considered an asset.',
+        'collaboration' => [
+            'title' => 'Multidisciplinary Collaboration',
+            'intro' => 'You may collaborate with:',
+            'lead_in' => 'This may include:',
+            'items' => ['Occupational Therapists', 'Physiotherapists'],
+            'closing' => 'Collaboration supports consistency.',
+        ],
+        'offers' => [
+            ['title' => 'Competitive Contract Rates', 'description' => 'Starting at $50.00/hour.'],
+            ['title' => 'Flexible Scheduling', 'description' => 'Set your own availability.'],
+        ],
+        'fscd' => [
+            'title' => 'FSCD Services',
+            'intro' => 'You may support FSCD-funded families.',
+            'lead_in' => 'You may participate in:',
+            'items' => ['Behavioural and Developmental Support (BDS)'],
+            'closing' => 'Documentation requirements apply.',
+        ],
+        'extras' => [
+            [
+                'title' => 'Documentation & Team Communication',
+                'paragraphs' => ['You keep session records.'],
+                'lead_in' => 'This may include:',
+                'items' => ['Session documentation', 'Timesheets'],
+                'closing' => 'Reviewed during onboarding.',
+            ],
+        ],
+        'contractor' => [
+            'title' => 'Independent Contractor Opportunity',
+            'paragraphs' => ['This is a contractor position.', 'Hours are not guaranteed.'],
+        ],
+        'closing_title' => 'Ready to Join Our Team?',
+        'closing' => 'We would be happy to hear from you.',
+    ];
+
+    $response = $this->actingAs(adminUser())->post('/admin/careers', validCareerPayload([
+        'sort_order' => 3,
+        'detail' => $detail,
+    ]));
+
+    $response->assertRedirect('/admin/careers')->assertSessionHasNoErrors();
+
+    $career = Career::query()->latest('id')->first();
+
+    // `validated()` returns keys in rule order, so compare structure not order.
+    $normalise = function (array $value) use (&$normalise): array {
+        ksort($value);
+
+        foreach ($value as $key => $item) {
+            if (is_array($item)) {
+                $value[$key] = $normalise($item);
+            }
+        }
+
+        return $value;
+    };
+
+    expect($career->sort_order)->toBe(3)
+        ->and($normalise($career->detail))->toBe($normalise($detail));
+});
+
+test('a posting without an FSCD section stores a null for it', function () {
+    $this->actingAs(adminUser())->post('/admin/careers', validCareerPayload([
+        'detail' => ['role_summary' => 'Summary.', 'fscd' => null],
+    ]))->assertSessionHasNoErrors();
+
+    expect(Career::query()->latest('id')->first()->detail['fscd'])->toBeNull();
+});
+
+test('the posting narrative rejects a malformed offer', function () {
+    $response = $this->actingAs(adminUser())->post('/admin/careers', validCareerPayload([
+        'detail' => ['offers' => [['title' => 'Missing its description']]],
+    ]));
+
+    $response->assertSessionHasErrors('detail.offers.0.description');
+    expect(Career::query()->where('position', 'Occupational Therapist')->exists())->toBeFalse();
+});

@@ -8,6 +8,8 @@ use App\Models\ConsentDocument;
 use App\Models\Intake;
 use App\Models\Invoice;
 use App\Models\TeamMember;
+use App\Models\Timesheet;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 
@@ -18,15 +20,52 @@ use Carbon\CarbonInterface;
  */
 class PdfService
 {
-    public function offerLetter(Application $application): string
+    /**
+     * The offer letter, unsigned by default. Pass the candidate's signature
+     * as a PNG data URI to render the signed copy — the same shape as
+     * invoice(), so both signed documents are produced the same way.
+     *
+     * The deadline is the one stored on the application when the offer was
+     * sent, so the printed date and the lifetime of the signing link agree.
+     */
+    public function offerLetter(Application $application, ?string $signature = null, ?CarbonInterface $signedAt = null): string
     {
-        $deadline = $this->businessDaysFrom(now(), 5);
+        $issuedDate = $application->offer_sent_at ?? now();
 
         return Pdf::loadView('pdf.offer-letter', [
             'application' => $application,
-            'deadline' => $deadline,
-            'issuedDate' => now(),
+            'signature' => $signature,
+            'signedAt' => $signedAt ?? $application->offer_accepted_at,
+            'issuedDate' => $issuedDate,
+            'deadline' => $application->offer_expires_at ?? $issuedDate->copy()->addDays((int) config('cats.offer.acceptance_days', 5)),
+            'candidateName' => trim("{$application->first_name} {$application->last_name}"),
+            'candidateAddress' => $this->offerAddressLines($application),
+            'serviceArea' => $application->position_applied,
+            'legalName' => (string) config('cats.offer.legal_name'),
+            'engagementType' => (string) config('cats.offer.engagement_type'),
+            'location' => (string) config('cats.offer.location'),
+            'schedule' => (string) config('cats.offer.schedule'),
+            'reportsTo' => (string) config('cats.offer.reports_to'),
+            'startDate' => $application->preferred_start_date,
         ])->output();
+    }
+
+    /**
+     * The candidate's address as printed lines, skipping whatever they left
+     * blank so a missing unit number does not leave a gap in the letterhead.
+     *
+     * @return array<int, string>
+     */
+    private function offerAddressLines(Application $application): array
+    {
+        $cityLine = collect([$application->city, $application->province, $application->zip_code])
+            ->filter(fn (?string $part): bool => filled($part))
+            ->implode(', ');
+
+        return collect([$application->street_address, $application->address_line_2, $cityLine])
+            ->filter(fn (?string $line): bool => filled($line))
+            ->values()
+            ->all();
     }
 
     /**
@@ -188,6 +227,41 @@ class PdfService
     }
 
     /**
+     * The aide's FSCD time sheet (resources/views/pdf/timesheet.blade.php),
+     * matching the printed form.
+     *
+     * The aide's signature is already on the record — they sign as they
+     * generate — so only the parent's is passed in, the same shape invoice()
+     * uses for theirs.
+     *
+     * @param  string|null  $parentSignature  A data: URI for the parent's drawn
+     *                                        signature. Null renders the empty
+     *                                        signature box the parent signs.
+     */
+    public function timesheet(Timesheet $timesheet, ?string $parentSignature = null): string
+    {
+        $timesheet->loadMissing(['client.originalIntake', 'client.user', 'therapist']);
+        $intake = $timesheet->client?->originalIntake;
+        $aide = $timesheet->therapist;
+
+        return Pdf::loadView('pdf.timesheet', [
+            'timesheet' => $timesheet,
+            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'clientDetails' => [
+                'name' => $timesheet->client?->displayName() ?? 'Client',
+                'date_of_birth' => $intake?->date_of_birth?->format('Y-M-d') ?? '',
+                // The funding reference captured at intake — an FSCD-funded
+                // child's file number.
+                'fscd_file_number' => $intake->funding_number ?? '',
+            ],
+            'aideName' => $aide !== null ? trim("{$aide->first_name} {$aide->last_name}") : 'Aide',
+            'parentName' => $intake->primary_parent_name ?? 'Parent / Guardian',
+            'aideSignature' => $timesheet->aide_signature,
+            'parentSignature' => $parentSignature ?? $timesheet->parent_signature,
+        ])->output();
+    }
+
+    /**
      * A therapist's invoice to the clinic.
      *
      * Its own layout, not the client invoice's: this one bills the clinic
@@ -211,6 +285,35 @@ class PdfService
                 'email' => $therapist?->email,
             ],
         ])->output();
+    }
+
+    /**
+     * The hour-tracking sheet: every contract in scope, the hours delivered
+     * each month of the window, and what is left.
+     *
+     * `$therapist` null is the clinic-wide sheet an admin prints, which gains
+     * a therapist column — on a single therapist's copy that column would
+     * repeat one name down the page.
+     *
+     * Landscape, because the month columns are the point of the format and a
+     * portrait page would wrap them. The report array is built by
+     * HourTrackingReport and rendered as it stands — nothing is recomputed
+     * here, so the screen and the print cannot disagree.
+     *
+     * @param  array<string, mixed>  $report
+     */
+    public function hourTracking(?User $therapist, array $report, CarbonInterface $from, CarbonInterface $to): string
+    {
+        return Pdf::loadView('pdf.hour-tracking', [
+            'report' => $report,
+            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'therapistName' => $therapist !== null
+                ? (trim("{$therapist->first_name} {$therapist->last_name}") ?: 'Therapist')
+                : 'All therapists',
+            'showTherapist' => $therapist === null,
+            'from' => $from,
+            'to' => $to,
+        ])->setPaper('letter', 'landscape')->output();
     }
 
     /**
@@ -242,25 +345,5 @@ class PdfService
             trim(implode(', ', array_filter([$intake->city, $intake->state_province]))),
             $intake->postal_code,
         ], fn (?string $line): bool => filled($line)));
-    }
-
-    /**
-     * Mirrors the reference's `_business_days_from`: a plain day-by-day
-     * loop skipping Saturday/Sunday, no holiday awareness.
-     */
-    private function businessDaysFrom(CarbonInterface $start, int $days): CarbonInterface
-    {
-        $current = $start;
-        $added = 0;
-
-        while ($added < $days) {
-            $current = $current->addDay();
-
-            if ($current->isWeekday()) {
-                $added++;
-            }
-        }
-
-        return $current;
     }
 }

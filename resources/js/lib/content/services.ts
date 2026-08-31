@@ -14,26 +14,31 @@ export const Journey: JourneyStep[] = [
     {
         id: 1,
         title: 'Intake',
-        desc: 'Complete out online form',
+        desc: 'Complete our online intake form to tell us about your child, your family’s needs, and the services you’re looking for.',
         icon: 'ReceiptText',
     },
     {
         id: 2,
-        title: 'Observation',
-        desc: 'Informal Assesment',
+        title: 'Observation & Informal Assessment',
+        desc: 'We learn more about your child’s strengths, needs, and goals through observation and informal assessment, depending on the service.',
         icon: 'CheckCircle',
     },
     {
         id: 3,
-        title: 'Plan',
-        desc: 'Individualizes service plan',
+        title: 'Service Planning',
+        desc: 'Together with your family and service team, we develop the appropriate plan for your child’s services, such as a Service Providers Program Plan (SPPP) or Individualized Service Plan (ISP), based on your child’s strengths, needs, goals, and family priorities.',
         icon: 'GraduationCap',
     },
-    { id: 4, title: 'Therapy', desc: 'Regular sessions begin', icon: 'Heart' },
+    {
+        id: 4,
+        title: 'Begin Services',
+        desc: 'Your child begins regular sessions with the appropriate members of their service team based on the goals and plan developed with your family.',
+        icon: 'Heart',
+    },
     {
         id: 5,
-        title: 'Progress',
-        desc: 'Ongoing review & growth',
+        title: 'Review Progress',
+        desc: 'Your child’s progress is reviewed regularly, and goals or strategies may be adjusted as needed to continue supporting their development and participation.',
         icon: 'Sparkle',
     },
 ];
@@ -49,7 +54,7 @@ export const Regulated: RegulatedBody[] = [
     {
         id: 1,
         title: 'ACSLPA',
-        desc: 'Alberta College of Speech-Language Pathologists',
+        desc: 'Alberta College of Speech-Language Pathologists and Audiologists',
         icon: 'Activity',
     },
     {
@@ -67,7 +72,7 @@ export const Regulated: RegulatedBody[] = [
     {
         id: 4,
         title: 'CPTA',
-        desc: 'College of Physiotherapist of Alberta ',
+        desc: 'College of Physiotherapists of Alberta',
         icon: 'Heart',
     },
 ];
@@ -76,22 +81,21 @@ export interface FundingSourceInfo {
     id: number;
     title: string;
     desc: string;
-    sub_desc: string;
+    icon: string;
 }
 
 export const Funding: FundingSourceInfo[] = [
     {
         id: 1,
         title: 'FSCD',
-        desc: 'Family Support for Children with Disabilities provides funding for eligible Alberta families.',
-        sub_desc: 'We are approved FSCD service providers',
+        desc: 'Family Support for Children with Disabilities (FSCD) provides funding for eligible Alberta families. Creative Abilities Therapy Services is an approved FSCD service provider and offers eligible services at FSCD-approved rates.',
+        icon: 'HandCoins',
     },
     {
         id: 2,
         title: 'Private Insurance',
-        desc: 'Most extended health benefit plans cover therapy services with proper documentation.',
-        sub_desc:
-            'We provide detailed invoices for insurance submission and direct billing when available.',
+        desc: 'Some extended health benefit plans may cover eligible therapy services. We provide detailed invoices for insurance submission and may offer direct billing when available.',
+        icon: 'ShieldCheck',
     },
 ];
 
@@ -144,20 +148,14 @@ export interface WhyPoint {
 export const Why: WhyPoint[] = [
     {
         id: 1,
-        title: 'Alberta Regulatory Standards',
-        desc: "All our services meet or exceed Alberta's professional regulatory standards, ensuring the highest quality of care",
-        icon: 'GraduationCap',
-    },
-    {
-        id: 2,
-        title: 'Home Community',
-        desc: 'We provide services in the settings where children live, learn, and play—maximizing real-world application.',
+        title: 'Home & Community Services',
+        desc: 'We provide services in home and community settings to support children in everyday environments where they live, learn, play, and participate.',
         icon: 'Heart',
     },
     {
-        id: 3,
-        title: 'Culturally Sensitive Care',
-        desc: 'We proudly support immigrant families with navigation assistance and inclusive, culturally responsive therapy.',
+        id: 2,
+        title: 'Inclusive & Respectful Care',
+        desc: 'We provide inclusive, family-centred support that respects each family’s background, values, preferences, and goals. Our team works to create a welcoming environment where children and families feel supported and understood.',
         icon: 'Sparkle',
     },
 ];

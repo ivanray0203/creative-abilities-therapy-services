@@ -1,122 +1,122 @@
 /**
- * Team page content, ported from cats-frontend/src/json/temp.tsx (TeamsData, Values).
+ * Team page content. The founder's own profile lives in
+ * `@/components/founder-profile` because it is a one-off layout with a photo
+ * and credentials; the remaining leadership profiles share one shape and are
+ * listed here.
  */
 
-export interface TeamMemberEntry {
-    id: number;
+export interface LeaderRole {
     title: string;
-    position: string;
-    department: string;
-    first_name: string;
-    last_name: string;
-    photo: string;
     description: string;
-    credentials: string[];
-    email: string;
 }
 
-export const TeamsData: TeamMemberEntry[] = [
+export interface LeaderEntry {
+    id: number;
+    name: string;
+    position: string;
+    /** Portrait; currently a generated placeholder until real photos land. */
+    photo: string;
+    tagline: string;
+    /** Body copy, rendered as consecutive paragraphs. */
+    paragraphs: string[];
+    roles: LeaderRole[];
+    commitmentTitle: string;
+    commitment: string;
+    contactLabel: string;
+}
+
+export const Leaders: LeaderEntry[] = [
     {
         id: 1,
-        title: 'Dr.',
-        position: 'Lead Occupational Therapist',
-        department: 'Sensory Integration & Fine Motor Skills',
-        first_name: 'Sarah',
-        last_name: 'Mitchelle',
-        photo: '',
-        description:
-            'Dr. Mitchell brings over 12 years of experience in pediatric occupational therapy, specializing in sensory processing disorders and fine motor development. She is passionate about helping children build independence through meaningful, play-based interventions.',
-        credentials: [
-            'Master of Science in Occupational Therapy',
-            'Registered with Alberta College of Occupational Therapists',
-            'Certified in Sensory Integration Therapy',
-            'Pediatric Feeding Specialist',
+        name: 'Bernard Lerit',
+        position: 'Operations & Chief Financial Officer',
+        photo: '/images/leader-placeholder-bernard.svg',
+        tagline: 'Supporting the Operations Behind Quality Care',
+        paragraphs: [
+            'Bernard Lerit serves as the Operations & Chief Financial Officer of Creative Abilities Therapy Services. He plays an important role in supporting the organization’s day-to-day operations, financial administration, and internal systems to help ensure services are delivered efficiently and responsibly.',
+            'Bernard works closely with the leadership and administrative teams to support organizational planning, financial processes, contractor administration, and the systems that help CATS operate smoothly. His work behind the scenes helps ensure that clinicians, support professionals, and families have the administrative foundation needed for effective service delivery.',
+            'With a strong focus on organization, accountability, and continuous improvement, Bernard helps oversee the operational and financial processes that support the growth and sustainability of Creative Abilities Therapy Services.',
         ],
-        email: 'drSarah@example.com',
+        roles: [
+            {
+                title: 'Operations Management',
+                description:
+                    'Supporting the day-to-day operational needs of the organization and helping maintain effective internal systems and processes.',
+            },
+            {
+                title: 'Financial Oversight',
+                description:
+                    'Overseeing financial administration, invoicing processes, payments, and other financial responsibilities that support the organization’s services.',
+            },
+            {
+                title: 'Administrative Systems',
+                description:
+                    'Helping develop and maintain organized processes that support contractors, clinicians, families, and the administrative team.',
+            },
+            {
+                title: 'Organizational Planning',
+                description:
+                    'Working collaboratively with leadership to support the continued development, efficiency, and sustainability of CATS.',
+            },
+            {
+                title: 'Team Support',
+                description:
+                    'Supporting the systems and processes that allow CATS professionals to focus on providing quality services to children and families.',
+            },
+        ],
+        commitmentTitle: 'Commitment to Creative Abilities',
+        commitment:
+            'Bernard is committed to building strong operational and financial systems that support the mission of Creative Abilities Therapy Services. Through thoughtful planning, organization, and collaboration, he helps create a strong foundation that allows CATS to continue growing while maintaining its commitment to children and families.',
+        contactLabel: 'Contact Bernard',
     },
     {
         id: 2,
-        title: 'Dr.',
-        position: 'Pediatric Speech Therapist',
-        department: 'Communication & Language Development',
-        first_name: 'James',
-        last_name: 'Anderson',
-        photo: '',
-        description:
-            'Dr. Anderson has 10 years of experience supporting children with speech and language delays. He uses evidence-based interventions to improve communication, social interaction, and confidence.',
-        credentials: [
-            'Master of Speech-Language Pathology',
-            'Certified in Augmentative & Alternative Communication',
-            'Member of Speech-Language & Audiology Canada',
+        name: 'Bryan Lerit',
+        photo: '/images/leader-placeholder-bryan.svg',
+        position:
+            'Operations & Program Lead, Behavioural & Respite Support Services',
+        tagline: 'Connecting Families, Support Teams & Programs',
+        paragraphs: [
+            'Bryan Lerit serves as the Operations & Program Lead for Behavioural & Respite Support Services at Creative Abilities Therapy Services. He supports the day-to-day coordination of behavioural, developmental, community, and respite services while helping ensure families and support professionals have the information and resources they need throughout service delivery.',
+            'Bryan oversees and coordinates Behavioural & Developmental Aides, Community Aides, and Respite Aides. His role includes supporting contractor onboarding, aide coordination, scheduling, communication, program operations, and the organization of services for children and families.',
+            'Working closely with families, aides, clinicians, and the leadership team, Bryan helps strengthen communication and coordination across services. His focus is on creating organized, responsive systems that support positive experiences for both families and the professionals working with them.',
         ],
-        email: 'james.anderson@example.com',
-    },
-    {
-        id: 3,
-        title: 'Ms.',
-        position: 'Pediatric Physical Therapist',
-        department: 'Gross Motor & Mobility',
-        first_name: 'Emily',
-        last_name: 'Clark',
-        photo: '',
-        description:
-            'Emily specializes in helping children develop gross motor skills, strength, and coordination. She designs individualized therapy plans to enhance mobility and participation.',
-        credentials: [
-            'Bachelor of Physical Therapy',
-            'Pediatric Physical Therapy Certification',
-            'Member of Canadian Physiotherapy Association',
+        roles: [
+            {
+                title: 'Behavioural & Developmental Aide Services',
+                description:
+                    'Supporting the coordination of Behavioural & Developmental Aides and helping connect families with appropriate support based on service needs and availability.',
+            },
+            {
+                title: 'Community & Respite Support Services',
+                description:
+                    'Coordinating Community and Respite Aide Services and supporting the day-to-day operations of respite and community-based programming.',
+            },
+            {
+                title: 'Program Operations',
+                description:
+                    'Supporting the planning, organization, scheduling, and ongoing coordination of programs and support services.',
+            },
+            {
+                title: 'Contractor Onboarding & Coordination',
+                description:
+                    'Helping new aides through onboarding and supporting contractors with the information, processes, and resources needed to begin providing services.',
+            },
+            {
+                title: 'Family & Team Communication',
+                description:
+                    'Supporting communication between families, aides, clinicians, and the leadership team to help services remain organized and coordinated.',
+            },
+            {
+                title: 'Service Delivery Support',
+                description:
+                    'Helping manage the operational details behind behavioural, developmental, community, and respite services so support can be delivered effectively.',
+            },
         ],
-        email: 'emily.clark@example.com',
-    },
-    {
-        id: 4,
-        title: 'Ms.',
-        position: 'Occupational Therapist',
-        department: 'Sensory & Self-Care Skills',
-        first_name: 'Olivia',
-        last_name: 'Martinez',
-        photo: '',
-        description:
-            "Olivia works with children on sensory processing, daily living skills, and functional independence. She creates engaging, play-based activities tailored to each child's needs.",
-        credentials: [
-            'Master of Occupational Therapy',
-            'Registered with Ontario Society of Occupational Therapists',
-            'Certified Sensory Integration Therapist',
-        ],
-        email: 'olivia.martinez@example.com',
-    },
-    {
-        id: 5,
-        title: 'Dr.',
-        position: 'Child Psychologist',
-        department: 'Behavioral & Emotional Support',
-        first_name: 'Michael',
-        last_name: 'Brown',
-        photo: '',
-        description:
-            'Dr. Brown provides behavioral therapy, emotional support, and counseling for children and families. He focuses on fostering resilience and positive social-emotional development.',
-        credentials: [
-            'PhD in Child Psychology',
-            'Registered Psychologist with CPA',
-            'Certified in Cognitive Behavioral Therapy',
-        ],
-        email: 'michael.brown@example.com',
-    },
-    {
-        id: 6,
-        title: 'Ms.',
-        position: 'Speech & Language Assistant',
-        department: 'Communication Support',
-        first_name: 'Sophia',
-        last_name: 'Lee',
-        photo: '',
-        description:
-            'Sophia assists with speech therapy sessions, implementing activities to improve communication and language skills. She is skilled in augmentative communication tools.',
-        credentials: [
-            'Diploma in Speech-Language Pathology Assistance',
-            'Certified in Early Childhood Communication',
-        ],
-        email: 'sophia.lee@example.com',
+        commitmentTitle: 'Commitment to Children & Families',
+        commitment:
+            'Bryan is committed to creating organized, welcoming, and responsive support experiences for children, families, and the CATS team. Through communication, coordination, and program development, he helps ensure that families can access services while aides and support professionals have the structure they need to provide meaningful care.',
+        contactLabel: 'Contact Bryan',
     },
 ];
 

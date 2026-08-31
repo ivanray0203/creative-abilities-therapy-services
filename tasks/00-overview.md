@@ -48,6 +48,8 @@ Every page, tab, modal, form, field, endpoint, and business rule in those two re
 16. `16-cross-cutting-and-hardening.md` — System-log audit trail on every mutation, notification preferences, scheduler jobs, tests, deployment prep
 17. `17-multi-child-client-model.md` — Post-port refactor: one parent with many children, each as its own client record (not part of the parity port)
 18. `18-scheduling-conflicts-review-queue-authorization.md` — Post-port hardening: double-booking prevention, therapist review index, policy-based authorization (not part of the parity port)
+19. `19-aide-timesheets.md` — Aide-only pipeline: logged hours, generated timesheet, dual signatures, FSCD time sheet PDF (not part of the parity port)
+20. `20-service-contracts-and-hour-budgets.md` — Admin-issued per-service contracts gating scheduling: an hour pool over a fixed period, drawn down by sessions (not part of the parity port)
 
 ## Ground rules for every phase
 

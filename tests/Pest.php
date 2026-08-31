@@ -1,6 +1,9 @@
 <?php
 
 use App\Models\Client;
+use App\Models\ClientService;
+use App\Models\ServiceContract;
+use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -64,6 +67,57 @@ function adminUser(): User
 function therapistUser(): User
 {
     return User::factory()->therapist()->create();
+}
+
+/**
+ * A therapist holding an aide position: they log hours on a time sheet
+ * rather than billing services, so Billing and Invoices are closed to them
+ * and Hours and Timesheets are not.
+ */
+function aideUser(string $position = 'Behavioural & Developmental Aide'): User
+{
+    $user = User::factory()->therapist()->create();
+    TeamMember::factory()->create(['user_id' => $user->id, 'position' => $position]);
+
+    return $user->load('teamMember');
+}
+
+/**
+ * A 1x1 PNG, the smallest thing that clears the signature validator
+ * (App\Rules\PngSignature). Shared by every document a signature lands on.
+ */
+function signaturePng(): string
+{
+    return 'data:image/png;base64,'.base64_encode(base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+    ));
+}
+
+/**
+ * An availed service carrying the admin authorization Phase 20 requires
+ * before anything can be scheduled against it: forty hours across the
+ * current month, held by the given therapist.
+ *
+ * Pass `$contract` to change the pool — `['allotted_hours' => 2]` for a
+ * service that runs out after one visit, or a factory state for one that has
+ * expired.
+ *
+ * @param  array<string, mixed>  $attributes
+ * @param  array<string, mixed>  $contract
+ */
+function contractedService(Client $client, User $therapist, array $attributes = [], array $contract = []): ClientService
+{
+    $service = ClientService::factory()->for($client)->create([
+        'therapist_id' => $therapist->id,
+        ...$attributes,
+    ]);
+
+    ServiceContract::factory()->for($service, 'clientService')->create([
+        'therapist_id' => $therapist->id,
+        ...$contract,
+    ]);
+
+    return $service->refresh();
 }
 
 /**

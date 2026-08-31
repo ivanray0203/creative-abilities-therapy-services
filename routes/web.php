@@ -6,11 +6,15 @@ use App\Http\Controllers\Admin\CalendarController;
 use App\Http\Controllers\Admin\CareerController as AdminCareerController;
 use App\Http\Controllers\Admin\ClientController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ExpenseController;
+use App\Http\Controllers\Admin\ExpenseReportController;
 use App\Http\Controllers\Admin\GoogleDriveConnectionController;
+use App\Http\Controllers\Admin\HourTrackingController as AdminHourTrackingController;
 use App\Http\Controllers\Admin\IntakeController;
 use App\Http\Controllers\Admin\InvoiceServiceController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\ProgramController as AdminProgramController;
+use App\Http\Controllers\Admin\ServiceContractController;
 use App\Http\Controllers\Admin\ServiceController as AdminServiceController;
 use App\Http\Controllers\Admin\ServiceOfferingController;
 use App\Http\Controllers\Admin\TeamMemberController;
@@ -21,28 +25,40 @@ use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\ConsentAcceptanceController;
+use App\Http\Controllers\HourTrackingController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Public\CareerApplicationController;
 use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Public\CheckEmailController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\IntakeApplicationController;
+use App\Http\Controllers\Public\OfferLetterController;
 use App\Http\Controllers\Public\ProgramController;
 use App\Http\Controllers\Public\ProgramRegistrationController;
-use App\Http\Controllers\Public\ServiceController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\TherapistClientController;
 use App\Http\Controllers\TherapistDashboardController;
 use App\Http\Controllers\TherapistIntakeController;
 use App\Http\Controllers\TherapistListController;
+use App\Http\Controllers\TimesheetController;
+use App\Http\Controllers\TimesheetEntryController;
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 Route::inertia('/', 'public/home')->name('public.home');
 Route::inertia('about', 'public/about')->name('public.about');
 Route::inertia('team', 'public/team')->name('public.team');
 Route::inertia('team/founder', 'public/founder')->name('public.founder');
-Route::get('services', [ServiceController::class, 'index'])->name('public.services');
-Route::get('servicesDetails/{service}', [ServiceController::class, 'show'])->name('public.service-detail');
+Route::inertia('services', 'public/services')->name('public.services');
+/*
+ * The services pages are static marketing content held in
+ * resources/js/lib/content/service-list.ts, so the route only forwards the
+ * requested service code and the page resolves it client-side.
+ */
+Route::get('servicesDetails/{service}', fn (string $service) => Inertia::render(
+    'public/service-detail',
+    ['code' => $service],
+))->name('public.service-detail');
 Route::get('programs', [ProgramController::class, 'index'])->name('public.programs');
 Route::get('programs/{program}', [ProgramController::class, 'show'])->name('public.program-detail');
 // Throttled like the other public write endpoints: this one is unauthenticated.
@@ -60,6 +76,14 @@ Route::inertia('privacypolicy', 'public/privacy')->name('public.privacy');
 Route::inertia('cookiepolicy', 'public/cookie')->name('public.cookie');
 Route::inertia('accessibility', 'public/accessibility')->name('public.accessibility');
 Route::post('contacts', [ContactController::class, 'store'])->name('public.contacts.store');
+
+// The candidate has no account yet — the hire is what creates one — so the
+// signed URL stands in for a login. It expires with the offer itself.
+Route::middleware('signed')->group(function (): void {
+    Route::get('offer/{application}', [OfferLetterController::class, 'show'])->name('public.offer.show');
+    Route::post('offer/{application}/accept', [OfferLetterController::class, 'accept'])->name('public.offer.accept');
+    Route::post('offer/{application}/decline', [OfferLetterController::class, 'decline'])->name('public.offer.decline');
+});
 
 Route::get('intake/apply', [IntakeApplicationController::class, 'create'])->name('public.intake.create');
 Route::post('intake/apply', [IntakeApplicationController::class, 'store'])->name('public.intake.store');
@@ -130,6 +154,17 @@ Route::middleware(['auth', 'role:admin'])
         Route::delete('clients/{client}/notes/{note}', [ClientController::class, 'deleteNote'])->name('admin.client.notes.destroy');
         Route::get('clients/{client}/services/{clientService}/sessions', [SessionController::class, 'clientServiceSessions'])->name('admin.client.services.sessions');
 
+        /*
+         * Phase 20 — a service contract is the admin's authorization for one
+         * availed service, so it is nested under that service rather than
+         * given a page of its own. Cancelling and deleting are different
+         * acts: a contract with sessions against it can only be cancelled.
+         */
+        Route::post('clients/{client}/services/{clientService}/contracts', [ServiceContractController::class, 'store'])->name('admin.client.services.contracts.store');
+        Route::put('clients/{client}/services/{clientService}/contracts/{contract}', [ServiceContractController::class, 'update'])->name('admin.client.services.contracts.update');
+        Route::post('clients/{client}/services/{clientService}/contracts/{contract}/cancel', [ServiceContractController::class, 'cancel'])->name('admin.client.services.contracts.cancel');
+        Route::delete('clients/{client}/services/{clientService}/contracts/{contract}', [ServiceContractController::class, 'destroy'])->name('admin.client.services.contracts.destroy');
+
         Route::get('sessions', [SessionController::class, 'index'])->name('admin.sessions.index');
         Route::get('sessions/create', [SessionController::class, 'create'])->name('admin.sessions.create');
         Route::post('sessions', [SessionController::class, 'store'])->name('admin.sessions.store');
@@ -154,6 +189,32 @@ Route::middleware(['auth', 'role:admin'])
         Route::get('billing/create', [BillingItemController::class, 'create'])->name('admin.billing.create');
         Route::post('billing', [BillingItemController::class, 'store'])->name('admin.billing.store');
         Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('admin.billing.destroy');
+
+        /*
+         * Phase 21 — the clinic's hour-tracking sheet across every therapist,
+         * the same report each therapist sees of their own contracts. Filter
+         * to one therapist to get exactly their copy.
+         */
+        Route::get('hour-tracking', [AdminHourTrackingController::class, 'index'])->name('admin.hour-tracking.index');
+        Route::get('hour-tracking/pdf', [AdminHourTrackingController::class, 'pdf'])->name('admin.hour-tracking.pdf');
+
+        // The aides' signed time sheets. Read-only apart from removal — the
+        // form is generated by the aide and signed by the parent.
+        Route::get('timesheets', [TimesheetController::class, 'index'])->name('admin.timesheets.index');
+        Route::get('timesheets/{timesheet}/pdf', [TimesheetController::class, 'pdf'])->name('admin.timesheets.pdf');
+        Route::get('timesheets/{timesheet}', [TimesheetController::class, 'show'])->name('admin.timesheets.show');
+        Route::delete('timesheets/{timesheet}', [TimesheetController::class, 'destroy'])->name('admin.timesheets.destroy');
+
+        // `expenses/report` must be declared before `expenses/{expense}` or the
+        // word "report" would be bound as an expense id.
+        Route::get('expenses', [ExpenseController::class, 'index'])->name('admin.expenses.index');
+        Route::get('expenses/add', [ExpenseController::class, 'create'])->name('admin.expenses.create');
+        Route::post('expenses', [ExpenseController::class, 'store'])->name('admin.expenses.store');
+        Route::get('expenses/report', [ExpenseReportController::class, 'index'])->name('admin.expenses.report');
+        Route::get('expenses/report/export', [ExpenseReportController::class, 'export'])->name('admin.expenses.report.export');
+        Route::get('expenses/edit/{expense}', [ExpenseController::class, 'edit'])->name('admin.expenses.edit');
+        Route::put('expenses/{expense}', [ExpenseController::class, 'update'])->name('admin.expenses.update');
+        Route::delete('expenses/{expense}', [ExpenseController::class, 'destroy'])->name('admin.expenses.destroy');
 
         Route::get('invoices', [InvoiceController::class, 'index'])->name('admin.invoices.index');
         Route::get('invoices/create', [InvoiceController::class, 'create'])->name('admin.invoices.create');
@@ -248,21 +309,53 @@ Route::middleware(['auth', 'role:therapist'])
         Route::post('sessions/{session}/start', [SessionController::class, 'startSession'])->name('therapist.sessions.start');
         Route::post('sessions/{session}/end', [SessionController::class, 'endSession'])->name('therapist.sessions.end');
 
-        Route::get('billing', [BillingItemController::class, 'index'])->name('therapist.billing.index');
-        Route::get('billing/create', [BillingItemController::class, 'create'])->name('therapist.billing.create');
-        Route::post('billing', [BillingItemController::class, 'store'])->name('therapist.billing.store');
-        Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('therapist.billing.destroy');
+        /*
+         * Billing and invoicing belong to a therapist who bills services. An
+         * aide records hours on a time sheet instead, so `aide:never` keeps
+         * these unreachable for them rather than merely hidden.
+         */
+        Route::middleware('aide:never')->group(function () {
+            /*
+             * Phase 21 — the therapist's own hour-tracking sheet, read off
+             * their contracts and the session ledger. Read-only: hours move
+             * when a session is booked or cancelled, never from here.
+             */
+            Route::get('hour-tracking', [HourTrackingController::class, 'index'])->name('therapist.hour-tracking.index');
+            Route::get('hour-tracking/pdf', [HourTrackingController::class, 'pdf'])->name('therapist.hour-tracking.pdf');
 
-        Route::get('invoices', [InvoiceController::class, 'index'])->name('therapist.invoices.index');
-        Route::get('invoices/create', [InvoiceController::class, 'create'])->name('therapist.invoices.create');
-        Route::post('invoices', [InvoiceController::class, 'store'])->name('therapist.invoices.store');
-        Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('therapist.invoices.generate-from-session');
-        Route::post('invoices/generate-from-billing', [InvoiceController::class, 'generateFromBilling'])->name('therapist.invoices.generate-from-billing');
-        Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('therapist.invoices.pdf');
-        Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('therapist.invoices.show');
-        Route::get('invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('therapist.invoices.edit');
-        Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])->name('therapist.invoices.update');
-        Route::post('invoices/{invoice}/resend', [InvoiceController::class, 'resend'])->name('therapist.invoices.resend');
+            Route::get('billing', [BillingItemController::class, 'index'])->name('therapist.billing.index');
+            Route::get('billing/create', [BillingItemController::class, 'create'])->name('therapist.billing.create');
+            Route::post('billing', [BillingItemController::class, 'store'])->name('therapist.billing.store');
+            Route::delete('billing/{billingItem}', [BillingItemController::class, 'destroy'])->name('therapist.billing.destroy');
+
+            Route::get('invoices', [InvoiceController::class, 'index'])->name('therapist.invoices.index');
+            Route::get('invoices/create', [InvoiceController::class, 'create'])->name('therapist.invoices.create');
+            Route::post('invoices', [InvoiceController::class, 'store'])->name('therapist.invoices.store');
+            Route::post('invoices/generate-from-session', [InvoiceController::class, 'generateFromSession'])->name('therapist.invoices.generate-from-session');
+            Route::post('invoices/generate-from-billing', [InvoiceController::class, 'generateFromBilling'])->name('therapist.invoices.generate-from-billing');
+            Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('therapist.invoices.pdf');
+            Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('therapist.invoices.show');
+            Route::get('invoices/{invoice}/edit', [InvoiceController::class, 'edit'])->name('therapist.invoices.edit');
+            Route::put('invoices/{invoice}', [InvoiceController::class, 'update'])->name('therapist.invoices.update');
+            Route::post('invoices/{invoice}/resend', [InvoiceController::class, 'resend'])->name('therapist.invoices.resend');
+        });
+
+        /*
+         * The aide's half: hours logged day by day, then rolled into a time
+         * sheet the parent signs. `timesheets/generate` is declared before
+         * `timesheets/{timesheet}` or the word would be bound as an id.
+         */
+        Route::middleware('aide')->group(function () {
+            Route::get('hours', [TimesheetEntryController::class, 'index'])->name('therapist.hours.index');
+            Route::get('hours/create', [TimesheetEntryController::class, 'create'])->name('therapist.hours.create');
+            Route::post('hours', [TimesheetEntryController::class, 'store'])->name('therapist.hours.store');
+            Route::delete('hours/{entry}', [TimesheetEntryController::class, 'destroy'])->name('therapist.hours.destroy');
+
+            Route::get('timesheets', [TimesheetController::class, 'index'])->name('therapist.timesheets.index');
+            Route::post('timesheets/generate', [TimesheetController::class, 'generate'])->name('therapist.timesheets.generate');
+            Route::get('timesheets/{timesheet}/pdf', [TimesheetController::class, 'pdf'])->name('therapist.timesheets.pdf');
+            Route::get('timesheets/{timesheet}', [TimesheetController::class, 'show'])->name('therapist.timesheets.show');
+        });
 
         Route::get('profile', [TeamMemberController::class, 'me'])->name('therapist.team.me');
         Route::put('profile', [TeamMemberController::class, 'updateMe'])->name('therapist.team.update-me');
@@ -289,6 +382,11 @@ Route::middleware(['auth', 'role:client'])
         Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('client.invoices.pdf');
         Route::get('invoices/{invoice}', [InvoiceController::class, 'show'])->name('client.invoices.show');
         Route::post('invoices/{invoice}/sign', [InvoiceController::class, 'sign'])->name('client.invoices.sign');
+
+        Route::get('timesheets', [TimesheetController::class, 'index'])->name('client.timesheets.index');
+        Route::get('timesheets/{timesheet}/pdf', [TimesheetController::class, 'pdf'])->name('client.timesheets.pdf');
+        Route::get('timesheets/{timesheet}', [TimesheetController::class, 'show'])->name('client.timesheets.show');
+        Route::post('timesheets/{timesheet}/sign', [TimesheetController::class, 'sign'])->name('client.timesheets.sign');
 
         Route::get('sessions/by-user', [SessionController::class, 'byUser'])->name('client.sessions.by-user');
         Route::post('sessions/{session}/verify', [SessionController::class, 'verify'])->name('client.sessions.verify');

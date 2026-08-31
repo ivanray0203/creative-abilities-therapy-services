@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { AccordionItem } from '@radix-ui/react-accordion';
-import { FileQuestion, Search } from 'lucide-react';
+import { ArrowRight, FileQuestion, Search } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -65,8 +65,8 @@ function renderAnswer(text: string) {
 }
 
 const CATEGORIES = [
-    'FSCD',
     'Services & Billing',
+    'FSCD',
     'Getting Started',
     'Privacy & Safety',
 ];
@@ -119,8 +119,9 @@ export default function Faq() {
                     {/* Description */}
                     <p className="mt-3 max-w-3xl text-center text-base leading-relaxed sm:text-lg md:text-xl">
                         Find answers to common questions about our services,
-                        intake process, billing, and more. If you don't see your
-                        question here, please don't hesitate to contact us.
+                        intake process, FSCD, billing, privacy, and more. If you
+                        don&rsquo;t see the information you&rsquo;re looking
+                        for, our team is happy to help.
                     </p>
                 </div>
             </section>
@@ -204,6 +205,24 @@ export default function Faq() {
                                                     <AccordionContent className="pt-2 pb-4 text-sm leading-relaxed whitespace-pre-line sm:pb-6 sm:text-base">
                                                         {renderAnswer(
                                                             item.answer,
+                                                        )}
+
+                                                        {item.link && (
+                                                            <a
+                                                                href={
+                                                                    item.link
+                                                                        .href
+                                                                }
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="group mt-2 inline-flex items-center gap-2 font-medium text-primary underline"
+                                                            >
+                                                                {
+                                                                    item.link
+                                                                        .label
+                                                                }
+                                                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                                                            </a>
                                                         )}
                                                     </AccordionContent>
                                                 </AccordionItem>

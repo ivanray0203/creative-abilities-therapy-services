@@ -24,6 +24,11 @@ test('the dashboard reports today\'s session count and the live active-clients c
 });
 
 test('the dashboard reports completed sessions this week and hours logged this month', function () {
+    // Mid-month on purpose: the seeded sessions hang off the start of the
+    // week, which falls into the previous month whenever the run lands on
+    // the last day or two of one.
+    $this->travelTo('2026-08-12 09:00:00');
+
     $therapist = therapistUser();
 
     // Completed this week, 1.5 hours — counted in both stats.

@@ -256,3 +256,92 @@ test('a therapist cannot export a team member profile', function () {
     $this->actingAs(therapistUser())->get("/admin/team/{$teamMember->id}/pdf")
         ->assertRedirect('/therapist');
 });
+
+test('an admin can change a team member\'s specializations', function () {
+    $therapist = therapistUser();
+    $teamMember = TeamMember::factory()->create([
+        'user_id' => $therapist->id,
+        'specializations' => null,
+    ]);
+
+    $this->actingAs(adminUser())
+        ->put("/admin/team/{$teamMember->id}", validTeamMemberPayload([
+            'specializations' => ['Occupational Therapy', 'Physiotherapy'],
+        ]))
+        ->assertSessionHasNoErrors();
+
+    expect($teamMember->refresh()->specializations)
+        ->toBe(['Occupational Therapy', 'Physiotherapy']);
+});
+
+/**
+ * ApplicationHiringService builds a team member out of a job application,
+ * which never asks for an emergency contact — so a hired therapist's record
+ * starts out failing the very rules this form enforces. Nothing else on the
+ * page saves until those two fields are filled in, so the rejection has to
+ * name them rather than look like a save that did nothing.
+ */
+test('saving a hired team member with no emergency contact is rejected by name', function () {
+    $therapist = therapistUser();
+    $teamMember = TeamMember::factory()->create([
+        'user_id' => $therapist->id,
+        'emergency_contact_name' => null,
+        'emergency_contact_phone' => null,
+        'specializations' => null,
+    ]);
+
+    $this->actingAs(adminUser())
+        ->put("/admin/team/{$teamMember->id}", validTeamMemberPayload([
+            'specializations' => ['Occupational Therapy'],
+            'emergency_contact_name' => '',
+            'emergency_contact_phone' => '',
+        ]))
+        ->assertSessionHasErrors(['emergency_contact_name', 'emergency_contact_phone']);
+
+    // The whole request is refused, so the ticked box is not saved either.
+    expect($teamMember->refresh()->specializations)->toBeNull();
+});
+
+test('editing a team member renames the paired user account', function () {
+    $therapist = therapistUser();
+    $teamMember = TeamMember::factory()->create(['user_id' => $therapist->id]);
+
+    $this->actingAs(adminUser())
+        ->put("/admin/team/{$teamMember->id}", validTeamMemberPayload([
+            'first_name' => 'Renamed',
+            'last_name' => 'Therapist',
+        ]))
+        ->assertSessionHasNoErrors();
+
+    $therapist->refresh();
+    expect($therapist->first_name)->toBe('Renamed')
+        ->and($therapist->last_name)->toBe('Therapist');
+});
+
+/**
+ * The SIN is hashed on write and never rendered back, so the form posts it
+ * blank on every edit. Writing that through wiped the stored hash.
+ */
+test('editing a team member keeps a SIN the form could not render back', function () {
+    $therapist = therapistUser();
+    $teamMember = TeamMember::factory()->create([
+        'user_id' => $therapist->id,
+        'sin_number' => '123456789',
+    ]);
+
+    $hashed = $teamMember->getRawOriginal('sin_number');
+    expect($hashed)->toBe(hash('sha256', '123456789'));
+
+    $this->actingAs(adminUser())
+        ->put("/admin/team/{$teamMember->id}", validTeamMemberPayload(['sin_number' => '']))
+        ->assertSessionHasNoErrors();
+
+    expect($teamMember->refresh()->getRawOriginal('sin_number'))->toBe($hashed);
+
+    // A SIN that is actually typed in still replaces the old one.
+    $this->actingAs(adminUser())
+        ->put("/admin/team/{$teamMember->id}", validTeamMemberPayload(['sin_number' => '987654321']))
+        ->assertSessionHasNoErrors();
+
+    expect($teamMember->refresh()->getRawOriginal('sin_number'))->toBe(hash('sha256', '987654321'));
+});

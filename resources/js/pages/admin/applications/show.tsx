@@ -5,9 +5,9 @@ import {
     CheckCircle,
     CircleX,
     DollarSign,
+    FileSignature,
     Clock as ClockIcon,
     Heart,
-    Timer,
     UserCheck2,
     Video,
 } from 'lucide-react';
@@ -24,7 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
-import { capitalize, getInitials } from '@/lib/helpers';
+import { capitalize, formatDate, getInitials } from '@/lib/helpers';
 import type { Application, ApplicationStatus } from '@/types/application';
 
 interface ApplicationShowProps {
@@ -49,6 +49,10 @@ export default function AdminApplicationShow({
         application.application_status !== 'pending' &&
         application.application_status !== 'hired' &&
         application.application_status !== 'declined';
+    const offerSent = application.application_status === 'offer_sent';
+    const offerSigned = Boolean(
+        application.offer_accepted_at && application.signed_offer_letter,
+    );
 
     const openStatusModal = (status: ApplicationStatus) => {
         setStatusUpdate(status);
@@ -152,14 +156,48 @@ export default function AdminApplicationShow({
                                     : 'Schedule Interview'}
                             </Button>
 
-                            <Button
-                                variant="outline"
-                                className="rounded-[5px] bg-orange-600 text-white hover:bg-white hover:text-orange-600"
-                                onClick={() => openStatusModal('hired')}
-                            >
-                                <UserCheck2 />
-                                Hire
-                            </Button>
+                            {!offerSent && (
+                                <Button
+                                    variant="outline"
+                                    className="rounded-[5px] bg-orange-600 text-white hover:bg-white hover:text-orange-600"
+                                    onClick={() =>
+                                        openStatusModal('offer_sent')
+                                    }
+                                >
+                                    <FileSignature />
+                                    Send Offer
+                                </Button>
+                            )}
+
+                            {offerSent && (
+                                <>
+                                    <Button
+                                        variant="outline"
+                                        className="rounded-[5px]"
+                                        onClick={() =>
+                                            openStatusModal('offer_sent')
+                                        }
+                                    >
+                                        <FileSignature />
+                                        Resend Offer
+                                    </Button>
+
+                                    <Button
+                                        variant="outline"
+                                        className="rounded-[5px] bg-green-600 text-white hover:bg-white hover:text-green-600 disabled:opacity-50"
+                                        onClick={() => openStatusModal('hired')}
+                                        disabled={!offerSigned}
+                                        title={
+                                            offerSigned
+                                                ? undefined
+                                                : 'The candidate has not signed their offer letter yet.'
+                                        }
+                                    >
+                                        <UserCheck2 />
+                                        Hire
+                                    </Button>
+                                </>
+                            )}
 
                             <Button
                                 variant="outline"
@@ -181,11 +219,71 @@ export default function AdminApplicationShow({
                     </p>
                     <div className="ml-8 flex flex-row items-center gap-3 text-sm text-yellow-800">
                         <Calendar className="h-3 w-3" />
-                        <p>{application.interview_date}</p>
-                        <Timer className="h-3 w-3" />
-                        <p>{application.interview_time}</p>
+                        <p>{application.interview_schedule}</p>
                         <Video className="h-3 w-3" />
-                        <p>{capitalize(application.interview_platform)}</p>
+                        <p>{application.interview_platform_label}</p>
+                    </div>
+                </div>
+            )}
+
+            {offerSent && (
+                <div className="flex flex-col justify-between gap-3 rounded-[5px] border border-orange-400 bg-orange-50 p-4 md:flex-row md:items-center">
+                    <div>
+                        <p className="flex flex-row items-center gap-4 text-orange-800">
+                            <FileSignature className="h-4 w-4" />
+                            {offerSigned
+                                ? 'Offer signed'
+                                : 'Offer sent — awaiting signature'}
+                        </p>
+                        <div className="ml-8 flex flex-row flex-wrap items-center gap-3 text-sm text-orange-800">
+                            <span>
+                                Sent {formatDate(application.offer_sent_at)}
+                            </span>
+                            {offerSigned ? (
+                                <span>
+                                    Signed{' '}
+                                    {formatDate(application.offer_accepted_at)}
+                                </span>
+                            ) : (
+                                <span>
+                                    Expires{' '}
+                                    {formatDate(application.offer_expires_at)}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex flex-row gap-2">
+                        {application.offer_letter && (
+                            <Button
+                                variant="outline"
+                                className="rounded-[5px] border-orange-500 text-orange-600"
+                                asChild
+                            >
+                                <a
+                                    href={application.offer_letter}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Letter
+                                </a>
+                            </Button>
+                        )}
+                        {application.signed_offer_letter && (
+                            <Button
+                                variant="outline"
+                                className="rounded-[5px] border-orange-500 text-orange-600"
+                                asChild
+                            >
+                                <a
+                                    href={application.signed_offer_letter}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Signed copy
+                                </a>
+                            </Button>
+                        )}
                     </div>
                 </div>
             )}
@@ -200,7 +298,7 @@ export default function AdminApplicationShow({
                         <div className="ml-8 flex flex-row items-center gap-3 text-sm text-orange-800">
                             <p>
                                 This candidate was added to Team Management on{' '}
-                                {application.hire_date}
+                                {formatDate(application.hire_date)}
                             </p>
                         </div>
                     </div>
@@ -225,7 +323,7 @@ export default function AdminApplicationShow({
                             <p className="text-sm text-muted-foreground">
                                 Applied
                             </p>
-                            <p>{application.created_at.split('T')[0]}</p>
+                            <p>{formatDate(application.created_at)}</p>
                         </div>
                     </div>
                 </Card>
@@ -260,7 +358,9 @@ export default function AdminApplicationShow({
                             <p className="text-sm text-muted-foreground">
                                 Preferred Start Date
                             </p>
-                            <p>{application.preferred_start_date || '-'}</p>
+                            <p>
+                                {formatDate(application.preferred_start_date)}
+                            </p>
                         </div>
                     </div>
                 </Card>

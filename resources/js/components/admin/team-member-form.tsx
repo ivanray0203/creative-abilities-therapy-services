@@ -1,7 +1,9 @@
 import { useForm } from '@inertiajs/react';
 import { Eye, EyeOff, Plus, Printer, Save, X } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
+import FormErrorSummary from '@/components/forms/form-error-summary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -71,7 +73,9 @@ function initialValues(teamMember?: TeamMember | null): TeamMemberFormData {
         phone: teamMember?.phone ?? '',
         office_phone: teamMember?.office_phone ?? '',
         secondary_email: teamMember?.secondary_email ?? '',
-        birthdate: teamMember?.birthdate ?? '',
+        // Both arrive as full ISO timestamps; a date input renders blank
+        // on anything that is not YYYY-MM-DD.
+        birthdate: teamMember?.birthdate?.slice(0, 10) ?? '',
         sin_number: '',
         street_address: teamMember?.street_address ?? '',
         address_line_2: teamMember?.address_line_2 ?? '',
@@ -83,7 +87,7 @@ function initialValues(teamMember?: TeamMember | null): TeamMemberFormData {
         title: teamMember?.title ?? '',
         description: teamMember?.description ?? '',
         employment_status: teamMember?.employment_status ?? 'active',
-        hire_date: teamMember?.hire_date ?? '',
+        hire_date: teamMember?.hire_date?.slice(0, 10) ?? '',
         hourly_rate: teamMember?.hourly_rate ?? '',
         maximum_caseload: teamMember ? String(teamMember.maximum_caseload) : '',
         license_number: teamMember?.license_number ?? '',
@@ -123,14 +127,37 @@ export default function TeamMemberForm({
     const { data, setData, post, put, processing, errors } =
         useForm<TeamMemberFormData>(initialValues(teamMember));
 
+    /*
+     * A rejected save used to look like nothing happening: the fields that
+     * failed can sit several cards below the button, so an inline message
+     * under one of them is easy to never scroll to. Records created by the
+     * hire flow arrive without an emergency contact, which this form requires,
+     * so that was every hired therapist's first edit.
+     */
+    const reportErrors = (validationErrors: Record<string, string>) => {
+        const [firstField] = Object.keys(validationErrors);
+
+        if (!firstField) {
+            return;
+        }
+
+        toast.error(validationErrors[firstField]);
+
+        requestAnimationFrame(() => {
+            document
+                .getElementById('team-member-error-summary')
+                ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+    };
+
     const submit = () => {
         if (isEdit && teamMember) {
-            put(`/admin/team/${teamMember.id}`);
+            put(`/admin/team/${teamMember.id}`, { onError: reportErrors });
 
             return;
         }
 
-        post('/admin/team');
+        post('/admin/team', { onError: reportErrors });
     };
 
     const updateAvailability = (
@@ -175,6 +202,13 @@ export default function TeamMemberForm({
 
     return (
         <div className="grid grid-cols-1 gap-5 p-6">
+            <div id="team-member-error-summary">
+                <FormErrorSummary
+                    errors={errors as Record<string, string>}
+                    title="This team member could not be saved"
+                />
+            </div>
+
             {/*
              * Personnel files still get kept on paper, so the whole record is
              * exportable. A plain link, not a router visit — the response is a

@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\Application;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -10,7 +11,14 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-/** Reference: cats-backend/cats/serializers.py::_send_offer_letter, sent when an application transitions to "hired". */
+/**
+ * The offer letter, sent when an application moves to `offer_sent`.
+ *
+ * Carries a link to sign rather than asking the candidate to print and scan:
+ * they have no account yet, so the link is a temporary signed URL that lapses
+ * with the offer. The unsigned PDF rides along as an attachment so they have
+ * a copy to read or keep regardless.
+ */
 class OfferLetterMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
@@ -19,10 +27,9 @@ class OfferLetterMail extends Mailable implements ShouldQueue
     public readonly string $pdfContents;
 
     public function __construct(
-        public readonly string $firstName,
-        public readonly string $lastName,
-        public readonly string $position,
-        string $pdfContents,
+        public readonly Application $application,
+        public readonly string $signingUrl,
+        string $pdfContents = '',
     ) {
         $this->pdfContents = base64_encode($pdfContents);
     }
@@ -30,7 +37,7 @@ class OfferLetterMail extends Mailable implements ShouldQueue
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: "Offer Letter - {$this->position} Position",
+            subject: "Offer Letter - {$this->application->position_applied}",
         );
     }
 
@@ -44,8 +51,12 @@ class OfferLetterMail extends Mailable implements ShouldQueue
      */
     public function attachments(): array
     {
+        if ($this->pdfContents === '') {
+            return [];
+        }
+
         return [
-            Attachment::fromData(fn () => base64_decode($this->pdfContents), 'Offer_Letter.pdf')
+            Attachment::fromData(fn (): string => base64_decode($this->pdfContents), 'Offer_Letter.pdf')
                 ->withMime('application/pdf'),
         ];
     }

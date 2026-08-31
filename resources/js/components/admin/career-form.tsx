@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Plus, Save, X } from 'lucide-react';
+import { Plus, Save, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,43 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import type { Career } from '@/types/career';
+import type { Career, CareerOffer } from '@/types/career';
+
+/**
+ * Paragraph and bullet lists are edited as one-entry-per-line text, then
+ * split back into arrays on submit. Keeping the raw text in form state means
+ * a half-typed blank line is not swallowed mid-keystroke.
+ */
+function toLines(values?: string[] | null): string {
+    return (values ?? []).join('\n');
+}
+
+function fromLines(value: string): string[] {
+    return value
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+}
+
+interface SectionInput {
+    title: string;
+    intro: string;
+    lead_in: string;
+    items: string;
+    closing: string;
+}
+
+interface ExtraInput extends SectionInput {
+    paragraphs: string;
+}
+
+const EMPTY_SECTION: SectionInput = {
+    title: '',
+    intro: '',
+    lead_in: '',
+    items: '',
+    closing: '',
+};
 
 interface CareerFormData {
     position: string;
@@ -25,12 +61,49 @@ interface CareerFormData {
     highlights: string[];
     required_documents: string[];
     is_active: boolean;
+    sort_order: string;
     due_date: string;
     level: string;
     hours: string;
+
+    // Posting narrative — assembled into `detail` on submit.
+    intro: string;
+    role_summary: string;
+    responsibilities_lead_in: string;
+    qualifications_lead_in: string;
+    qualifications_note: string;
+    collaboration: SectionInput;
+    offers: CareerOffer[];
+    fscd_enabled: boolean;
+    fscd: SectionInput;
+    extras: ExtraInput[];
+    contractor_title: string;
+    contractor_paragraphs: string;
+    closing_title: string;
+    closing: string;
+}
+
+function sectionInput(
+    section?: {
+        title?: string;
+        intro?: string;
+        lead_in?: string;
+        items?: string[];
+        closing?: string;
+    } | null,
+): SectionInput {
+    return {
+        title: section?.title ?? '',
+        intro: section?.intro ?? '',
+        lead_in: section?.lead_in ?? '',
+        items: toLines(section?.items),
+        closing: section?.closing ?? '',
+    };
 }
 
 function initialValues(career?: Career | null): CareerFormData {
+    const detail = career?.detail;
+
     return {
         position: career?.position ?? '',
         location: career?.location ?? '',
@@ -46,9 +119,28 @@ function initialValues(career?: Career | null): CareerFormData {
         highlights: career?.highlights ?? [],
         required_documents: career?.required_documents ?? [],
         is_active: career?.is_active ?? true,
+        sort_order: String(career?.sort_order ?? 0),
         due_date: career?.due_date ?? '',
         level: career?.level ?? '',
         hours: career?.hours ?? '',
+
+        intro: toLines(detail?.intro),
+        role_summary: detail?.role_summary ?? '',
+        responsibilities_lead_in: detail?.responsibilities_lead_in ?? '',
+        qualifications_lead_in: detail?.qualifications_lead_in ?? '',
+        qualifications_note: detail?.qualifications_note ?? '',
+        collaboration: sectionInput(detail?.collaboration),
+        offers: detail?.offers ?? [],
+        fscd_enabled: detail?.fscd != null,
+        fscd: sectionInput(detail?.fscd),
+        extras: (detail?.extras ?? []).map((extra) => ({
+            ...sectionInput(extra),
+            paragraphs: toLines(extra.paragraphs),
+        })),
+        contractor_title: detail?.contractor?.title ?? '',
+        contractor_paragraphs: toLines(detail?.contractor?.paragraphs),
+        closing_title: detail?.closing_title ?? '',
+        closing: detail?.closing ?? '',
     };
 }
 
@@ -127,14 +219,174 @@ function TagListField({
     );
 }
 
+/** Textarea whose value is a list, one entry per line. */
+function LinesField({
+    id,
+    label,
+    hint,
+    value,
+    rows = 4,
+    onChange,
+}: {
+    id: string;
+    label: string;
+    hint?: string;
+    value: string;
+    rows?: number;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <div>
+            <Label htmlFor={id}>{label}</Label>
+            {hint && (
+                <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+            )}
+            <Textarea
+                id={id}
+                rows={rows}
+                value={value}
+                className="mt-2 rounded-[10px]"
+                onChange={(event) => onChange(event.target.value)}
+            />
+        </div>
+    );
+}
+
+/** The prose-around-a-list shape used by the collaboration and FSCD blocks. */
+function SectionFields({
+    idPrefix,
+    section,
+    onChange,
+}: {
+    idPrefix: string;
+    section: SectionInput;
+    onChange: (section: SectionInput) => void;
+}) {
+    return (
+        <div className="grid grid-cols-1 gap-4">
+            <div>
+                <Label htmlFor={`${idPrefix}-title`}>Heading</Label>
+                <Input
+                    id={`${idPrefix}-title`}
+                    value={section.title}
+                    className="mt-2 rounded-[10px]"
+                    onChange={(event) =>
+                        onChange({ ...section, title: event.target.value })
+                    }
+                />
+            </div>
+
+            <div>
+                <Label htmlFor={`${idPrefix}-intro`}>Intro</Label>
+                <Textarea
+                    id={`${idPrefix}-intro`}
+                    value={section.intro}
+                    className="mt-2 rounded-[10px]"
+                    onChange={(event) =>
+                        onChange({ ...section, intro: event.target.value })
+                    }
+                />
+            </div>
+
+            <div>
+                <Label htmlFor={`${idPrefix}-lead-in`}>
+                    Lead-in above the list
+                </Label>
+                <Input
+                    id={`${idPrefix}-lead-in`}
+                    value={section.lead_in}
+                    className="mt-2 rounded-[10px]"
+                    onChange={(event) =>
+                        onChange({ ...section, lead_in: event.target.value })
+                    }
+                />
+            </div>
+
+            <LinesField
+                id={`${idPrefix}-items`}
+                label="List items"
+                hint="One per line."
+                value={section.items}
+                onChange={(items) => onChange({ ...section, items })}
+            />
+
+            <div>
+                <Label htmlFor={`${idPrefix}-closing`}>Closing paragraph</Label>
+                <Textarea
+                    id={`${idPrefix}-closing`}
+                    value={section.closing}
+                    className="mt-2 rounded-[10px]"
+                    onChange={(event) =>
+                        onChange({ ...section, closing: event.target.value })
+                    }
+                />
+            </div>
+        </div>
+    );
+}
+
 /** Admin "Add/Edit Position" form, backing the `careers` table. */
 export default function CareerForm({ career }: { career?: Career | null }) {
     const isEdit = career != null;
 
-    const { data, setData, post, put, processing, errors } =
+    const { data, setData, transform, post, put, processing, errors } =
         useForm<CareerFormData>(initialValues(career));
 
     const submit = () => {
+        transform((form) => {
+            const {
+                intro,
+                role_summary,
+                responsibilities_lead_in,
+                qualifications_lead_in,
+                qualifications_note,
+                collaboration,
+                offers,
+                fscd_enabled,
+                fscd,
+                extras,
+                contractor_title,
+                contractor_paragraphs,
+                closing_title,
+                closing,
+                sort_order,
+                ...rest
+            } = form;
+
+            const section = (input: SectionInput) => ({
+                title: input.title,
+                intro: input.intro,
+                lead_in: input.lead_in,
+                items: fromLines(input.items),
+                closing: input.closing,
+            });
+
+            return {
+                ...rest,
+                sort_order: Number(sort_order) || 0,
+                detail: {
+                    intro: fromLines(intro),
+                    role_summary,
+                    responsibilities_lead_in,
+                    qualifications_lead_in,
+                    qualifications_note,
+                    collaboration: section(collaboration),
+                    offers,
+                    fscd: fscd_enabled ? section(fscd) : null,
+                    extras: extras.map((extra) => ({
+                        ...section(extra),
+                        paragraphs: fromLines(extra.paragraphs),
+                    })),
+                    contractor: {
+                        title: contractor_title,
+                        paragraphs: fromLines(contractor_paragraphs),
+                    },
+                    closing_title,
+                    closing,
+                },
+            };
+        });
+
         if (isEdit && career) {
             put(`/admin/careers/${career.id}`);
 
@@ -152,6 +404,20 @@ export default function CareerForm({ career }: { career?: Career | null }) {
         setData(
             field,
             data[field].filter((entry) => entry !== value),
+        );
+    };
+
+    const updateOffer = (index: number, offer: CareerOffer) => {
+        setData(
+            'offers',
+            data.offers.map((entry, i) => (i === index ? offer : entry)),
+        );
+    };
+
+    const updateExtra = (index: number, extra: ExtraInput) => {
+        setData(
+            'extras',
+            data.extras.map((entry, i) => (i === index ? extra : entry)),
         );
     };
 
@@ -219,7 +485,7 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                         <Label htmlFor="career-contract">Contract *</Label>
                         <Input
                             id="career-contract"
-                            placeholder="e.g. Contract"
+                            placeholder="e.g. Independent Contractor"
                             value={data.contract}
                             className="mt-2 rounded-[10px]"
                             onChange={(event) =>
@@ -237,7 +503,7 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                         <Label htmlFor="career-rate">Rate *</Label>
                         <Input
                             id="career-rate"
-                            placeholder="e.g. $40-$60/hr"
+                            placeholder="e.g. Starting at $65.44/hour"
                             value={data.rate}
                             className="mt-2 rounded-[10px]"
                             onChange={(event) =>
@@ -252,9 +518,12 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                     </div>
 
                     <div>
-                        <Label htmlFor="career-level">Level</Label>
+                        <Label htmlFor="career-level">
+                            Level (shown on the listing card)
+                        </Label>
                         <Input
                             id="career-level"
+                            placeholder="e.g. Contract Position"
                             value={data.level}
                             className="mt-2 rounded-[10px]"
                             onChange={(event) =>
@@ -273,6 +542,25 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                                 setData('hours', event.target.value)
                             }
                         />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="career-sort-order">Listing order</Label>
+                        <Input
+                            id="career-sort-order"
+                            type="number"
+                            min={0}
+                            value={data.sort_order}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('sort_order', event.target.value)
+                            }
+                        />
+                        {errors.sort_order && (
+                            <p className="mt-1 text-sm text-destructive">
+                                {errors.sort_order}
+                            </p>
+                        )}
                     </div>
 
                     <div>
@@ -337,6 +625,10 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                         <Label htmlFor="career-about-desc">
                             About Description *
                         </Label>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Opens the &ldquo;Join Creative Abilities Therapy
+                            Services&rdquo; section on the posting.
+                        </p>
                         <Textarea
                             id="career-about-desc"
                             value={data.about_description}
@@ -351,6 +643,28 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                             </p>
                         )}
                     </div>
+
+                    <LinesField
+                        id="career-intro"
+                        label="Additional intro paragraphs"
+                        hint="One paragraph per line, shown after the About Description."
+                        value={data.intro}
+                        onChange={(value) => setData('intro', value)}
+                    />
+
+                    <div>
+                        <Label htmlFor="career-role-summary">
+                            About the Role
+                        </Label>
+                        <Textarea
+                            id="career-role-summary"
+                            value={data.role_summary}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('role_summary', event.target.value)
+                            }
+                        />
+                    </div>
                 </CardContent>
             </Card>
 
@@ -359,6 +673,24 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                     <p className="font-bold text-primary">
                         Responsibilities, Qualifications &amp; Skills
                     </p>
+
+                    <div>
+                        <Label htmlFor="career-responsibilities-lead-in">
+                            Responsibilities lead-in
+                        </Label>
+                        <Input
+                            id="career-responsibilities-lead-in"
+                            placeholder="e.g. As a Psychologist with CATS, responsibilities may include:"
+                            value={data.responsibilities_lead_in}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData(
+                                    'responsibilities_lead_in',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </div>
 
                     <TagListField
                         label="Responsibilities"
@@ -370,6 +702,24 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                         }
                     />
 
+                    <div>
+                        <Label htmlFor="career-qualifications-lead-in">
+                            Qualifications lead-in
+                        </Label>
+                        <Input
+                            id="career-qualifications-lead-in"
+                            placeholder="e.g. Applicants should have:"
+                            value={data.qualifications_lead_in}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData(
+                                    'qualifications_lead_in',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </div>
+
                     <TagListField
                         label="Qualifications"
                         placeholder="Add a qualification and press Enter"
@@ -380,9 +730,27 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                         }
                     />
 
+                    <div>
+                        <Label htmlFor="career-qualifications-note">
+                            Qualifications closing note
+                        </Label>
+                        <Textarea
+                            id="career-qualifications-note"
+                            placeholder="e.g. Experience supporting children with … is considered an asset."
+                            value={data.qualifications_note}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData(
+                                    'qualifications_note',
+                                    event.target.value,
+                                )
+                            }
+                        />
+                    </div>
+
                     <TagListField
-                        label="Skills"
-                        placeholder="Add a skill and press Enter"
+                        label="Skills (areas of support)"
+                        placeholder="Add an area of support and press Enter"
                         values={data.skills}
                         onAdd={(value) => addToList('skills', value)}
                         onRemove={(value) => removeFromList('skills', value)}
@@ -420,8 +788,275 @@ export default function CareerForm({ career }: { career?: Career | null }) {
                 </CardContent>
             </Card>
 
+            <Card className="rounded-[10px]">
+                <CardContent className="grid grid-cols-1 gap-5 p-5">
+                    <p className="font-bold text-primary">
+                        Multidisciplinary Collaboration
+                    </p>
+
+                    <SectionFields
+                        idPrefix="career-collaboration"
+                        section={data.collaboration}
+                        onChange={(section) =>
+                            setData('collaboration', section)
+                        }
+                    />
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-[10px]">
+                <CardContent className="grid grid-cols-1 gap-5 p-5">
+                    <div className="flex items-center justify-between">
+                        <p className="font-bold text-primary">What We Offer</p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-[10px]"
+                            onClick={() =>
+                                setData('offers', [
+                                    ...data.offers,
+                                    { title: '', description: '' },
+                                ])
+                            }
+                        >
+                            <Plus /> Add
+                        </Button>
+                    </div>
+
+                    {data.offers.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                            No offer points yet.
+                        </p>
+                    )}
+
+                    {data.offers.map((offer, index) => (
+                        <div
+                            key={index}
+                            className="grid grid-cols-1 gap-3 rounded-[10px] border p-4"
+                        >
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    aria-label={`Offer ${index + 1} title`}
+                                    placeholder="Title"
+                                    value={offer.title}
+                                    className="rounded-[10px]"
+                                    onChange={(event) =>
+                                        updateOffer(index, {
+                                            ...offer,
+                                            title: event.target.value,
+                                        })
+                                    }
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-[10px]"
+                                    onClick={() =>
+                                        setData(
+                                            'offers',
+                                            data.offers.filter(
+                                                (_, i) => i !== index,
+                                            ),
+                                        )
+                                    }
+                                >
+                                    <Trash2 />
+                                </Button>
+                            </div>
+                            <Textarea
+                                aria-label={`Offer ${index + 1} description`}
+                                placeholder="Description"
+                                value={offer.description}
+                                className="rounded-[10px]"
+                                onChange={(event) =>
+                                    updateOffer(index, {
+                                        ...offer,
+                                        description: event.target.value,
+                                    })
+                                }
+                            />
+                        </div>
+                    ))}
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-[10px]">
+                <CardContent className="grid grid-cols-1 gap-5 p-5">
+                    <div className="flex items-center justify-between">
+                        <p className="font-bold text-primary">FSCD Services</p>
+                        <div className="flex items-center gap-3">
+                            <Label htmlFor="career-fscd-enabled">
+                                Include this section
+                            </Label>
+                            <Switch
+                                id="career-fscd-enabled"
+                                checked={data.fscd_enabled}
+                                onCheckedChange={(checked) =>
+                                    setData('fscd_enabled', checked)
+                                }
+                            />
+                        </div>
+                    </div>
+
+                    {data.fscd_enabled && (
+                        <SectionFields
+                            idPrefix="career-fscd"
+                            section={data.fscd}
+                            onChange={(section) => setData('fscd', section)}
+                        />
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-[10px]">
+                <CardContent className="grid grid-cols-1 gap-5 p-5">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="font-bold text-primary">
+                                Additional Sections
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Anything specific to this posting, e.g.
+                                documentation expectations.
+                            </p>
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-[10px]"
+                            onClick={() =>
+                                setData('extras', [
+                                    ...data.extras,
+                                    { ...EMPTY_SECTION, paragraphs: '' },
+                                ])
+                            }
+                        >
+                            <Plus /> Add
+                        </Button>
+                    </div>
+
+                    {data.extras.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                            No additional sections.
+                        </p>
+                    )}
+
+                    {data.extras.map((extra, index) => (
+                        <div
+                            key={index}
+                            className="grid grid-cols-1 gap-4 rounded-[10px] border p-4"
+                        >
+                            <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium">
+                                    Section {index + 1}
+                                </p>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-[10px]"
+                                    onClick={() =>
+                                        setData(
+                                            'extras',
+                                            data.extras.filter(
+                                                (_, i) => i !== index,
+                                            ),
+                                        )
+                                    }
+                                >
+                                    <Trash2 />
+                                </Button>
+                            </div>
+
+                            <SectionFields
+                                idPrefix={`career-extra-${index}`}
+                                section={extra}
+                                onChange={(section) =>
+                                    updateExtra(index, {
+                                        ...section,
+                                        paragraphs: extra.paragraphs,
+                                    })
+                                }
+                            />
+
+                            <LinesField
+                                id={`career-extra-${index}-paragraphs`}
+                                label="Paragraphs"
+                                hint="One paragraph per line, shown above the list."
+                                value={extra.paragraphs}
+                                onChange={(paragraphs) =>
+                                    updateExtra(index, { ...extra, paragraphs })
+                                }
+                            />
+                        </div>
+                    ))}
+                </CardContent>
+            </Card>
+
+            <Card className="rounded-[10px]">
+                <CardContent className="grid grid-cols-1 gap-5 p-5">
+                    <p className="font-bold text-primary">
+                        Contractor Terms &amp; Closing
+                    </p>
+
+                    <div>
+                        <Label htmlFor="career-contractor-title">
+                            Contractor section heading
+                        </Label>
+                        <Input
+                            id="career-contractor-title"
+                            placeholder="e.g. Independent Contractor Opportunity"
+                            value={data.contractor_title}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('contractor_title', event.target.value)
+                            }
+                        />
+                    </div>
+
+                    <LinesField
+                        id="career-contractor-paragraphs"
+                        label="Contractor paragraphs"
+                        hint="One paragraph per line."
+                        value={data.contractor_paragraphs}
+                        onChange={(value) =>
+                            setData('contractor_paragraphs', value)
+                        }
+                    />
+
+                    <div>
+                        <Label htmlFor="career-closing-title">
+                            Closing heading
+                        </Label>
+                        <Input
+                            id="career-closing-title"
+                            placeholder="e.g. Ready to Join Our Team?"
+                            value={data.closing_title}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('closing_title', event.target.value)
+                            }
+                        />
+                    </div>
+
+                    <div>
+                        <Label htmlFor="career-closing">
+                            Closing paragraph
+                        </Label>
+                        <Textarea
+                            id="career-closing"
+                            value={data.closing}
+                            className="mt-2 rounded-[10px]"
+                            onChange={(event) =>
+                                setData('closing', event.target.value)
+                            }
+                        />
+                    </div>
+                </CardContent>
+            </Card>
+
             <div className="flex justify-end">
                 <Button
+                    id="career-submit"
                     className="rounded-[10px]"
                     onClick={submit}
                     disabled={processing}

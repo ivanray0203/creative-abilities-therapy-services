@@ -561,8 +561,16 @@ class DemoDataSeeder extends Seeder
                     'hours' => $schedule === 'Full-time' ? '37.5 hrs / week' : 'Flexible',
                     'short_description' => "Join a paediatric team supporting children across the Edmonton region as a {$position}.",
                     'about_description' => 'You will carry your own caseload, work alongside a multidisciplinary team, and contribute to FSCD-funded programming.',
-                    'responsibilities' => "Assess and treat paediatric clients\nWrite funder-ready reports\nCollaborate with families and schools",
-                    'qualifications' => "Registration with the relevant Alberta college\nClear criminal record and vulnerable sector check\nValid driver's licence",
+                    'responsibilities' => [
+                        'Assess and treat paediatric clients',
+                        'Write funder-ready reports',
+                        'Collaborate with families and schools',
+                    ],
+                    'qualifications' => [
+                        'Registration with the relevant Alberta college',
+                        'Clear criminal record and vulnerable sector check',
+                        "Valid driver's licence",
+                    ],
                     'is_active' => true,
                     'due_date' => now()->addWeeks(6)->toDateString(),
                     'required_documents' => ['Resume', 'Cover Letter', 'Registration Certificate'],

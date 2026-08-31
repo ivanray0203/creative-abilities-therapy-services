@@ -5,6 +5,7 @@ import {
     DollarSign,
     FileText,
     LogOut,
+    NotebookPen,
     User,
 } from 'lucide-react';
 
@@ -26,6 +27,7 @@ import { isActiveNavItem } from '@/lib/navigation';
 const menuItems = [
     { title: 'Calendar', icon: Calendar, url: '/client/calendar' },
     { title: 'Invoices', icon: DollarSign, url: '/client/invoices' },
+    { title: 'Timesheets', icon: NotebookPen, url: '/client/timesheets' },
     { title: 'Complaints', icon: AlertCircle, url: '/client/complaints' },
     { title: 'Intakes', icon: FileText, url: '/client/intake' },
     { title: 'Profile', icon: User, url: '/client/profile' },

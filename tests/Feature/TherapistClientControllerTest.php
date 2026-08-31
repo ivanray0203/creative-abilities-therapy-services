@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Client;
-use App\Models\ClientService;
 use App\Models\Intake;
 use App\Models\ScheduleSession;
 
@@ -79,14 +78,15 @@ test('the client list paginates and reports a total matching the rows returned',
         );
 });
 
-test('the caseload flags which clients still have a service left to schedule', function () {
+test('the caseload flags which clients have contracted hours left to schedule', function () {
     $therapist = therapistUser();
 
     $bookable = Client::factory()->create(['primary_therapist_id' => $therapist->id, 'status' => 'active']);
-    ClientService::factory()->for($bookable)->create(['therapist_id' => $therapist->id]);
+    contractedService($bookable, $therapist);
 
+    // A one-hour contract, spent by a one-hour session.
     $fullyBooked = Client::factory()->create(['primary_therapist_id' => $therapist->id, 'status' => 'active']);
-    $booked = ClientService::factory()->for($fullyBooked)->create(['therapist_id' => $therapist->id]);
+    $booked = contractedService($fullyBooked, $therapist, contract: ['allotted_hours' => 1]);
     ScheduleSession::factory()->linkedTo($booked)->create([
         'client_id' => $fullyBooked->id,
         'therapist_id' => $therapist->id,
@@ -95,7 +95,7 @@ test('the caseload flags which clients still have a service left to schedule', f
 
     // Someone else's service on this therapist's client is not theirs to book.
     $otherTherapists = Client::factory()->create(['primary_therapist_id' => $therapist->id, 'status' => 'active']);
-    ClientService::factory()->for($otherTherapists)->create(['therapist_id' => therapistUser()->id]);
+    contractedService($otherTherapists, therapistUser());
 
     $this->actingAs($therapist)->get('/therapist/clients')
         ->assertInertia(function ($page) use ($bookable, $fullyBooked, $otherTherapists) {
@@ -114,7 +114,7 @@ test('the session form preselects a client passed from the caseload, ignoring on
     $therapist = therapistUser();
 
     $bookable = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    ClientService::factory()->for($bookable)->create(['therapist_id' => $therapist->id]);
+    contractedService($bookable, $therapist);
 
     $this->actingAs($therapist)->get("/therapist/sessions/create?client_id={$bookable->id}")
         ->assertInertia(fn ($page) => $page->where('preselectedClientId', $bookable->id));

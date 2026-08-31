@@ -103,7 +103,7 @@ test('a therapist creating a session is always scheduled as themselves, ignoring
     $therapist = therapistUser();
     $otherTherapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    contractedService($client, $therapist);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,
@@ -242,21 +242,17 @@ test('the client-service sessions page renders scoped and filtered sessions', fu
     );
 });
 
-test('a therapist only sees clients whose availed services of theirs are still awaiting a booking', function () {
+test('a therapist only sees clients holding a contracted service of their own', function () {
     $therapistA = therapistUser();
     $therapistB = therapistUser();
 
     $client = Client::factory()->create(['primary_therapist_id' => $therapistA->id]);
     $client->careTeam()->attach($therapistB->id);
 
-    $doneService = ClientService::factory()->for($client)->create(['therapist_id' => $therapistA->id]);
-    ScheduleSession::factory()->linkedTo($doneService)->create([
-        'client_id' => $client->id,
-        'therapist_id' => $therapistA->id,
-        'status' => 'completed',
-    ]);
+    // Assigned to therapist A, but admin has authorized nothing against it.
+    ClientService::factory()->for($client)->create(['therapist_id' => $therapistA->id]);
 
-    ClientService::factory()->for($client)->create(['therapist_id' => $therapistB->id]);
+    contractedService($client, $therapistB);
 
     $this->actingAs($therapistA)->get('/therapist/sessions/create')
         ->assertInertia(fn ($page) => $page->has('clients', 0));
@@ -268,15 +264,26 @@ test('a therapist only sees clients whose availed services of theirs are still a
         );
 });
 
-test('a client drops off the picker once the therapist has scheduled their remaining service, and returns if it is cancelled', function () {
+test('a booked service stays on offer until its contract hours run out, and cancelling gives them back', function () {
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    $clientService = ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    $clientService = contractedService($client, $therapist, contract: ['allotted_hours' => 2]);
 
     $this->actingAs($therapist)->get('/therapist/sessions/create')
         ->assertInertia(fn ($page) => $page->has('clients', 1));
 
+    // One hour of the two. Under the old rule this alone retired the
+    // service; under a contract it has half its pool left.
     $session = ScheduleSession::factory()->linkedTo($clientService)->create([
+        'client_id' => $client->id,
+        'therapist_id' => $therapist->id,
+        'status' => 'scheduled',
+    ]);
+
+    $this->actingAs($therapist)->get('/therapist/sessions/create')
+        ->assertInertia(fn ($page) => $page->has('clients', 1));
+
+    ScheduleSession::factory()->linkedTo($clientService)->create([
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
         'status' => 'scheduled',
@@ -294,7 +301,7 @@ test('a client drops off the picker once the therapist has scheduled their remai
 test('the session being edited keeps its client and linked service selectable', function () {
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    $clientService = ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    $clientService = contractedService($client, $therapist);
     $session = ScheduleSession::factory()->linkedTo($clientService)->create([
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
@@ -310,7 +317,7 @@ test('the session being edited keeps its client and linked service selectable', 
         );
 });
 
-test('a therapist cannot schedule for a caseload client with no service of theirs left to book', function () {
+test('a therapist cannot schedule for a caseload client with no contracted service of theirs', function () {
     $therapist = therapistUser();
     $otherTherapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
@@ -330,14 +337,11 @@ test('a therapist session takes its service from the availed service it is linke
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
     $service = ServiceOffering::factory()->create();
-    $clientService = ClientService::factory()->for($client)->create([
-        'therapist_id' => $therapist->id,
-        'service_id' => $service->id,
-    ]);
+    $clientService = contractedService($client, $therapist, ['service_id' => $service->id]);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,
-        'linked_client_service_ids' => [$clientService->id],
+        'linked_client_services' => [['client_service_id' => $clientService->id]],
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
         'end_time' => '09:30',
@@ -346,90 +350,143 @@ test('a therapist session takes its service from the availed service it is linke
     expect(ScheduleSession::first()->service_id)->toBe($service->id);
 });
 
-test('one session can cover several availed services, leaving only the unbooked ones on offer', function () {
+test('one session covering several availed services splits its hours between their contracts', function () {
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    [$first, $second, $third] = ClientService::factory()
-        ->count(3)
-        ->for($client)
-        ->create(['therapist_id' => $therapist->id])
-        ->all();
+    $first = contractedService($client, $therapist);
+    $second = contractedService($client, $therapist);
+    contractedService($client, $therapist);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,
-        'linked_client_service_ids' => [$first->id, $second->id],
+        'linked_client_services' => [
+            ['client_service_id' => $first->id],
+            ['client_service_id' => $second->id],
+        ],
         'date' => now()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'end_time' => '09:30',
+        'end_time' => '10:00',
     ])->assertSessionHasNoErrors();
 
     $session = ScheduleSession::first();
     expect($session->clientServices->pluck('id')->sort()->values()->all())
-        ->toBe(collect([$first->id, $second->id])->sort()->values()->all());
+        ->toBe(collect([$first->id, $second->id])->sort()->values()->all())
+        // An hour across two services, so half each, with no figure posted.
+        ->and((float) $session->clientServices->firstWhere('id', $first->id)->pivot->hours)->toBe(0.5)
+        ->and((float) $session->clientServices->firstWhere('id', $second->id)->pivot->hours)->toBe(0.5)
+        ->and($first->contracts()->first()->remainingHours())->toBe(39.5);
 
+    // All three still have hours, so all three stay on offer — the old rule
+    // would have retired the two just booked.
     $this->actingAs($therapist)->get('/therapist/sessions/create')
         ->assertInertia(fn ($page) => $page
             ->has('clients', 1)
-            ->has('clients.0.client_services', 1)
-            ->where('clients.0.client_services.0.id', $third->id)
+            ->has('clients.0.client_services', 3)
         );
 });
 
-test('an availed service already booked cannot be scheduled a second time', function () {
+test('a therapist may set the split themselves, and it has to add up to the visit', function () {
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    $booked = ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
-    $free = ClientService::factory()->for($client)->create(['therapist_id' => $therapist->id]);
+    $first = contractedService($client, $therapist);
+    $second = contractedService($client, $therapist);
 
-    ScheduleSession::factory()->linkedTo($booked)->create([
+    $post = fn (float $firstHours, float $secondHours) => $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,
-        'therapist_id' => $therapist->id,
-        'status' => 'scheduled',
+        'linked_client_services' => [
+            ['client_service_id' => $first->id, 'hours' => $firstHours],
+            ['client_service_id' => $second->id, 'hours' => $secondHours],
+        ],
+        'date' => now()->addDay()->toDateString(),
+        'start_time' => '09:00',
+        'end_time' => '11:00',
+    ]);
+
+    $post(1.5, 0.25)->assertSessionHasErrors('linked_client_services');
+    expect(ScheduleSession::count())->toBe(0);
+
+    $post(1.5, 0.5)->assertSessionHasNoErrors();
+
+    $session = ScheduleSession::first();
+    expect((float) $session->clientServices->firstWhere('id', $first->id)->pivot->hours)->toBe(1.5)
+        ->and((float) $session->clientServices->firstWhere('id', $second->id)->pivot->hours)->toBe(0.5);
+});
+
+test('a service can be booked repeatedly until its contract empties, then is refused', function () {
+    $therapist = therapistUser();
+    $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
+    $clientService = contractedService($client, $therapist, contract: ['allotted_hours' => 1.5]);
+
+    $book = fn (int $daysAhead, string $from, string $to) => $this->actingAs($therapist)->post('/therapist/sessions', [
+        'client_id' => $client->id,
+        'linked_client_services' => [['client_service_id' => $clientService->id]],
+        'date' => now()->addDays($daysAhead)->toDateString(),
+        'start_time' => $from,
+        'end_time' => $to,
+    ]);
+
+    $book(1, '09:00', '10:00')->assertSessionHasNoErrors();
+    // Exactly to the allotment, which is allowed.
+    $book(2, '09:00', '09:30')->assertSessionHasNoErrors();
+
+    $book(3, '09:00', '09:30')
+        ->assertSessionHasErrors('linked_client_services');
+
+    expect(ScheduleSession::count())->toBe(2)
+        ->and($clientService->contracts()->first()->remainingHours())->toBe(0.0);
+});
+
+test('a session dated outside its contract period is refused', function () {
+    $therapist = therapistUser();
+    $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
+    $clientService = contractedService($client, $therapist, contract: [
+        'period_start' => now()->startOfMonth()->toDateString(),
+        'period_end' => now()->endOfMonth()->toDateString(),
     ]);
 
     $this->actingAs($therapist)->post('/therapist/sessions', [
         'client_id' => $client->id,
-        'linked_client_service_ids' => [$free->id, $booked->id],
-        'date' => now()->addDays(2)->toDateString(),
+        'linked_client_services' => [['client_service_id' => $clientService->id]],
+        'date' => now()->addMonth()->startOfMonth()->addDay()->toDateString(),
         'start_time' => '09:00',
-        'end_time' => '09:30',
-    ])->assertSessionHasErrors('linked_client_service_ids');
+        'end_time' => '10:00',
+    ])->assertSessionHasErrors('linked_client_services');
 
-    expect(ScheduleSession::count())->toBe(1);
+    expect(ScheduleSession::count())->toBe(0);
 });
 
 test('rescheduling keeps the services the session already covers and can drop one', function () {
     $therapist = therapistUser();
     $client = Client::factory()->create(['primary_therapist_id' => $therapist->id]);
-    [$first, $second] = ClientService::factory()
-        ->count(2)
-        ->for($client)
-        ->create(['therapist_id' => $therapist->id])
-        ->all();
+    $first = contractedService($client, $therapist);
+    $second = contractedService($client, $therapist);
 
     $session = ScheduleSession::factory()->create([
         'client_id' => $client->id,
         'therapist_id' => $therapist->id,
         'status' => 'scheduled',
     ]);
-    $session->clientServices()->sync([$first->id, $second->id]);
+    $session->clientServices()->sync([
+        $first->id => ['hours' => 0.5, 'service_contract_id' => $first->contracts()->first()->id],
+        $second->id => ['hours' => 0.5, 'service_contract_id' => $second->contracts()->first()->id],
+    ]);
 
     $this->actingAs($therapist)->put("/therapist/sessions/{$session->id}", [
         'client_id' => $client->id,
-        'linked_client_service_ids' => [$first->id],
+        'linked_client_services' => [['client_service_id' => $first->id]],
         'date' => now()->addDays(3)->toDateString(),
         'start_time' => '11:00',
         'end_time' => '12:00',
     ])->assertSessionHasNoErrors();
 
-    expect($session->fresh()->clientServices->pluck('id')->all())->toBe([$first->id]);
+    expect($session->fresh()->clientServices->pluck('id')->all())->toBe([$first->id])
+        // The whole hour now sits on the one service left.
+        ->and((float) $session->fresh()->clientServices->first()->pivot->hours)->toBe(1.0)
+        // Dropped from the session, the second service gets its half hour back.
+        ->and($second->contracts()->first()->remainingHours())->toBe(40.0);
 
-    // Dropped from the session, the second service is bookable again.
     $this->actingAs($therapist)->get('/therapist/sessions/create')
-        ->assertInertia(fn ($page) => $page
-            ->has('clients.0.client_services', 1)
-            ->where('clients.0.client_services.0.id', $second->id)
-        );
+        ->assertInertia(fn ($page) => $page->has('clients.0.client_services', 2));
 });
 
 test('a session lists every availed service it covers, for both the therapist list and the client calendar', function () {

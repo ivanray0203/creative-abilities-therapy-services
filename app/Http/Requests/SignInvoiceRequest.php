@@ -2,7 +2,7 @@
 
 namespace App\Http\Requests;
 
-use Closure;
+use App\Rules\PngSignature;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -25,36 +25,7 @@ class SignInvoiceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'signature' => ['required', 'string', 'max:2000000', $this->pngDataUri()],
+            'signature' => ['required', 'string', 'max:2000000', new PngSignature],
         ];
-    }
-
-    /**
-     * Only a base64 PNG data URI is accepted — anything else would be
-     * embedded straight into the PDF by dompdf.
-     */
-    private function pngDataUri(): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail): void {
-            if (! is_string($value) || ! str_starts_with($value, 'data:image/png;base64,')) {
-                $fail('The signature must be a PNG image.');
-
-                return;
-            }
-
-            $payload = substr($value, strlen('data:image/png;base64,'));
-            $decoded = base64_decode($payload, true);
-
-            if ($decoded === false || $decoded === '') {
-                $fail('The signature could not be read. Please draw it again.');
-
-                return;
-            }
-
-            // PNG magic number, so a renamed payload cannot reach dompdf.
-            if (! str_starts_with($decoded, "\x89PNG\r\n\x1a\n")) {
-                $fail('The signature must be a PNG image.');
-            }
-        };
     }
 }

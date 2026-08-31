@@ -13,23 +13,12 @@ class UpdateSessionRequest extends StoreSessionRequest
     /**
      * A session always overlaps itself, so the row being edited is excluded
      * from the conflict check — otherwise saving a session without moving it
-     * would fail against its own booking.
+     * would fail against its own booking. Phase 20 gave the same id a second
+     * job: excluding the session's own hours from its contract's balance.
      */
     protected function ignoredSessionId(): ?int
     {
         return $this->editedSession()?->id;
-    }
-
-    /**
-     * @return array<int, int>
-     */
-    protected function linkedClientServiceIds(): array
-    {
-        return $this->editedSession()
-            ?->clientServices()
-            ->pluck('client_services.id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all() ?? [];
     }
 
     private function editedSession(): ?ScheduleSession

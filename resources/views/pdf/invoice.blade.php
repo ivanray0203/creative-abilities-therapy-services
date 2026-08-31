@@ -36,16 +36,16 @@
         .head-brand .brand-kicker {
             font-family: Helvetica-Bold, sans-serif;
             font-size: 7.5pt;
-            color: #E2853D;
+            color: #D87E45;
         }
-        .brand-accent { color: #E2853D; }
+        .brand-accent { color: #D87E45; }
 
         .head-title {
             text-align: right;
             vertical-align: top;
             font-family: Helvetica-Bold, sans-serif;
             font-size: 34pt;
-            color: #4a4a4a;
+            color: #4D4D4D;
         }
 
         .company { font-size: 9.5pt; line-height: 1.55; }
@@ -60,7 +60,7 @@
             font-size: 9.5pt;
         }
         .summary .label {
-            background: #E2853D;
+            background: #D87E45;
             font-family: Helvetica-Bold, sans-serif;
             width: 46%;
         }
@@ -75,15 +75,15 @@
             border: 1px solid #1a1a1a;
         }
         .items th {
-            background: #E2853D;
+            background: #D87E45;
             border: 1px solid #1a1a1a;
             font-family: Helvetica-Bold, sans-serif;
             font-size: 9.5pt;
             padding: 4px 3px;
         }
         .items td {
-            border-left: 1px dotted #4a4a4a;
-            border-right: 1px dotted #4a4a4a;
+            border-left: 1px dotted #4D4D4D;
+            border-right: 1px dotted #4D4D4D;
             border-bottom: 1px dotted #b4b4b4;
             padding: 3px;
             font-size: 9pt;
@@ -108,7 +108,7 @@
             font-family: Helvetica-Oblique, sans-serif;
             text-align: center;
         }
-        .totals .total-label { background: #E2853D; }
+        .totals .total-label { background: #D87E45; }
 
         .signatures { margin-top: 26px; }
         .signatures td { width: 50%; text-align: center; vertical-align: top; }
