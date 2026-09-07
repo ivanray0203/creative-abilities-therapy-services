@@ -11,6 +11,7 @@ use App\Services\GoogleDrive\DriveStorage;
 use Closure;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -434,9 +435,23 @@ class IntakeSubmissionService
             ->where('new_intake', true)
             ->pluck('email');
 
-        if ($adminEmails->isNotEmpty()) {
-            Mail::to($adminEmails)->send(new IntakeSubmittedAdminNotification($intake));
+        if ($adminEmails->isEmpty()) {
+            Log::warning('IntakeSubmittedAdminNotification skipped: no active admin has new_intake enabled.', [
+                'intake_id' => $intake->id,
+                'reference_number' => $intake->reference_number,
+            ]);
+
+            return;
         }
+
+        Log::info('IntakeSubmittedAdminNotification queued.', [
+            'intake_id' => $intake->id,
+            'reference_number' => $intake->reference_number,
+            'recipients' => $adminEmails->all(),
+            'mailer' => config('mail.default'),
+        ]);
+
+        Mail::to($adminEmails)->send(new IntakeSubmittedAdminNotification($intake));
     }
 
     /**

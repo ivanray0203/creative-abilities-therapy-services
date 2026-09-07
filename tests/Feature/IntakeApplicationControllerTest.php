@@ -1,10 +1,13 @@
 <?php
 
+use App\Mail\IntakeSubmittedAdminNotification;
 use App\Models\ConsentDocument;
 use App\Models\Intake;
 use App\Models\User;
 use App\Models\UserConsentAcceptance;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 uses(RefreshDatabase::class);
 
@@ -78,6 +81,34 @@ test('a visitor can submit a private-pay intake application', function () {
     expect($acceptance->document_id)->toBe($document->id);
     expect($acceptance->user_id)->toBeNull();
     expect($acceptance->is_revoked)->toBeFalse();
+});
+
+test('submitting an intake logs the admin notification with its recipients', function () {
+    Mail::fake();
+    Log::spy();
+    User::factory()->create(['email' => 'boss@cats.test', 'role' => 'admin', 'is_active' => true, 'new_intake' => true]);
+    $document = ConsentDocument::factory()->create(['purpose' => 'intake', 'is_active' => true]);
+
+    $this->post('/intake/apply', validIntakePayload(['consent_ids' => [$document->id]]))->assertRedirect();
+
+    Mail::assertQueued(IntakeSubmittedAdminNotification::class);
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => $message === 'IntakeSubmittedAdminNotification queued.'
+            && $context['recipients'] === ['boss@cats.test'])
+        ->once();
+});
+
+test('submitting an intake logs a warning when no admin wants intake notifications', function () {
+    Mail::fake();
+    Log::spy();
+    $document = ConsentDocument::factory()->create(['purpose' => 'intake', 'is_active' => true]);
+
+    $this->post('/intake/apply', validIntakePayload(['consent_ids' => [$document->id]]))->assertRedirect();
+
+    Mail::assertNotQueued(IntakeSubmittedAdminNotification::class);
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message): bool => str_starts_with($message, 'IntakeSubmittedAdminNotification skipped'))
+        ->once();
 });
 
 test('an fscd funding source requires fscd case worker fields and produces hardcoded fscd consents', function () {

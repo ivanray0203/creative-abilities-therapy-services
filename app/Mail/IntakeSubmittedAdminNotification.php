@@ -9,6 +9,7 @@ use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 /** Reference: cats-backend/cats/views.py:172, notifies admin of a new intake submission. */
 class IntakeSubmittedAdminNotification extends Mailable implements ShouldQueue
@@ -19,6 +20,12 @@ class IntakeSubmittedAdminNotification extends Mailable implements ShouldQueue
 
     public function envelope(): Envelope
     {
+        Log::info('IntakeSubmittedAdminNotification building for delivery.', [
+            'intake_id' => $this->intake->id,
+            'reference_number' => $this->intake->reference_number,
+            'mailer' => config('mail.default'),
+        ]);
+
         return new Envelope(
             subject: 'New Intake Form Submission',
         );
