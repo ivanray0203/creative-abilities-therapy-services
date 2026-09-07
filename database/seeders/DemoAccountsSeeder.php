@@ -21,18 +21,6 @@ class DemoAccountsSeeder extends Seeder
 
     public function run(): void
     {
-        $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@creativeabilitiestherapyservices.ca'],
-            [
-                'first_name' => 'Admin',
-                'last_name' => 'Admin',
-                'role' => 'admin',
-                'is_active' => true,
-                'email_verified_at' => now(),
-                'password' => Hash::make('CaTsInc123*'),
-            ],
-        );
-
         User::query()->updateOrCreate(
             ['email' => 'ivanray0621@gmail.com'],
             [
