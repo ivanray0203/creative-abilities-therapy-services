@@ -34,4 +34,10 @@ class TeamMemberFactory extends Factory
             'phone' => fake()->phoneNumber(),
         ];
     }
+
+    /** A candidate whose account exists but whose documents are still under review. */
+    public function onboarding(): static
+    {
+        return $this->state(fn (): array => ['employment_status' => 'onboarding']);
+    }
 }

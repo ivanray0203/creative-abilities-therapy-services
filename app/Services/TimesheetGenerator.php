@@ -139,7 +139,8 @@ class TimesheetGenerator
     }
 
     /**
-     * The four column totals and their sum, as the foot of the form reads.
+     * The four column totals, plus the grand total the foot of the form
+     * prints under the aide-support columns: direct plus indirect hours only.
      *
      * @param  Collection<int, TimesheetEntry>  $entries
      * @return array<string, float>
@@ -153,7 +154,10 @@ class TimesheetGenerator
             'total_bda_indirect' => round($entries->sum(fn (TimesheetEntry $entry): float => (float) $entry->bda_indirect_hours), 2),
         ];
 
-        return [...$totals, 'total_hours' => round(array_sum($totals), 2)];
+        return [
+            ...$totals,
+            'total_hours' => round($totals['total_bda_direct'] + $totals['total_bda_indirect'], 2),
+        ];
     }
 
     /**

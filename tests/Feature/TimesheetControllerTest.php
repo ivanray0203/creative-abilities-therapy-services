@@ -97,7 +97,7 @@ test('logging hours saves one row per day', function () {
     expect($first->therapist_id)->toBe($aide->id)
         ->and($first->client_id)->toBe($client->id)
         ->and((float) $first->bda_direct_hours)->toBe(1.5)
-        ->and($first->totalHours())->toBe(3.75)
+        ->and($first->totalHours())->toBe(1.75)
         ->and($first->timesheet_id)->toBeNull();
 });
 
@@ -226,7 +226,7 @@ test('generating claims the unclaimed hours in range, totals them and mails the 
         ->and((float) $timesheet->total_community_support)->toBe(3.0)
         ->and((float) $timesheet->total_bda_direct)->toBe(2.5)
         ->and((float) $timesheet->total_bda_indirect)->toBe(0.25)
-        ->and((float) $timesheet->total_hours)->toBe(7.75)
+        ->and((float) $timesheet->total_hours)->toBe(2.75)
         ->and($timesheet->rows)->toHaveCount(2)
         ->and($timesheet->not_signed_timesheet)->not->toBeNull();
 

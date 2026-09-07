@@ -51,7 +51,7 @@ class StoreTimesheetEntryRequest extends FormRequest
             $seen = [];
 
             foreach ($entries as $index => $entry) {
-                if ($this->totalHours($entry) <= 0) {
+                if ($this->loggedHours($entry) <= 0) {
                     $validator->errors()->add(
                         "entries.{$index}.hourly_respite_hours",
                         'Enter at least one hour for this day.',
@@ -73,9 +73,12 @@ class StoreTimesheetEntryRequest extends FormRequest
     }
 
     /**
+     * Every column added together — a day with only respite hours is still a
+     * day worth logging, even though those hours sit outside the total.
+     *
      * @param  array<string, mixed>  $entry
      */
-    private function totalHours(array $entry): float
+    private function loggedHours(array $entry): float
     {
         return (float) ($entry['hourly_respite_hours'] ?? 0)
             + (float) ($entry['community_support_hours'] ?? 0)

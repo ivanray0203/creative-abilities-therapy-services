@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch';
 import type { EmploymentStatus, TeamMember } from '@/types/team-member';
 
 const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
+    'onboarding',
     'active',
     'inactive',
     'on_leave',

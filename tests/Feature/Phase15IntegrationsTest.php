@@ -75,7 +75,7 @@ test('sending an offer emails the offer letter with a link to sign it', function
     Mail::assertNotQueued(LoginCredentialsMail::class);
 });
 
-test('hiring a candidate who signed their offer sends their login credentials', function () {
+test('starting onboarding for a candidate who signed their offer sends their login credentials', function () {
     Mail::fake();
 
     $application = Application::factory()->offerSigned()->create([
@@ -86,7 +86,7 @@ test('hiring a candidate who signed their offer sends their login credentials', 
     ]);
 
     $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
-        'application_status' => 'hired',
+        'application_status' => 'onboarding',
     ])->assertSessionHasNoErrors();
 
     Mail::assertQueued(LoginCredentialsMail::class, fn ($mail) => $mail->hasTo('new.hire@example.com'));
@@ -110,7 +110,7 @@ test('OfferLetterMail survives real queue JSON serialization with its binary PDF
     expect($payload)->not->toBeFalse();
 });
 
-test('hiring an applicant provisions a Mailcow mailbox when Mailcow is configured', function () {
+test('starting onboarding provisions a Mailcow mailbox when Mailcow is configured', function () {
     config(['services.mailcow.api_key' => 'test-key', 'services.mailcow.default_domain' => 'example.com']);
     Mail::fake();
     Bus::fake();
@@ -122,7 +122,7 @@ test('hiring an applicant provisions a Mailcow mailbox when Mailcow is configure
     ]);
 
     $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
-        'application_status' => 'hired',
+        'application_status' => 'onboarding',
     ])->assertSessionHasNoErrors();
 
     Bus::assertDispatched(CreateMailcowMailbox::class);

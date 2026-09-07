@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import type { Client } from '@/types/client';
-import { HOUR_COLUMNS } from '@/types/timesheet';
+import { HOUR_COLUMNS, TOTAL_COLUMNS } from '@/types/timesheet';
 
 interface DayForm {
     entry_date: string;
@@ -58,9 +58,12 @@ export default function HoursForm({ clients }: { clients: Client[] }) {
             entries: [{ ...EMPTY_DAY }],
         });
 
-    /** Every column of one day added together, as the form's total reads. */
+    /**
+     * Direct plus indirect hours — respite and community-support hours have
+     * their own columns but are not part of the total.
+     */
     const dayTotal = (day: DayForm): number =>
-        HOUR_COLUMNS.reduce(
+        TOTAL_COLUMNS.reduce(
             (sum, column) => sum + (parseFloat(day[column.entryKey]) || 0),
             0,
         );
@@ -340,6 +343,9 @@ export default function HoursForm({ clients }: { clients: Client[] }) {
                             <span>Total Hours</span>
                             <span>{total.toFixed(2)}</span>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            Direct and indirect hours only.
+                        </p>
                     </div>
 
                     <p className="mt-4 text-xs text-muted-foreground">

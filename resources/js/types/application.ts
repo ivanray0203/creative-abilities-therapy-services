@@ -8,6 +8,7 @@ export type ApplicationStatus =
     | 'reviewing'
     | 'interview_scheduled'
     | 'offer_sent'
+    | 'onboarding'
     | 'hired'
     | 'declined';
 
@@ -60,6 +61,8 @@ export interface Application {
     interview_date: string | null;
     interview_time: string | null;
     interview_platform: string | null;
+    /** Google Meet link for a video interview; null when none was generated. */
+    interview_meeting_link: string | null;
     /**
      * Server-rendered labels, appended by the Application model so the admin
      * screens and the candidate's email read the same string — and so the
@@ -82,6 +85,7 @@ export interface Application {
     signed_offer_letter: string | null;
     offer_accepted_at: string | null;
     offer_declined_at: string | null;
+    onboarding_started_at: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -92,8 +96,29 @@ export interface ApplicationStats {
     reviewing: number;
     interview_scheduled: number;
     offer_sent: number;
+    onboarding: number;
     hired: number;
     declined: number;
+}
+
+/** One document the candidate uploaded through their profile during onboarding. */
+export interface OnboardingDocument {
+    id: number;
+    title: string | null;
+    doc_type: string | null;
+    drive_web_view: string | null;
+    uploaded_at: string | null;
+}
+
+/**
+ * The checklist an admin reviews before hiring: what the position requires,
+ * what has been uploaded, and what is still outstanding. Null until the
+ * candidate has been moved to onboarding.
+ */
+export interface ApplicationOnboarding {
+    required_documents: string[];
+    missing_documents: string[];
+    documents: OnboardingDocument[];
 }
 
 export type { Paginated } from '@/types/intake';

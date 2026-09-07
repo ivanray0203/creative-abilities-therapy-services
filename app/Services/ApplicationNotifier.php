@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Mail\CareerApplicationDeclinedMail;
+use App\Mail\CareerApplicationHiredMail;
 use App\Mail\CareerApplicationInterviewRescheduledMail;
 use App\Mail\CareerApplicationInterviewScheduledMail;
 use App\Mail\CareerApplicationUnderReviewMail;
+use App\Mail\LoginCredentialsMail;
 use App\Models\Application;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Log;
@@ -16,9 +18,9 @@ use Illuminate\Support\Facades\Mail;
  *
  * Before this, an applicant heard nothing between the submission receipt and
  * an offer letter — interviews were booked and applications declined in
- * silence. Every pipeline transition short of the hire now reaches the
- * candidate; the hire keeps its own offer letter and credentials mail in
- * ApplicationController.
+ * silence. Every pipeline transition now reaches the candidate: onboarding
+ * carries their login credentials and the documents to upload, and the hire
+ * confirms the portal is fully open.
  *
  * Mirrors SessionNotifier: each mailable is `ShouldQueue`, and each send is
  * wrapped so a queue or transport failure cannot turn a saved status change
@@ -44,6 +46,25 @@ class ApplicationNotifier
     public static function declined(Application $application): void
     {
         self::send($application, new CareerApplicationDeclinedMail($application));
+    }
+
+    /**
+     * Login details plus the document checklist. `$rawPassword` is null
+     * when the candidate's email already had an account.
+     */
+    public static function onboardingStarted(Application $application, ?string $rawPassword): void
+    {
+        self::send($application, new LoginCredentialsMail(
+            $application->first_name,
+            $application->email,
+            $rawPassword,
+            $application->requiredDocuments(),
+        ));
+    }
+
+    public static function hired(Application $application): void
+    {
+        self::send($application, new CareerApplicationHiredMail($application));
     }
 
     private static function send(Application $application, Mailable $mailable): void

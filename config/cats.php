@@ -32,6 +32,16 @@ return [
     | signed link they sign through, so the offer and the link expire together.
     |
     */
+    /*
+     * Interviews are booked as calendar events on the connected Google
+     * account so a Google Meet link can be generated. The timezone is the
+     * one the admin types the interview time in.
+     */
+    'interview' => [
+        'timezone' => env('CATS_INTERVIEW_TIMEZONE', 'America/Edmonton'),
+        'duration_minutes' => (int) env('CATS_INTERVIEW_DURATION_MINUTES', 60),
+    ],
+
     'offer' => [
         'legal_name' => env('CATS_OFFER_LEGAL_NAME', 'Creative Abilities Therapy Services'),
         'engagement_type' => env('CATS_OFFER_ENGAGEMENT_TYPE', 'Independent Contractor'),

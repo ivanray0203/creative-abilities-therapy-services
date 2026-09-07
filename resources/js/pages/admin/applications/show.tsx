@@ -1,9 +1,11 @@
 import { Link, router } from '@inertiajs/react';
 import {
+    AlertTriangle,
     ArrowLeftIcon,
     Calendar,
     CheckCircle,
     CircleX,
+    ClipboardCheck,
     DollarSign,
     FileSignature,
     Clock as ClockIcon,
@@ -16,6 +18,7 @@ import { useState } from 'react';
 import ApplicationTab from '@/components/admin/application/application-tab';
 import AvailabilityTab from '@/components/admin/application/availability-tab';
 import { ApplicationStatusBadge } from '@/components/admin/application/badges';
+import DocumentsTab from '@/components/admin/application/documents-tab';
 import NotesTab from '@/components/admin/application/notes-tab';
 import OverviewTab from '@/components/admin/application/overview-tab';
 import UpdateApplicationStatusModal from '@/components/admin/update-application-status-modal';
@@ -25,17 +28,23 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
 import { capitalize, formatDate, getInitials } from '@/lib/helpers';
-import type { Application, ApplicationStatus } from '@/types/application';
+import type {
+    Application,
+    ApplicationOnboarding,
+    ApplicationStatus,
+} from '@/types/application';
 
 interface ApplicationShowProps {
     application: Application;
     statusTransitions: ApplicationStatus[];
+    onboarding: ApplicationOnboarding | null;
 }
 
 /** Admin application detail page, ported from cats-frontend/src/pages/admin/ApplicationDetailPage.tsx. */
 export default function AdminApplicationShow({
     application,
     statusTransitions,
+    onboarding,
 }: ApplicationShowProps) {
     const [statusUpdate, setStatusUpdate] = useState<ApplicationStatus | ''>(
         '',
@@ -45,14 +54,18 @@ export default function AdminApplicationShow({
     const canReview =
         application.application_status === 'pending' &&
         statusTransitions.includes('reviewing');
+    const isOnboarding = application.application_status === 'onboarding';
     const canDecide =
         application.application_status !== 'pending' &&
+        application.application_status !== 'onboarding' &&
         application.application_status !== 'hired' &&
         application.application_status !== 'declined';
     const offerSent = application.application_status === 'offer_sent';
     const offerSigned = Boolean(
         application.offer_accepted_at && application.signed_offer_letter,
     );
+    const missingDocuments = onboarding?.missing_documents ?? [];
+    const documentsComplete = isOnboarding && missingDocuments.length === 0;
 
     const openStatusModal = (status: ApplicationStatus) => {
         setStatusUpdate(status);
@@ -184,8 +197,10 @@ export default function AdminApplicationShow({
 
                                     <Button
                                         variant="outline"
-                                        className="rounded-[5px] bg-green-600 text-white hover:bg-white hover:text-green-600 disabled:opacity-50"
-                                        onClick={() => openStatusModal('hired')}
+                                        className="rounded-[5px] bg-cyan-600 text-white hover:bg-white hover:text-cyan-600 disabled:opacity-50"
+                                        onClick={() =>
+                                            openStatusModal('onboarding')
+                                        }
                                         disabled={!offerSigned}
                                         title={
                                             offerSigned
@@ -193,11 +208,39 @@ export default function AdminApplicationShow({
                                                 : 'The candidate has not signed their offer letter yet.'
                                         }
                                     >
-                                        <UserCheck2 />
-                                        Hire
+                                        <ClipboardCheck />
+                                        Start Onboarding
                                     </Button>
                                 </>
                             )}
+
+                            <Button
+                                variant="outline"
+                                className="rounded-[5px] bg-red-600 text-white hover:bg-white hover:text-red-600"
+                                onClick={() => openStatusModal('declined')}
+                            >
+                                <CircleX />
+                                Decline
+                            </Button>
+                        </div>
+                    )}
+
+                    {isOnboarding && (
+                        <div className="flex flex-col gap-2 md:flex-row">
+                            <Button
+                                variant="outline"
+                                className="rounded-[5px] bg-green-600 text-white hover:bg-white hover:text-green-600 disabled:opacity-50"
+                                onClick={() => openStatusModal('hired')}
+                                disabled={!documentsComplete}
+                                title={
+                                    documentsComplete
+                                        ? undefined
+                                        : 'The candidate has not uploaded every required document yet.'
+                                }
+                            >
+                                <UserCheck2 />
+                                Hire
+                            </Button>
 
                             <Button
                                 variant="outline"
@@ -213,16 +256,43 @@ export default function AdminApplicationShow({
             </div>
 
             {application.application_status === 'interview_scheduled' && (
-                <div className="rounded-[5px] border border-yellow-400 bg-yellow-50 p-4">
-                    <p className="flex flex-row items-center gap-4 text-yellow-800">
-                        <Calendar className="h-4 w-4" /> Interview Scheduled
-                    </p>
-                    <div className="ml-8 flex flex-row items-center gap-3 text-sm text-yellow-800">
-                        <Calendar className="h-3 w-3" />
-                        <p>{application.interview_schedule}</p>
-                        <Video className="h-3 w-3" />
-                        <p>{application.interview_platform_label}</p>
+                <div className="flex flex-col justify-between gap-3 rounded-[5px] border border-yellow-400 bg-yellow-50 p-4 md:flex-row md:items-center">
+                    <div>
+                        <p className="flex flex-row items-center gap-4 text-yellow-800">
+                            <Calendar className="h-4 w-4" /> Interview Scheduled
+                        </p>
+                        <div className="ml-8 flex flex-row flex-wrap items-center gap-3 text-sm text-yellow-800">
+                            <Calendar className="h-3 w-3" />
+                            <p>{application.interview_schedule}</p>
+                            <Video className="h-3 w-3" />
+                            <p>{application.interview_platform_label}</p>
+                        </div>
+                        {application.interview_platform === 'video' &&
+                            !application.interview_meeting_link && (
+                                <p className="mt-1 ml-8 text-xs text-yellow-800">
+                                    No Google Meet link was generated. Connect
+                                    the Google account under Google Drive
+                                    settings and reschedule to create one.
+                                </p>
+                            )}
                     </div>
+
+                    {application.interview_meeting_link && (
+                        <Button
+                            variant="outline"
+                            className="rounded-[5px] border-yellow-500 text-yellow-700"
+                            asChild
+                        >
+                            <a
+                                href={application.interview_meeting_link}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                <Video />
+                                Join Google Meet
+                            </a>
+                        </Button>
+                    )}
                 </div>
             )}
 
@@ -288,6 +358,113 @@ export default function AdminApplicationShow({
                 </div>
             )}
 
+            {onboarding && (
+                <div className="rounded-[5px] border border-cyan-400 bg-cyan-50 p-4 text-cyan-900">
+                    <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
+                        <div>
+                            <p className="flex flex-row items-center gap-4">
+                                <ClipboardCheck className="h-4 w-4" />
+                                {isOnboarding
+                                    ? documentsComplete
+                                        ? 'Onboarding documents complete — ready to hire'
+                                        : 'Onboarding in progress — awaiting documents'
+                                    : 'Onboarding documents'}
+                            </p>
+                            {application.onboarding_started_at && (
+                                <p className="ml-8 text-sm">
+                                    Account created{' '}
+                                    {formatDate(
+                                        application.onboarding_started_at,
+                                    )}
+                                    . The candidate can only see their profile
+                                    until they are hired.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-3 ml-8 grid gap-4 md:grid-cols-2">
+                        <div>
+                            <p className="text-sm font-medium">
+                                Required documents
+                            </p>
+                            {onboarding.required_documents.length === 0 ? (
+                                <p className="text-sm">
+                                    This position lists no required documents.
+                                </p>
+                            ) : (
+                                <ul className="mt-1 space-y-1 text-sm">
+                                    {onboarding.required_documents.map(
+                                        (doc) => {
+                                            const missing =
+                                                missingDocuments.includes(doc);
+
+                                            return (
+                                                <li
+                                                    key={doc}
+                                                    className="flex items-center gap-2"
+                                                >
+                                                    {missing ? (
+                                                        <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                                                    ) : (
+                                                        <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                                    )}
+                                                    <span
+                                                        className={
+                                                            missing
+                                                                ? 'text-red-700'
+                                                                : undefined
+                                                        }
+                                                    >
+                                                        {doc}
+                                                    </span>
+                                                </li>
+                                            );
+                                        },
+                                    )}
+                                </ul>
+                            )}
+                        </div>
+
+                        <div>
+                            <p className="text-sm font-medium">
+                                Uploaded ({onboarding.documents.length})
+                            </p>
+                            {onboarding.documents.length === 0 ? (
+                                <p className="text-sm">Nothing uploaded yet.</p>
+                            ) : (
+                                <ul className="mt-1 space-y-1 text-sm">
+                                    {onboarding.documents.map((doc) => (
+                                        <li
+                                            key={doc.id}
+                                            className="flex flex-wrap items-center gap-2"
+                                        >
+                                            <span>{doc.title}</span>
+                                            <span className="text-xs text-cyan-700">
+                                                {doc.doc_type}
+                                                {doc.uploaded_at
+                                                    ? ` • ${doc.uploaded_at.split('T')[0]}`
+                                                    : ''}
+                                            </span>
+                                            {doc.drive_web_view && (
+                                                <a
+                                                    href={doc.drive_web_view}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-xs underline"
+                                                >
+                                                    View
+                                                </a>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {application.application_status === 'hired' && (
                 <div className="flex flex-row items-center justify-between rounded-[5px] border border-orange-400 bg-orange-50 p-4">
                     <div>
@@ -341,9 +518,12 @@ export default function AdminApplicationShow({
                                 {application.application_status ===
                                 'interview_scheduled'
                                     ? 'Interview Scheduled'
-                                    : capitalize(
-                                          application.application_status,
-                                      )}
+                                    : application.application_status ===
+                                        'offer_sent'
+                                      ? 'Offer Sent'
+                                      : capitalize(
+                                            application.application_status,
+                                        )}
                             </p>
                         </div>
                     </div>
@@ -401,6 +581,13 @@ export default function AdminApplicationShow({
                         Availability
                     </TabsTrigger>
                     <TabsTrigger
+                        value="documents"
+                        className="flex-1 text-center"
+                    >
+                        Documents
+                        {onboarding ? ` (${onboarding.documents.length})` : ''}
+                    </TabsTrigger>
+                    <TabsTrigger
                         value="notes"
                         className="hidden flex-1 text-center md:block"
                     >
@@ -416,6 +603,12 @@ export default function AdminApplicationShow({
                 </TabsContent>
                 <TabsContent value="availability">
                     <AvailabilityTab application={application} />
+                </TabsContent>
+                <TabsContent value="documents">
+                    <DocumentsTab
+                        application={application}
+                        onboarding={onboarding}
+                    />
                 </TabsContent>
                 <TabsContent value="notes">
                     <NotesTab application={application} />

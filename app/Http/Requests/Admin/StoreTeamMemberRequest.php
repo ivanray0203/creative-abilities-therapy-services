@@ -18,7 +18,7 @@ class StoreTeamMemberRequest extends FormRequest
     /**
      * @var array<int, string>
      */
-    public const EMPLOYMENT_STATUSES = ['active', 'inactive', 'on_leave', 'terminated', 'archived'];
+    public const EMPLOYMENT_STATUSES = ['onboarding', 'active', 'inactive', 'on_leave', 'terminated', 'archived'];
 
     public function authorize(): bool
     {

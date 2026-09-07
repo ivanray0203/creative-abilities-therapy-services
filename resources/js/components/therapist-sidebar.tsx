@@ -53,16 +53,43 @@ const AIDE_ITEMS = [
     { title: 'Timesheets', icon: NotebookPen, url: '/therapist/timesheets' },
 ];
 
-const menuItemsFor = (isAide: boolean) => [
-    { title: 'Dashboard', icon: LayoutDashboard, url: '/therapist' },
-    { title: 'Calendar', icon: Calendar, url: '/therapist/calendar' },
-    { title: 'Sessions', icon: ClipboardIcon, url: '/therapist/sessions' },
-    { title: 'Clients', icon: Users, url: '/therapist/clients' },
-    { title: 'Reviews', icon: ClipboardList, url: '/therapist/intake' },
-    ...(isAide ? AIDE_ITEMS : BILLING_ITEMS),
-    { title: 'Complaints', icon: FileText, url: '/therapist/complaints' },
-    { title: 'Profile', icon: User, url: '/therapist/profile' },
-];
+const PROFILE_ITEM = {
+    title: 'Profile',
+    icon: User,
+    url: '/therapist/profile',
+};
+
+/*
+ * A candidate still onboarding has an account only so they can upload the
+ * documents an admin reviews before hiring them. Until that hire, Profile is
+ * the one entry they get — EnsureOnboardingComplete enforces the same rule
+ * server-side for anyone who types a URL.
+ */
+const menuItemsFor = (isAide: boolean, isOnboarding: boolean) =>
+    isOnboarding
+        ? [PROFILE_ITEM]
+        : [
+              { title: 'Dashboard', icon: LayoutDashboard, url: '/therapist' },
+              { title: 'Calendar', icon: Calendar, url: '/therapist/calendar' },
+              {
+                  title: 'Sessions',
+                  icon: ClipboardIcon,
+                  url: '/therapist/sessions',
+              },
+              { title: 'Clients', icon: Users, url: '/therapist/clients' },
+              {
+                  title: 'Reviews',
+                  icon: ClipboardList,
+                  url: '/therapist/intake',
+              },
+              ...(isAide ? AIDE_ITEMS : BILLING_ITEMS),
+              {
+                  title: 'Complaints',
+                  icon: FileText,
+                  url: '/therapist/complaints',
+              },
+              PROFILE_ITEM,
+          ];
 
 export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
     const { open } = useSidebar();
@@ -71,6 +98,7 @@ export function TherapistSidebar({ onLogout }: { onLogout: () => void }) {
     const currentUrl = page.url;
     const menuItems = menuItemsFor(
         isAidePosition(page.props.auth.team_member?.position),
+        page.props.auth.is_onboarding,
     );
 
     return (

@@ -54,6 +54,15 @@ class ApplicationFactory extends Factory
         ]);
     }
 
+    /** A signed offer whose candidate has a portal account and is uploading documents. */
+    public function onboarding(): static
+    {
+        return $this->offerSigned()->state(fn (): array => [
+            'application_status' => 'onboarding',
+            'onboarding_started_at' => now(),
+        ]);
+    }
+
     /** An offer whose deadline has passed with no answer. */
     public function offerExpired(): static
     {

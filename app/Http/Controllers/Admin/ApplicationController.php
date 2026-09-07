@@ -3,18 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Mail\LoginCredentialsMail;
 use App\Models\Application;
+use App\Models\ClientDocument;
 use App\Models\User;
 use App\Services\ApplicationHiringService;
 use App\Services\ApplicationNotifier;
 use App\Services\AuditLogger;
+use App\Services\Interviews\MeetingLinkGenerator;
 use App\Services\OfferLetterService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -40,7 +40,8 @@ class ApplicationController extends Controller
         'pending' => ['reviewing'],
         'reviewing' => ['interview_scheduled', 'offer_sent', 'declined'],
         'interview_scheduled' => ['interview_scheduled', 'offer_sent', 'declined'],
-        'offer_sent' => ['offer_sent', 'hired', 'declined'],
+        'offer_sent' => ['offer_sent', 'onboarding', 'declined'],
+        'onboarding' => ['hired', 'declined'],
         'hired' => [],
         'declined' => [],
     ];
@@ -53,6 +54,7 @@ class ApplicationController extends Controller
             'reviewing' => Application::query()->where('application_status', 'reviewing')->count(),
             'interview_scheduled' => Application::query()->where('application_status', 'interview_scheduled')->count(),
             'offer_sent' => Application::query()->where('application_status', 'offer_sent')->count(),
+            'onboarding' => Application::query()->where('application_status', 'onboarding')->count(),
             'hired' => Application::query()->where('application_status', 'hired')->count(),
             'declined' => Application::query()->where('application_status', 'declined')->count(),
         ];
@@ -83,12 +85,52 @@ class ApplicationController extends Controller
         ]);
     }
 
-    public function show(Application $application): Response
+    public function show(Application $application, ApplicationHiringService $hiringService): Response
     {
         return Inertia::render('admin/applications/show', [
             'application' => $application,
             'statusTransitions' => self::STATUS_TRANSITIONS[$application->application_status] ?? [],
+            'onboarding' => $this->onboardingFor($application, $hiringService),
         ]);
+    }
+
+    /**
+     * The document checklist an admin reviews before hiring: what the
+     * position requires, what the candidate has uploaded through their
+     * profile, and what is still outstanding. Null until onboarding starts.
+     *
+     * @return array{required_documents: array<int, string>, missing_documents: array<int, string>, documents: array<int, array<string, mixed>>}|null
+     */
+    private function onboardingFor(Application $application, ApplicationHiringService $hiringService): ?array
+    {
+        if (! in_array($application->application_status, ['onboarding', 'hired'], true)) {
+            return null;
+        }
+
+        $teamMember = $hiringService->teamMemberFor($application);
+
+        $documents = [];
+
+        if ($teamMember !== null) {
+            $documents = ClientDocument::query()
+                ->where('user_id', $teamMember->user_id)
+                ->latest('uploaded_at')
+                ->get()
+                ->map(fn (ClientDocument $document): array => [
+                    'id' => $document->id,
+                    'title' => $document->title,
+                    'doc_type' => $document->doc_type,
+                    'drive_web_view' => $document->drive_web_view,
+                    'uploaded_at' => $document->uploaded_at,
+                ])
+                ->all();
+        }
+
+        return [
+            'required_documents' => $application->requiredDocuments(),
+            'missing_documents' => $hiringService->missingDocuments($application),
+            'documents' => $documents,
+        ];
     }
 
     /**
@@ -96,10 +138,12 @@ class ApplicationController extends Controller
      * target status needs: an hourly rate when the offer goes out, interview
      * date/time/platform when one is booked, an optional note otherwise.
      *
-     * Hire is the odd one out — it asks for nothing, because everything it
-     * needs was agreed on the offer the candidate has already signed.
+     * Onboarding and hire ask for nothing, because everything they need was
+     * agreed on the offer the candidate has already signed. Onboarding
+     * creates the account and emails the credentials with the list of
+     * documents to upload; hire is allowed once every one of them is in.
      */
-    public function updateStatus(Request $request, Application $application, ApplicationHiringService $hiringService, OfferLetterService $offers): RedirectResponse
+    public function updateStatus(Request $request, Application $application, ApplicationHiringService $hiringService, OfferLetterService $offers, MeetingLinkGenerator $meetings): RedirectResponse
     {
         $allowed = self::STATUS_TRANSITIONS[$application->application_status] ?? [];
         $previousStatus = $application->application_status;
@@ -133,6 +177,11 @@ class ApplicationController extends Controller
 
         if ($validated['application_status'] === 'declined') {
             $attributes['declined'] = true;
+
+            // A declined candidate's interview comes off the calendar too.
+            $meetings->cancel($application);
+            $attributes['interview_meeting_link'] = null;
+            $attributes['interview_calendar_event_id'] = null;
         }
 
         if ($validated['application_status'] === 'offer_sent') {
@@ -146,42 +195,58 @@ class ApplicationController extends Controller
             return back()->with('success', 'Offer letter sent successfully.');
         }
 
-        if ($validated['application_status'] === 'hired') {
+        if ($validated['application_status'] === 'onboarding') {
             if (! $application->hasSignedOffer()) {
                 throw ValidationException::withMessages([
                     'application_status' => 'This candidate has not signed their offer letter yet.',
                 ]);
             }
 
-            // The rate was agreed when the offer went out and the candidate
-            // signed against it, so it is read off the application rather
-            // than asked for again here.
-            $hourlyRate = (float) $application->hourly_rate;
+            $attributes['onboarding_started_at'] = now();
+
+            $rawPassword = DB::transaction(function () use ($application, $attributes, $hiringService): ?string {
+                $provisioned = $hiringService->startOnboarding($application, (float) $application->hourly_rate);
+                $application->update($attributes);
+
+                return $provisioned['rawPassword'];
+            });
+
+            ApplicationNotifier::onboardingStarted($application, $rawPassword);
+
+            AuditLogger::log('Started onboarding', 'Applications', "Started onboarding for application #{$application->id} ({$application->email})");
+
+            return back()->with('success', 'Onboarding started. The candidate has been emailed their login details and required documents.');
+        }
+
+        if ($validated['application_status'] === 'hired') {
+            $missing = $hiringService->missingDocuments($application);
+
+            if ($missing !== []) {
+                throw ValidationException::withMessages([
+                    'application_status' => 'The candidate still has to upload: '.implode(', ', $missing).'.',
+                ]);
+            }
 
             $attributes['hired'] = true;
             $attributes['hire_date'] = now()->toDateString();
 
-            $rawPassword = DB::transaction(function () use ($application, $attributes, $hiringService, $hourlyRate): ?string {
-                $hired = $hiringService->hire($application, $hourlyRate);
+            DB::transaction(function () use ($application, $attributes, $hiringService): void {
+                $hiringService->hire($application);
                 $application->update($attributes);
-
-                return $hired['rawPassword'];
             });
 
-            if ($rawPassword !== null) {
-                Mail::to($application->email)->send(new LoginCredentialsMail(
-                    $application->first_name,
-                    $application->email,
-                    $rawPassword,
-                ));
-            }
+            ApplicationNotifier::hired($application);
 
             AuditLogger::log('Hired applicant', 'Applications', "Hired application #{$application->id} ({$application->email})");
 
-            return back()->with('success', 'Application status updated successfully.');
+            return back()->with('success', 'Candidate hired. They have been notified by email.');
         }
 
         $application->update($attributes);
+
+        if ($validated['application_status'] === 'interview_scheduled') {
+            $this->bookVideoCall($application, $meetings);
+        }
 
         $this->notifyCandidate($application, $previousStatus, $previousInterviewSchedule);
 
@@ -191,9 +256,33 @@ class ApplicationController extends Controller
     }
 
     /**
-     * Tells the candidate what just happened to their application. The hire
-     * branch returns before reaching here — it sends its own offer letter and
-     * login credentials instead.
+     * A video interview gets a Google Meet link, created (or moved, on a
+     * reschedule) on the connected Google account's calendar. Switching a
+     * booked video call to a phone or in-person interview removes the event
+     * so the candidate is not left holding a live link. The link is written
+     * before the candidate is emailed, so the invitation carries it.
+     */
+    private function bookVideoCall(Application $application, MeetingLinkGenerator $meetings): void
+    {
+        if ($application->interview_platform !== 'video') {
+            $meetings->cancel($application);
+            $application->update(['interview_meeting_link' => null, 'interview_calendar_event_id' => null]);
+
+            return;
+        }
+
+        $booking = $meetings->schedule($application);
+
+        $application->update([
+            'interview_meeting_link' => $booking['meeting_link'] ?? $application->interview_meeting_link,
+            'interview_calendar_event_id' => $booking['event_id'] ?? $application->interview_calendar_event_id,
+        ]);
+    }
+
+    /**
+     * Tells the candidate what just happened to their application. The offer,
+     * onboarding and hire branches return before reaching here — each sends
+     * its own email.
      */
     private function notifyCandidate(Application $application, string $previousStatus, ?string $previousInterviewSchedule): void
     {

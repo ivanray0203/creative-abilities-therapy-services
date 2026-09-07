@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Google\Client as GoogleClient;
+use Google\Service\Calendar as GoogleCalendar;
 use Google\Service\Drive as GoogleDrive;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -81,7 +82,11 @@ class GoogleDriveConnectionController extends Controller
         $client->setClientId(config('services.google_drive.client_id'));
         $client->setClientSecret(config('services.google_drive.client_secret'));
         $client->setRedirectUri(route('admin.google-drive.callback'));
+        // Drive for document uploads; Calendar so interview bookings can
+        // create Google Meet links on the connected account's calendar. An
+        // account connected before Calendar was added has to reconnect once.
         $client->addScope(GoogleDrive::DRIVE);
+        $client->addScope(GoogleCalendar::CALENDAR_EVENTS);
 
         return $client;
     }

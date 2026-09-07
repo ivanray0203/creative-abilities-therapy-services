@@ -3,8 +3,12 @@
 namespace App\Providers;
 
 use App\Services\GoogleDrive\DriveStorage;
+use App\Services\GoogleDrive\GoogleAccountClient;
 use App\Services\GoogleDrive\GoogleDriveService;
 use App\Services\GoogleDrive\LocalDriveStorage;
+use App\Services\Interviews\GoogleMeetLinkGenerator;
+use App\Services\Interviews\MeetingLinkGenerator;
+use App\Services\Interviews\NullMeetingLinkGenerator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +32,22 @@ class AppServiceProvider extends ServiceProvider
                 return new LocalDriveStorage;
             }
 
-            return new GoogleDriveService($clientId, $clientSecret, $tokenPath, $rootFolderId);
+            return new GoogleDriveService(new GoogleAccountClient($clientId, $clientSecret, $tokenPath), $rootFolderId);
+        });
+
+        // Google Meet links come from the same connected Google account as
+        // Drive uploads. Without that connection interviews are still booked,
+        // just without a link.
+        $this->app->bind(MeetingLinkGenerator::class, function (): MeetingLinkGenerator {
+            $clientId = config('services.google_drive.client_id');
+            $clientSecret = config('services.google_drive.client_secret');
+            $tokenPath = config('services.google_drive.token_path');
+
+            if (blank($clientId) || blank($clientSecret) || ! is_file($tokenPath)) {
+                return new NullMeetingLinkGenerator;
+            }
+
+            return new GoogleMeetLinkGenerator(new GoogleAccountClient($clientId, $clientSecret, $tokenPath));
         });
     }
 

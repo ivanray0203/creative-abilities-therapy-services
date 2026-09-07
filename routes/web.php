@@ -282,7 +282,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::put('administrator/profile', [ProfileController::class, 'update'])->name('admin.administrator.profile.update');
     });
 
-Route::middleware(['auth', 'role:therapist'])
+Route::middleware(['auth', 'role:therapist', 'onboarding.complete'])
     ->prefix('therapist')
     ->group(function () {
         Route::get('/', [TherapistDashboardController::class, 'index'])->name('therapist.home');
