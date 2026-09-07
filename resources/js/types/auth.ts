@@ -38,6 +38,11 @@ export type AuthChild = {
 export type Auth = {
     user: User | null;
     team_member: TeamMember | null;
+    /**
+     * A therapist whose account was created at onboarding and whose
+     * documents an admin has not reviewed yet — only Profile is reachable.
+     */
+    is_onboarding: boolean;
     /** The child the portal is currently scoped to. */
     client_id: number | null;
     /** Every child belonging to this parent; empty for non-client roles. */

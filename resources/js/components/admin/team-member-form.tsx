@@ -23,6 +23,7 @@ import { allServices } from '@/lib/content/intake-taxonomy';
 import type { EmploymentStatus, TeamMember } from '@/types/team-member';
 
 const EMPLOYMENT_STATUSES: EmploymentStatus[] = [
+    'onboarding',
     'active',
     'inactive',
     'on_leave',

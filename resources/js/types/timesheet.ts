@@ -144,3 +144,13 @@ export const HOUR_COLUMNS = [
     >;
     label: string;
 }>;
+
+/**
+ * The columns that make up "Total Hours": direct and indirect aide support.
+ * Respite and community-support hours are logged and totalled per column but
+ * stay out of the grand total.
+ */
+export const TOTAL_COLUMNS = HOUR_COLUMNS.filter(
+    (column) =>
+        column.rowKey === 'bda_direct' || column.rowKey === 'bda_indirect',
+);

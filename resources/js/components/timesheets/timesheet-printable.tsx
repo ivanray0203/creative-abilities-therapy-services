@@ -2,7 +2,7 @@ import { TimesheetStatusBadge } from '@/components/timesheets/badges';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/helpers';
 import type { Timesheet } from '@/types/timesheet';
-import { HOUR_COLUMNS } from '@/types/timesheet';
+import { HOUR_COLUMNS, TOTAL_COLUMNS } from '@/types/timesheet';
 
 /**
  * The time sheet as it reads on screen: the same grid the PDF prints, in the
@@ -97,7 +97,7 @@ export default function TimesheetPrintable({
                                             </td>
                                         ))}
                                         <td className="py-2 text-right font-medium">
-                                            {HOUR_COLUMNS.reduce(
+                                            {TOTAL_COLUMNS.reduce(
                                                 (sum, column) =>
                                                     sum +
                                                     Number(row[column.rowKey]),

@@ -26,6 +26,7 @@ const TITLES: Record<string, string> = {
     interview_scheduled: 'Schedule Interview',
     offer_sent: 'Send Offer Letter',
     declined: 'Decline Application',
+    onboarding: 'Start Onboarding',
     hired: 'Hire Candidate',
 };
 
@@ -34,7 +35,8 @@ const DESCRIPTIONS: Record<string, string> = {
     interview_scheduled: 'Schedule an interview with',
     offer_sent: 'Email the offer letter, with a link to sign it, to',
     declined: 'Are you sure you want to decline the application from',
-    hired: 'Create the account and send login details to',
+    onboarding: 'Create the portal account and send login details to',
+    hired: 'Confirm the hire and notify',
 };
 
 const CONFIRM_LABELS: Record<string, string> = {
@@ -42,6 +44,7 @@ const CONFIRM_LABELS: Record<string, string> = {
     interview_scheduled: 'Confirm Interview',
     offer_sent: 'Send Offer',
     declined: 'Decline',
+    onboarding: 'Start Onboarding',
     hired: 'Hire',
 };
 
@@ -141,13 +144,24 @@ export default function UpdateApplicationStatusModal({
                     </div>
                 )}
 
-                {targetStatus === 'hired' && (
+                {targetStatus === 'onboarding' && (
                     <p className="text-sm text-muted-foreground">
                         {application.first_name} signed their offer on{' '}
                         {application.offer_accepted_at?.split('T')[0]} at $
                         {Number(application.hourly_rate ?? 0).toFixed(2)}/hour.
-                        Hiring creates their account and emails their login
-                        details.
+                        Starting onboarding creates their portal account and
+                        emails a temporary password together with the list of
+                        documents they must upload. Until they are hired, only
+                        their profile is available in the portal.
+                    </p>
+                )}
+
+                {targetStatus === 'hired' && (
+                    <p className="text-sm text-muted-foreground">
+                        Every required document has been uploaded. Hiring
+                        activates {application.first_name}'s account, unlocks
+                        the full portal, and emails them that they have been
+                        hired.
                     </p>
                 )}
 
@@ -229,6 +243,12 @@ export default function UpdateApplicationStatusModal({
                                     </SelectItem>
                                 </SelectContent>
                             </Select>
+                            {data.interview_platform === 'video' && (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    A Google Meet link is generated and included
+                                    in the candidate&apos;s invitation.
+                                </p>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -262,7 +282,8 @@ export default function UpdateApplicationStatusModal({
                     </Button>
                     <Button
                         className={`w-full rounded-[10px] ${
-                            targetStatus === 'hired'
+                            targetStatus === 'hired' ||
+                            targetStatus === 'onboarding'
                                 ? 'bg-orange-500 text-white hover:bg-orange-600'
                                 : ''
                         } ${

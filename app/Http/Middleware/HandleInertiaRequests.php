@@ -59,6 +59,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user,
                 'team_member' => $user?->teamMember,
+                // Drives the therapist sidebar: an onboarding candidate sees
+                // only Profile until an admin has reviewed their documents.
+                'is_onboarding' => $user?->isOnboarding() === true,
                 'client_id' => $currentChild?->id,
                 'children' => $children->map(fn (Client $child): array => [
                     'id' => $child->id,

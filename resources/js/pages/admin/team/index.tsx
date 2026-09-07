@@ -162,6 +162,9 @@ export default function AdminTeamIndex({
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="onboarding">
+                                Onboarding
+                            </SelectItem>
                             <SelectItem value="active">Active</SelectItem>
                             <SelectItem value="inactive">Inactive</SelectItem>
                             <SelectItem value="on_leave">On Leave</SelectItem>

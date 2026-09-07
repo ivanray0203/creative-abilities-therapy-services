@@ -13,7 +13,12 @@ export type Department =
     'clinical_services' | 'administration' | 'finance' | 'operations';
 
 export type EmploymentStatus =
-    'active' | 'inactive' | 'on_leave' | 'terminated' | 'archived';
+    | 'onboarding'
+    | 'active'
+    | 'inactive'
+    | 'on_leave'
+    | 'terminated'
+    | 'archived';
 
 export interface TeamMemberUser {
     id: number;

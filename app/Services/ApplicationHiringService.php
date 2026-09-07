@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\CreateMailcowMailbox;
 use App\Models\Application;
+use App\Models\ClientDocument;
 use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -11,9 +12,15 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Promotes a hired job application into a therapist User + TeamMember.
+ * Turns a job application into a therapist User + TeamMember in two steps.
  *
- * Ported 1:1 from cats-backend/cats/serializers.py
+ * `startOnboarding()` runs when the candidate has signed their offer: it
+ * creates the portal account and a team member held at the `onboarding`
+ * employment status, which is what keeps every menu but Profile hidden
+ * while they upload their documents. `hire()` runs once an admin has
+ * reviewed those documents and flips the team member to active.
+ *
+ * Account/team-member shape ported from cats-backend/cats/serializers.py
  * ApplicationSerializer._create_user_and_team_member().
  */
 class ApplicationHiringService
@@ -21,7 +28,7 @@ class ApplicationHiringService
     /**
      * @return array{user: User, teamMember: TeamMember, rawPassword: ?string}
      */
-    public function hire(Application $application, float $hourlyRate): array
+    public function startOnboarding(Application $application, float $hourlyRate): array
     {
         if ($application->hired) {
             throw ValidationException::withMessages([
@@ -55,9 +62,7 @@ class ApplicationHiringService
                 'position' => $application->position_applied,
                 'hire_date' => $application->preferred_start_date ?? now()->toDateString(),
                 'department' => 'clinical_services',
-                'employment_status' => 'active',
                 'hourly_rate' => $hourlyRate,
-                'application_id' => $application->id,
                 'phone' => $application->phone,
                 'street_address' => $application->street_address,
                 'address_line_2' => $application->address_line_2,
@@ -75,6 +80,12 @@ class ApplicationHiringService
                 }
             }
 
+            // A brand-new record's status is set explicitly rather than
+            // through the null-only fill above: the column has a DB default
+            // of `active`, and an existing member re-hired through the
+            // pipeline must go back through onboarding too.
+            $teamMember->employment_status = 'onboarding';
+            $teamMember->application()->associate($application);
             $teamMember->save();
 
             if ($rawPassword !== null && filled(config('services.mailcow.api_key'))) {
@@ -86,10 +97,65 @@ class ApplicationHiringService
                 )->afterCommit();
             }
 
-            // Offer letter / login-credentials emails are sent by the
-            // caller (ApplicationController) once this transaction commits.
+            // The login-credentials email is sent by the caller
+            // (ApplicationController) once this transaction commits.
 
             return ['user' => $user, 'teamMember' => $teamMember, 'rawPassword' => $rawPassword];
         });
+    }
+
+    /**
+     * The documents the position requires that the candidate has not
+     * uploaded yet. Empty once onboarding is complete.
+     *
+     * @return array<int, string>
+     */
+    public function missingDocuments(Application $application): array
+    {
+        $teamMember = $this->teamMemberFor($application);
+
+        if ($teamMember === null) {
+            return $application->requiredDocuments();
+        }
+
+        $uploaded = ClientDocument::query()
+            ->where('user_id', $teamMember->user_id)
+            ->pluck('doc_type')
+            ->all();
+
+        return array_values(array_diff($application->requiredDocuments(), $uploaded));
+    }
+
+    /**
+     * Activates the team member created at onboarding. The rate was agreed
+     * on the signed offer, so nothing is asked for here.
+     */
+    public function hire(Application $application): TeamMember
+    {
+        if ($application->hired) {
+            throw ValidationException::withMessages([
+                'application' => 'This application has already been hired.',
+            ]);
+        }
+
+        $teamMember = $this->teamMemberFor($application);
+
+        if ($teamMember === null) {
+            throw ValidationException::withMessages([
+                'application_status' => 'This candidate has not started onboarding yet.',
+            ]);
+        }
+
+        $teamMember->update(['employment_status' => 'active']);
+
+        return $teamMember;
+    }
+
+    public function teamMemberFor(Application $application): ?TeamMember
+    {
+        return TeamMember::query()
+            ->where('application_id', $application->id)
+            ->latest('id')
+            ->first();
     }
 }

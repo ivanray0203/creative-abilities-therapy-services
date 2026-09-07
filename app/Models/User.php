@@ -85,6 +85,16 @@ class User extends Authenticatable
         return $this->isTherapist() && $this->teamMember?->isAide() === true;
     }
 
+    /**
+     * A candidate who has signed their offer and been given a portal account
+     * but whose documents an admin has not yet reviewed. Only their profile
+     * is reachable until they are hired.
+     */
+    public function isOnboarding(): bool
+    {
+        return $this->isTherapist() && $this->teamMember?->employment_status === 'onboarding';
+    }
+
     /** @return HasOne<TeamMember, $this> */
     public function teamMember(): HasOne
     {

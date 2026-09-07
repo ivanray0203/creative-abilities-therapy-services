@@ -56,13 +56,14 @@ class TimesheetEntry extends Model
         $query->whereNull('timesheet_id');
     }
 
-    /** Every column added together, as the form's right-hand total reads. */
+    /**
+     * Direct plus indirect aide hours, as the form's right-hand total reads.
+     * Respite and community-support hours are tracked in their own columns
+     * but are not part of the total.
+     */
     public function totalHours(): float
     {
-        return (float) $this->hourly_respite_hours
-            + (float) $this->community_support_hours
-            + (float) $this->bda_direct_hours
-            + (float) $this->bda_indirect_hours;
+        return (float) $this->bda_direct_hours + (float) $this->bda_indirect_hours;
     }
 
     /** @return BelongsTo<Client, $this> */

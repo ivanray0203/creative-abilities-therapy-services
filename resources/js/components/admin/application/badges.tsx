@@ -8,6 +8,7 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
     reviewing: 'Under Review',
     interview_scheduled: 'Interview Scheduled',
     offer_sent: 'Offer Sent',
+    onboarding: 'Onboarding',
     hired: 'Hired',
     declined: 'Declined',
 };
@@ -18,6 +19,7 @@ const STATUS_CLASSES: Record<ApplicationStatus, string> = {
     interview_scheduled:
         'bg-yellow-100 text-yellow-800 border border-yellow-400',
     offer_sent: 'bg-orange-100 text-orange-700 border border-orange-400',
+    onboarding: 'bg-cyan-100 text-cyan-700 border border-cyan-400',
     hired: 'bg-green-100 text-green-700 border border-green-400',
     declined: 'bg-red-100 text-red-700 border border-red-400',
 };

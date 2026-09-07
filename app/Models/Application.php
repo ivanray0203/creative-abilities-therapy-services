@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonImmutable;
 use Database\Factories\ApplicationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,11 +35,12 @@ use Illuminate\Support\Carbon;
     'cover_letter_drive_file_id', 'drivers_license',
     'has_vehicle', 'lead_source', 'reason_for_applying', 'other_notes', 'application_status',
     'internal_notes', 'notes', 'experience', 'expected_salary', 'notice_availability', 'hourly_rate',
-    'hire_date', 'interview_date', 'interview_time', 'interview_platform', 'education', 'skills',
+    'hire_date', 'interview_date', 'interview_time', 'interview_platform', 'interview_meeting_link',
+    'interview_calendar_event_id', 'education', 'skills',
     'candidate_rating', 'hired', 'declined', 'availability', 'references', 'resident_status',
     'reference_number', 'offer_sent_at', 'offer_expires_at', 'offer_letter',
     'offer_letter_drive_file_id', 'signed_offer_letter', 'signed_offer_letter_drive_file_id',
-    'offer_accepted_at', 'offer_declined_at',
+    'offer_accepted_at', 'offer_declined_at', 'onboarding_started_at',
 ])]
 class Application extends Model
 {
@@ -68,6 +70,7 @@ class Application extends Model
             'offer_expires_at' => 'datetime',
             'offer_accepted_at' => 'datetime',
             'offer_declined_at' => 'datetime',
+            'onboarding_started_at' => 'datetime',
         ];
     }
 
@@ -103,6 +106,25 @@ class Application extends Model
         return "{$date} at {$this->interview_time->format('g:i A')}";
     }
 
+    /**
+     * The interview's start as one instant in the organisation's timezone,
+     * for the calendar event behind the Google Meet link. Null until a date
+     * is booked; a date with no time starts at 9:00 AM.
+     */
+    public function interviewStartsAt(): ?CarbonImmutable
+    {
+        if ($this->interview_date === null) {
+            return null;
+        }
+
+        $time = $this->interview_time?->format('H:i') ?? '09:00';
+
+        return CarbonImmutable::parse(
+            "{$this->interview_date->toDateString()} {$time}",
+            config('cats.interview.timezone'),
+        );
+    }
+
     /** Readable label for the stored interview_platform value. */
     public function getInterviewPlatformLabelAttribute(): ?string
     {
@@ -134,6 +156,20 @@ class Application extends Model
         return $this->hasOpenOffer()
             && $this->offer_expires_at !== null
             && $this->offer_expires_at->isPast();
+    }
+
+    /**
+     * The documents the position asks every new hire to hand in, as listed
+     * on the Career posting the candidate applied to. Read at onboarding to
+     * tell the candidate what to upload, and at hire to check it all came in.
+     *
+     * @return array<int, string>
+     */
+    public function requiredDocuments(): array
+    {
+        $career = $this->position ?? Career::query()->where('position', $this->position_applied)->first();
+
+        return array_values($career->required_documents ?? []);
     }
 
     /** @return BelongsTo<Career, $this> */

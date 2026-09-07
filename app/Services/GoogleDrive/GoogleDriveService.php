@@ -2,7 +2,6 @@
 
 namespace App\Services\GoogleDrive;
 
-use Google\Client as GoogleClient;
 use Google\Service\Drive as GoogleDrive;
 use Google\Service\Drive\DriveFile;
 use Illuminate\Http\UploadedFile;
@@ -21,9 +20,9 @@ use Illuminate\Support\Facades\Log;
  * have no storage quota of their own and can't own files outside a
  * Shared Drive. So this authenticates via OAuth as that real account
  * instead, using a refresh token obtained once through
- * Admin\GoogleDriveConnectionController and cached on disk — see
- * AppServiceProvider, which falls back to LocalDriveStorage until that
- * one-time connection has been completed.
+ * Admin\GoogleDriveConnectionController and cached on disk (see
+ * GoogleAccountClient) — AppServiceProvider falls back to LocalDriveStorage
+ * until that one-time connection has been completed.
  */
 class GoogleDriveService implements DriveStorage
 {
@@ -32,9 +31,7 @@ class GoogleDriveService implements DriveStorage
     private ?GoogleDrive $service = null;
 
     public function __construct(
-        private readonly string $clientId,
-        private readonly string $clientSecret,
-        private readonly string $tokenPath,
+        private readonly GoogleAccountClient $account,
         private readonly string $rootFolderId,
     ) {}
 
@@ -168,58 +165,8 @@ class GoogleDriveService implements DriveStorage
 
     private function service(): GoogleDrive
     {
-        if ($this->service !== null) {
-            return $this->service;
-        }
-
-        $client = new GoogleClient;
-        $client->setClientId($this->clientId);
-        $client->setClientSecret($this->clientSecret);
-        $client->addScope(GoogleDrive::DRIVE);
-        $client->setAccessType('offline');
-
-        $contents = file_get_contents($this->tokenPath);
-
-        if ($contents === false) {
-            throw new \RuntimeException("Unable to read the Google Drive token at [{$this->tokenPath}].");
-        }
-
-        $token = json_decode($contents, true);
-
-        // The Google client throws "Invalid token format" on anything that is
-        // not a token array, which says nothing about what to do next.
-        if (! is_array($token) || ! isset($token['access_token'])) {
-            throw new \RuntimeException("The Google Drive token at [{$this->tokenPath}] is not a usable token — reconnect via the admin Google Drive settings.");
-        }
-
-        $client->setAccessToken($token);
-
-        if ($client->isAccessTokenExpired()) {
-            $refreshToken = $client->getRefreshToken() ?? $token['refresh_token'] ?? null;
-
-            if ($refreshToken === null) {
-                throw new \RuntimeException("Google Drive token at [{$this->tokenPath}] has no refresh token — reconnect via the admin Google Drive settings.");
-            }
-
-            $refreshed = $client->fetchAccessTokenWithRefreshToken($refreshToken);
-
-            // A refused refresh comes back as an `error`/`error_description`
-            // pair rather than a token. Writing that over the stored
-            // credential is what turns one expired token into a permanently
-            // broken connection, so keep the file as it is and say why.
-            if (! isset($refreshed['access_token'])) {
-                throw new \RuntimeException(sprintf(
-                    'Google Drive refused to refresh the token (%s) — reconnect via the admin Google Drive settings.',
-                    $refreshed['error_description'] ?? $refreshed['error'] ?? 'no access token was returned',
-                ));
-            }
-
-            $refreshed['refresh_token'] ??= $refreshToken;
-
-            file_put_contents($this->tokenPath, json_encode($refreshed));
-            $client->setAccessToken($refreshed);
-        }
-
-        return $this->service = new GoogleDrive($client);
+        return $this->service ??= new GoogleDrive(
+            $this->account->make([GoogleDrive::DRIVE]),
+        );
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\GoogleDrive\GoogleAccountClient;
 use App\Services\GoogleDrive\GoogleDriveService;
 use Illuminate\Http\UploadedFile;
 
@@ -13,7 +14,7 @@ function driveTokenFile(array|string $contents): string
 
 function driveServiceWithToken(string $tokenPath): GoogleDriveService
 {
-    return new GoogleDriveService('test-client-id', 'test-client-secret', $tokenPath, 'root-folder-id');
+    return new GoogleDriveService(new GoogleAccountClient('test-client-id', 'test-client-secret', $tokenPath), 'root-folder-id');
 }
 
 function samplePdfUpload(): UploadedFile

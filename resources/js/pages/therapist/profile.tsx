@@ -1,4 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
+import { ClipboardCheck } from 'lucide-react';
 
 import ChangePasswordCard from '@/components/admin/administrator/change-password-card';
 import { EmploymentStatusBadge } from '@/components/admin/team-member/badges';
@@ -83,12 +84,28 @@ export default function TherapistProfile({
         put('/therapist/profile');
     };
 
+    const isOnboarding = teamMember.employment_status === 'onboarding';
+
     return (
         <>
             <Head title="My Profile" />
 
             <div className="p-6">
-                <Tabs defaultValue="profile">
+                {isOnboarding && (
+                    <div className="mb-5 rounded-[5px] border border-cyan-400 bg-cyan-50 p-4 text-cyan-900">
+                        <p className="flex items-center gap-2 font-medium">
+                            <ClipboardCheck className="h-4 w-4" />
+                            Welcome! Your onboarding is in progress.
+                        </p>
+                        <p className="mt-1 ml-6 text-sm">
+                            {missingDocuments.length > 0
+                                ? 'Upload each required document under the Documents tab. Our team will review them and email you once your hire is confirmed — the rest of the portal unlocks then.'
+                                : 'All required documents are in. Our team is reviewing them and will email you once your hire is confirmed — the rest of the portal unlocks then.'}
+                        </p>
+                    </div>
+                )}
+
+                <Tabs defaultValue={isOnboarding ? 'documents' : 'profile'}>
                     <TabsList className="flex w-full flex-wrap justify-start">
                         <TabsTrigger value="profile">
                             Profile Information

@@ -2,6 +2,7 @@ import { Link, router } from '@inertiajs/react';
 import {
     Calendar,
     CheckCircle,
+    ClipboardCheck,
     Eye,
     Users,
     Video,
@@ -99,7 +100,7 @@ export default function AdminApplicationsIndex({
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 md:grid-cols-7 md:gap-6">
+            <div className="grid grid-cols-3 gap-2 md:grid-cols-8 md:gap-6">
                 <Card className="p-2 text-center md:p-6">
                     <p className="mb-1 font-light">{stats.total}</p>
                     <p className="text-sm text-muted-foreground">Total</p>
@@ -129,6 +130,12 @@ export default function AdminApplicationsIndex({
                         {stats.offer_sent}
                     </p>
                     <p className="text-sm text-muted-foreground">Offer Sent</p>
+                </Card>
+                <Card className="p-2 text-center md:p-6">
+                    <p className="mb-1 font-light text-cyan-600">
+                        {stats.onboarding}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Onboarding</p>
                 </Card>
                 <Card className="p-2 text-center md:p-6">
                     <p className="mb-1 font-light text-green-600">
@@ -179,6 +186,9 @@ export default function AdminApplicationsIndex({
                                 </SelectItem>
                                 <SelectItem value="interview_scheduled">
                                     Interview Scheduled
+                                </SelectItem>
+                                <SelectItem value="onboarding">
+                                    Onboarding
                                 </SelectItem>
                                 <SelectItem value="hired">Hired</SelectItem>
                                 <SelectItem value="offer_sent">
@@ -336,13 +346,52 @@ export default function AdminApplicationsIndex({
                                     application.application_status !==
                                         'pending' &&
                                     (application.application_status ===
-                                    'offer_sent' ? (
+                                    'onboarding' ? (
+                                        /*
+                                         * Documents have to be reviewed before
+                                         * the hire, and that review lives on
+                                         * the detail page — so the card sends
+                                         * the admin there instead of offering
+                                         * a blind Hire.
+                                         */
+                                        <>
+                                            <Button
+                                                variant="destructive"
+                                                size="sm"
+                                                className="flex-1 rounded-[5px]"
+                                                onClick={() =>
+                                                    openStatusModal(
+                                                        application,
+                                                        'declined',
+                                                    )
+                                                }
+                                            >
+                                                <XCircle className="mr-2 h-4 w-4" />
+                                                Decline
+                                            </Button>
+
+                                            <Button
+                                                size="sm"
+                                                className="col-span-2 w-full rounded-[5px] bg-cyan-600 hover:bg-cyan-700"
+                                                asChild
+                                            >
+                                                <Link
+                                                    href={`/admin/applications/${application.id}`}
+                                                >
+                                                    <ClipboardCheck className="mr-2 h-4 w-4" />
+                                                    Review Documents
+                                                </Link>
+                                            </Button>
+                                        </>
+                                    ) : application.application_status ===
+                                      'offer_sent' ? (
                                         /*
                                          * Once the offer is out, Decline sits
-                                         * beside View Profile and Hire takes
-                                         * the row below it — the widest, last
-                                         * thing on the card, and inert until
-                                         * the candidate has actually signed.
+                                         * beside View Profile and Start
+                                         * Onboarding takes the row below it —
+                                         * the widest, last thing on the card,
+                                         * and inert until the candidate has
+                                         * actually signed.
                                          */
                                         <>
                                             <Button
@@ -363,11 +412,11 @@ export default function AdminApplicationsIndex({
                                             <div className="col-span-2 flex flex-col gap-1">
                                                 <Button
                                                     size="sm"
-                                                    className="w-full rounded-[5px] bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    className="w-full rounded-[5px] bg-cyan-600 hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
                                                     onClick={() =>
                                                         openStatusModal(
                                                             application,
-                                                            'hired',
+                                                            'onboarding',
                                                         )
                                                     }
                                                     disabled={
@@ -381,8 +430,8 @@ export default function AdminApplicationsIndex({
                                                             : 'The candidate has not signed their offer letter yet.'
                                                     }
                                                 >
-                                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                                    Hire
+                                                    <ClipboardCheck className="mr-2 h-4 w-4" />
+                                                    Start Onboarding
                                                 </Button>
 
                                                 {(!application.offer_accepted_at ||
