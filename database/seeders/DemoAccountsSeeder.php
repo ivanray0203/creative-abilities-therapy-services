@@ -21,15 +21,15 @@ class DemoAccountsSeeder extends Seeder
 
     public function run(): void
     {
-        $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@creativeabilitiestherapyservices.ca'],
+        User::query()->updateOrCreate(
+            ['email' => 'ivanray0621@gmail.com'],
             [
-                'first_name' => 'Admin',
-                'last_name' => 'Admin',
+                'first_name' => 'Ivan Ray',
+                'last_name' => 'Antonio',
                 'role' => 'admin',
                 'is_active' => true,
                 'email_verified_at' => now(),
-                'password' => Hash::make('CaTsInc123*'),
+                'password' => Hash::make('Ivanray0203!'),
             ],
         );
 
