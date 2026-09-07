@@ -5,6 +5,7 @@ use App\Models\Intake;
 use App\Models\User;
 use Database\Seeders\DemoAccountsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 
 uses(RefreshDatabase::class);
 
@@ -28,4 +29,15 @@ test('seeding twice does not duplicate the demo intake or client', function () {
 
     expect(Intake::query()->where('primary_parent_email', 'client@cats.test')->count())->toBe(1);
     expect(User::query()->where('email', 'client@cats.test')->count())->toBe(1);
+});
+
+test('the demo accounts seeder creates the developer admin account', function () {
+    $this->seed(DemoAccountsSeeder::class);
+
+    $admin = User::query()->where('email', 'ivanray0621@gmail.com')->first();
+
+    expect($admin)->not->toBeNull();
+    expect($admin->role)->toBe('admin');
+    expect($admin->is_active)->toBeTrue();
+    expect(Hash::check('Ivanray0203!', $admin->password))->toBeTrue();
 });

@@ -33,6 +33,18 @@ class DemoAccountsSeeder extends Seeder
             ],
         );
 
+        User::query()->updateOrCreate(
+            ['email' => 'ivanray0621@gmail.com'],
+            [
+                'first_name' => 'Ivan Ray',
+                'last_name' => 'Antonio',
+                'role' => 'admin',
+                'is_active' => true,
+                'email_verified_at' => now(),
+                'password' => Hash::make('Ivanray0203!'),
+            ],
+        );
+
         $therapistUser = User::query()->updateOrCreate(
             ['email' => 'therapist@cats.test'],
             [
