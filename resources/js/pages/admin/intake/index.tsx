@@ -29,6 +29,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AdminLayout from '@/layouts/admin-layout';
+import { formatDate } from '@/lib/helpers';
 import type { Intake, IntakeStats, Paginated } from '@/types/intake';
 
 interface IntakeIndexProps {
@@ -310,11 +311,7 @@ export default function AdminIntakeIndex({
                                                 />
                                             </td>
                                             <td className="py-4 text-xs md:text-base">
-                                                {
-                                                    intake.created_at?.split(
-                                                        'T',
-                                                    )[0]
-                                                }
+                                                {formatDate(intake.created_at)}
                                             </td>
                                             <td className="hidden py-4 md:table-cell">
                                                 <IntakeStatusBadge

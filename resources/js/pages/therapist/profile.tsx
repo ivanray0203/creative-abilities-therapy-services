@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TherapistLayout from '@/layouts/therapist-layout';
 import { WEEK_DAYS } from '@/lib/content/careers-config';
+import { formatDate } from '@/lib/helpers';
 import type { TeamMember, TeamMemberDocument } from '@/types/team-member';
 
 interface ProfileProps {
@@ -144,7 +145,7 @@ export default function TherapistProfile({
                                     <p className="text-xs text-muted-foreground">
                                         Hire Date
                                     </p>
-                                    <p>{teamMember.hire_date || '-'}</p>
+                                    <p>{formatDate(teamMember.hire_date)}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground">

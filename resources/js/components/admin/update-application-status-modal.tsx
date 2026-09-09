@@ -19,6 +19,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { formatDate } from '@/lib/helpers';
 import type { Application, ApplicationStatus } from '@/types/application';
 
 const TITLES: Record<string, string> = {
@@ -147,7 +148,7 @@ export default function UpdateApplicationStatusModal({
                 {targetStatus === 'onboarding' && (
                     <p className="text-sm text-muted-foreground">
                         {application.first_name} signed their offer on{' '}
-                        {application.offer_accepted_at?.split('T')[0]} at $
+                        {formatDate(application.offer_accepted_at)} at $
                         {Number(application.hourly_rate ?? 0).toFixed(2)}/hour.
                         Starting onboarding creates their portal account and
                         emails a temporary password together with the list of

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import AdminLayout from '@/layouts/admin-layout';
 import { formatMoney } from '@/lib/expenses';
+import { formatDate } from '@/lib/helpers';
 import type { Expense } from '@/types/expense';
 import type { Paginated } from '@/types/intake';
 
@@ -302,9 +303,8 @@ export default function AdminExpensesIndex({
                                                     {expense.reference_number}
                                                 </td>
                                                 <td className="p-4">
-                                                    {expense.expense_date.slice(
-                                                        0,
-                                                        10,
+                                                    {formatDate(
+                                                        expense.expense_date,
                                                     )}
                                                 </td>
                                                 <td className="p-4">

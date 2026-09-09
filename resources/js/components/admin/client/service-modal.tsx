@@ -4,6 +4,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { formatDate } from '@/lib/helpers';
 import type { ClientService } from '@/types/client';
 
 /** Reference: cats-frontend/src/modals/ServiceModal.tsx — read-only service detail popup. */
@@ -56,7 +57,7 @@ export default function ServiceModal({
                         <p className="text-xs text-muted-foreground">
                             Start Date
                         </p>
-                        <p>{clientService.start_date || '-'}</p>
+                        <p>{formatDate(clientService.start_date)}</p>
                     </div>
                     <div>
                         <p className="text-xs text-muted-foreground">

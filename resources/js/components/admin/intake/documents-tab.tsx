@@ -5,6 +5,7 @@ import DeleteDocumentModal from '@/components/admin/delete-document-modal';
 import UploadDocumentModal from '@/components/admin/upload-document-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/helpers';
 import type { Intake, IntakeDocument } from '@/types/intake';
 
 /** Reference: cats-frontend/src/pages/admin/intake/Documents.tsx */
@@ -63,11 +64,9 @@ export default function DocumentsTab({
                                                 <p>{document.name}</p>
                                                 <p className="text-sm text-muted-foreground">
                                                     {document.type} • Uploaded{' '}
-                                                    {
-                                                        document.uploaded_at?.split(
-                                                            'T',
-                                                        )[0]
-                                                    }
+                                                    {formatDate(
+                                                        document.uploaded_at,
+                                                    )}
                                                 </p>
                                             </div>
                                         </div>

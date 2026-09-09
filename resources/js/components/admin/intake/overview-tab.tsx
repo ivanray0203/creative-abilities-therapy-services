@@ -12,7 +12,7 @@ import {
 import AvailabilitySummary from '@/components/availability-summary';
 import { Card, CardContent } from '@/components/ui/card';
 import { fundingSourceLabel } from '@/lib/content/intake-taxonomy';
-import { capitalize } from '@/lib/helpers';
+import { capitalize, formatDate } from '@/lib/helpers';
 import type { Intake } from '@/types/intake';
 
 const FSCD_CONSENTS = [
@@ -74,7 +74,7 @@ export default function OverviewTab({
                                 <p className="text-xs text-muted-foreground">
                                     Date of Birth
                                 </p>
-                                <p>{intake.date_of_birth}</p>
+                                <p>{formatDate(intake.date_of_birth)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">
@@ -254,8 +254,9 @@ export default function OverviewTab({
                                             Contract Start Date
                                         </p>
                                         <p>
-                                            {funding.FSCD_approval_start_date ||
-                                                '-'}
+                                            {formatDate(
+                                                funding.FSCD_approval_start_date,
+                                            )}
                                         </p>
                                     </div>
                                 </>
@@ -308,8 +309,9 @@ export default function OverviewTab({
                                             Policy Holder Date Of Birth
                                         </p>
                                         <p>
-                                            {funding.policy_holder_date_of_birth ||
-                                                '-'}
+                                            {formatDate(
+                                                funding.policy_holder_date_of_birth,
+                                            )}
                                         </p>
                                     </div>
                                     <div>
@@ -334,8 +336,9 @@ export default function OverviewTab({
                                             Authorization Start Date
                                         </p>
                                         <p>
-                                            {funding.authorization_start_date ||
-                                                '-'}
+                                            {formatDate(
+                                                funding.authorization_start_date,
+                                            )}
                                         </p>
                                     </div>
                                     <div>
@@ -343,8 +346,9 @@ export default function OverviewTab({
                                             Authorization End Date
                                         </p>
                                         <p>
-                                            {funding.authorization_end_date ||
-                                                '-'}
+                                            {formatDate(
+                                                funding.authorization_end_date,
+                                            )}
                                         </p>
                                     </div>
                                 </>
