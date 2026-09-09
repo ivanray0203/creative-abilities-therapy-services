@@ -3,6 +3,7 @@ import { usePage } from '@inertiajs/react';
 import { InvoiceStatusBadge } from '@/components/invoices/badges';
 import MonthlyInvoicePrintable from '@/components/invoices/monthly-invoice-printable';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/helpers';
 import type { Invoice } from '@/types/invoice';
 
 /**
@@ -72,10 +73,10 @@ export default function InvoicePrintable({ invoice }: { invoice: Invoice }) {
                             </p>
                             <InvoiceStatusBadge status={invoice.status} />
                             <p className="mt-2 text-sm text-muted-foreground">
-                                Invoice Date: {invoice.invoice_date ?? '-'}
+                                Invoice Date: {formatDate(invoice.invoice_date)}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                                Due Date: {invoice.due_date ?? '-'}
+                                Due Date: {formatDate(invoice.due_date)}
                             </p>
                         </div>
                     </div>

@@ -9,6 +9,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { formatDate } from '@/lib/helpers';
 import type { ConsentDocument } from '@/types/consent';
 
 interface ConsentModalProps {
@@ -67,7 +68,7 @@ export function ConsentModal({
                     </DialogTitle>
                     <DialogDescription>
                         Purpose: {consent.purpose} • Effective Date:{' '}
-                        {new Date(consent.effective_date).toLocaleDateString()}
+                        {formatDate(consent.effective_date)}
                     </DialogDescription>
                 </DialogHeader>
 

@@ -13,6 +13,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { formatScheduledDateTime } from '@/lib/helpers';
 import { exportSystemLogsCsv } from '@/lib/system-logs-csv';
 import type { LogStats, Paginated, SystemLog } from '@/types/system-log';
 
@@ -162,9 +163,9 @@ export default function SystemLogsTab({
                                             </Badge>
                                         </td>
                                         <td className="py-3">
-                                            {new Date(
+                                            {formatScheduledDateTime(
                                                 log.created_at,
-                                            ).toLocaleString()}
+                                            )}
                                         </td>
                                         <td className="py-3">
                                             {log.details?.user_email ??

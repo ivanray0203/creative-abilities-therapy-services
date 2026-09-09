@@ -2,6 +2,7 @@ import { CalendarDays, DollarSign } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { fundingSourceLabel } from '@/lib/content/intake-taxonomy';
+import { formatDate } from '@/lib/helpers';
 import type { Client } from '@/types/client';
 
 /** Reference: cats-frontend/src/pages/admin/clientTabs/Funding.tsx */
@@ -43,8 +44,9 @@ export default function FundingTab({ client }: { client: Client }) {
                                         FSCD Approval Start
                                     </p>
                                     <p>
-                                        {funding.FSCD_approval_start_date ||
-                                            '-'}
+                                        {formatDate(
+                                            funding.FSCD_approval_start_date,
+                                        )}
                                     </p>
                                 </div>
                                 <div>
@@ -52,7 +54,9 @@ export default function FundingTab({ client }: { client: Client }) {
                                         FSCD Approval End
                                     </p>
                                     <p>
-                                        {funding.FSCD_approval_end_date || '-'}
+                                        {formatDate(
+                                            funding.FSCD_approval_end_date,
+                                        )}
                                     </p>
                                 </div>
                             </>
@@ -95,19 +99,19 @@ export default function FundingTab({ client }: { client: Client }) {
                             <p className="text-xs text-muted-foreground">
                                 Contract Start Date
                             </p>
-                            <p>{client.contract_start_date || '-'}</p>
+                            <p>{formatDate(client.contract_start_date)}</p>
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground">
                                 Contract End Date
                             </p>
-                            <p>{client.contract_end_date || '-'}</p>
+                            <p>{formatDate(client.contract_end_date)}</p>
                         </div>
                         <div>
                             <p className="text-xs text-muted-foreground">
                                 Signed Date
                             </p>
-                            <p>{client.signed_date || '-'}</p>
+                            <p>{formatDate(client.signed_date)}</p>
                         </div>
                     </div>
                 </CardContent>

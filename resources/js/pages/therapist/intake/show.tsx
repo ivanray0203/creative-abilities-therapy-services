@@ -18,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import TherapistLayout from '@/layouts/therapist-layout';
-import { capitalize } from '@/lib/helpers';
+import { capitalize, formatDate } from '@/lib/helpers';
 import type { Intake } from '@/types/intake';
 
 interface ScheduleMatchDetail {
@@ -126,9 +126,7 @@ export default function TherapistIntakeShow({
                             Intake ID: INT-
                             {intake.id.toString().padStart(3, '0')}
                         </span>
-                        <span>
-                            Submitted: {intake.created_at.split('T')[0]}
-                        </span>
+                        <span>Submitted: {formatDate(intake.created_at)}</span>
                         <span>Age: {intake.age}</span>
                     </div>
                 </div>
@@ -282,7 +280,11 @@ export default function TherapistIntakeShow({
                                             <p className="text-xs text-muted-foreground">
                                                 Date of Birth
                                             </p>
-                                            <p>{intake.date_of_birth}</p>
+                                            <p>
+                                                {formatDate(
+                                                    intake.date_of_birth,
+                                                )}
+                                            </p>
                                         </div>
                                         <div>
                                             <p className="text-xs text-muted-foreground">

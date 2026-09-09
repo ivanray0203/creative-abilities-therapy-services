@@ -3,6 +3,7 @@ import { Award, Briefcase, Mail, MapPin, Phone } from 'lucide-react';
 import { EmploymentStatusBadge } from '@/components/admin/team-member/badges';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/helpers';
 import { maskSIN } from '@/lib/mask-sin';
 import type { TeamMember } from '@/types/team-member';
 
@@ -107,7 +108,7 @@ export default function OverviewTab({
                             <p className="text-xs text-muted-foreground">
                                 Hire Date
                             </p>
-                            <p>{teamMember.hire_date || '-'}</p>
+                            <p>{formatDate(teamMember.hire_date)}</p>
                         </div>
                         <div className="rounded-[5px] bg-gray-100 p-3">
                             <p className="text-xs text-muted-foreground">SIN</p>

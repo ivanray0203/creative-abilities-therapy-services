@@ -6,6 +6,7 @@ import { ServiceContractBadge } from '@/components/admin/client/badges';
 import ServiceContractModal from '@/components/admin/client/service-contract-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/helpers';
 import type { Client, ClientService, ServiceContract } from '@/types/client';
 
 /**
@@ -223,14 +224,12 @@ export default function ContractsTab({
                                                             Period
                                                         </p>
                                                         <p>
-                                                            {contract.period_start?.slice(
-                                                                0,
-                                                                10,
+                                                            {formatDate(
+                                                                contract.period_start,
                                                             )}{' '}
                                                             to{' '}
-                                                            {contract.period_end?.slice(
-                                                                0,
-                                                                10,
+                                                            {formatDate(
+                                                                contract.period_end,
                                                             )}
                                                         </p>
                                                     </div>

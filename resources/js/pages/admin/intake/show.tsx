@@ -36,6 +36,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
+import { formatDate } from '@/lib/helpers';
 import { exportIntakeCsv } from '@/lib/intake-csv';
 import type { Intake, IntakeStatus, TherapistOption } from '@/types/intake';
 
@@ -133,7 +134,7 @@ export default function AdminIntakeShow({
                             </p>
                             <Dot className="hidden md:block" />
                             <p className="text-sm text-muted-foreground md:text-base">
-                                Submitted: {intake.created_at?.split('T')[0]}
+                                Submitted: {formatDate(intake.created_at)}
                             </p>
                             <Dot className="hidden md:block" />
                             <p className="text-sm text-muted-foreground md:text-base">

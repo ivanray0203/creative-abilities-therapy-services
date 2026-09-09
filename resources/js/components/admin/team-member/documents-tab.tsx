@@ -11,6 +11,7 @@ import DeleteDocumentModal from '@/components/admin/team-member/delete-document-
 import UploadDocumentModal from '@/components/admin/team-member/upload-document-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/helpers';
 import type { TeamMember, TeamMemberDocument } from '@/types/team-member';
 
 /** Reference: cats-frontend/src/pages/admin/teamMemberTabs/DocumentsTab.tsx */
@@ -97,11 +98,9 @@ export default function DocumentsTab({
                                             <p>{document.title}</p>
                                             <p className="text-sm text-muted-foreground">
                                                 {document.doc_type} • Uploaded{' '}
-                                                {
-                                                    document.uploaded_at?.split(
-                                                        'T',
-                                                    )[0]
-                                                }
+                                                {formatDate(
+                                                    document.uploaded_at,
+                                                )}
                                             </p>
                                         </div>
                                     </div>

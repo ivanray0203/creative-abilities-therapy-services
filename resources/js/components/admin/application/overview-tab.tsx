@@ -2,7 +2,7 @@ import { Flag, GraduationCap, Mail, MapPin, Phone } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { capitalize } from '@/lib/helpers';
+import { capitalize, formatDate } from '@/lib/helpers';
 import type { Application } from '@/types/application';
 
 /** Reference: cats-frontend/src/pages/admin/applicationTabs/OverviewApplication.tsx */
@@ -92,7 +92,9 @@ export default function OverviewTab({
                             <p className="text-xs text-muted-foreground">
                                 Preferred Start Date
                             </p>
-                            <p>{application.preferred_start_date || '-'}</p>
+                            <p>
+                                {formatDate(application.preferred_start_date)}
+                            </p>
                         </div>
                         <div className="rounded-[5px] bg-gray-100 p-3">
                             <p className="text-xs text-muted-foreground">

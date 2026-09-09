@@ -15,7 +15,7 @@ import ServiceModal from '@/components/admin/client/service-modal';
 import AvailabilitySummary from '@/components/availability-summary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { capitalize } from '@/lib/helpers';
+import { capitalize, formatDate } from '@/lib/helpers';
 import type { Client, ClientService } from '@/types/client';
 import type { DeclinedService, TherapistOption } from '@/types/intake';
 
@@ -74,7 +74,7 @@ export default function OverviewTab({
                                 <p className="text-xs text-muted-foreground">
                                     Date of Birth
                                 </p>
-                                <p>{intake?.date_of_birth}</p>
+                                <p>{formatDate(intake?.date_of_birth)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-muted-foreground">
@@ -276,7 +276,9 @@ export default function OverviewTab({
                                                             'Therapist'}
                                                         {declined.decided_at
                                                             ? ' \u00b7 ' +
-                                                              declined.decided_at
+                                                              formatDate(
+                                                                  declined.decided_at,
+                                                              )
                                                             : ''}
                                                     </p>
                                                 </div>

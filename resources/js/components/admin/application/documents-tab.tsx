@@ -7,6 +7,7 @@ import {
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDate } from '@/lib/helpers';
 import type { Application, ApplicationOnboarding } from '@/types/application';
 
 /**
@@ -122,7 +123,7 @@ export default function DocumentsTab({
                                                 <p className="text-sm text-muted-foreground">
                                                     {document.doc_type}
                                                     {document.uploaded_at
-                                                        ? ` • Uploaded ${document.uploaded_at.split('T')[0]}`
+                                                        ? ` • Uploaded ${formatDate(document.uploaded_at)}`
                                                         : ''}
                                                 </p>
                                             </div>

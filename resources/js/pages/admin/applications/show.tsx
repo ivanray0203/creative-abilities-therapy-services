@@ -443,7 +443,7 @@ export default function AdminApplicationShow({
                                             <span className="text-xs text-cyan-700">
                                                 {doc.doc_type}
                                                 {doc.uploaded_at
-                                                    ? ` • ${doc.uploaded_at.split('T')[0]}`
+                                                    ? ` • ${formatDate(doc.uploaded_at)}`
                                                     : ''}
                                             </span>
                                             {doc.drive_web_view && (
