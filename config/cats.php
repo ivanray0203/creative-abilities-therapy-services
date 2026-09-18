@@ -15,7 +15,7 @@ return [
     | credentials. Set to an empty string to send those emails without it.
     |
     */
-    'account_walkthrough_video' => env('CATS_ACCOUNT_WALKTHROUGH_VIDEO', storage_path('app/creative-abilities-site-data-reset-demo-voiceover-fixed.mp4')),
+    'account_walkthrough_video' => env('CATS_ACCOUNT_WALKTHROUGH_VIDEO', resource_path('media/creative-abilities-site-data-reset-demo-voiceover-fixed.mp4')),
 
     /*
     |--------------------------------------------------------------------------
