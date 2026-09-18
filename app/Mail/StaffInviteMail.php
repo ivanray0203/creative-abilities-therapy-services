@@ -5,6 +5,7 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -30,5 +31,25 @@ class StaffInviteMail extends Mailable implements ShouldQueue
     public function content(): Content
     {
         return new Content(markdown: 'emails.staff-invite');
+    }
+
+    /**
+     * The portal walkthrough video, when the configured file exists.
+     *
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        $path = (string) config('cats.account_walkthrough_video');
+
+        if ($path === '' || ! is_file($path)) {
+            return [];
+        }
+
+        return [
+            Attachment::fromPath($path)
+                ->as('Demo-Video-Watch-Before-Logging-In.mp4')
+                ->withMime('video/mp4'),
+        ];
     }
 }

@@ -8,6 +8,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Account walkthrough video
+    |--------------------------------------------------------------------------
+    |
+    | Attached to the emails that hand a new therapist or parent their login
+    | credentials. Set to an empty string to send those emails without it.
+    |
+    */
+    'account_walkthrough_video' => env('CATS_ACCOUNT_WALKTHROUGH_VIDEO', storage_path('app/creative-abilities-site-data-reset-demo-voiceover-fixed.mp4')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Invoice letterhead
     |--------------------------------------------------------------------------
     |
