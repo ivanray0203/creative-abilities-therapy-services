@@ -20,15 +20,11 @@ Please log in and change your password as soon as possible.
 
 ## Documents we need from you
 
-@if (count($requiredDocuments) > 0)
-Before we can finalize your hire, please log in, open **Profile → Documents**, and upload each of the following:
+Before we can finalize your hire, you must log in, open **Profile → Documents**, and upload and submit each of the following:
 
-@foreach ($requiredDocuments as $document)
+@foreach ($documents as $document)
 - {{ $document }}
 @endforeach
-@else
-Before we can finalize your hire, please log in, open **Profile → Documents**, and upload the documents your position requires.
-@endif
 
 Our team will review your documents and let you know by email once your hire is confirmed. Until then, only your profile is available in the portal.
 

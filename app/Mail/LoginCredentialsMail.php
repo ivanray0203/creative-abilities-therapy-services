@@ -12,15 +12,28 @@ use Illuminate\Queue\SerializesModels;
 /**
  * Sent when a candidate moves to onboarding: their portal account has just
  * been created, and the email carries the temporary password plus the list
- * of documents their position requires them to upload before they can be
- * hired. `$password` is null when the email already belonged to an account,
- * in which case the existing password still applies.
+ * of documents they must upload before they can be hired: the standard set
+ * every new hire hands in, then whatever else their position requires.
+ * `$password` is null when the email already belonged to an account, in
+ * which case the existing password still applies.
  *
  * Reference: cats-backend/cats/serializers.py::_send_login_credentials.
  */
 class LoginCredentialsMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
+
+    /**
+     * The documents every new hire must upload, whatever their position.
+     *
+     * @var array<int, string>
+     */
+    public const STANDARD_DOCUMENTS = [
+        "Driver's License",
+        'Criminal Record / Vulnerable Sector Check',
+        'Professional License and Certification',
+        'Professional Liability Insurance',
+    ];
 
     /**
      * @param  array<int, string>  $requiredDocuments
@@ -39,6 +52,16 @@ class LoginCredentialsMail extends Mailable implements ShouldQueue
 
     public function content(): Content
     {
-        return new Content(markdown: 'emails.login-credentials');
+        return new Content(markdown: 'emails.login-credentials', with: ['documents' => $this->documents()]);
+    }
+
+    /**
+     * The standard documents followed by the position's own, without repeats.
+     *
+     * @return array<int, string>
+     */
+    public function documents(): array
+    {
+        return array_values(array_unique([...self::STANDARD_DOCUMENTS, ...$this->requiredDocuments]));
     }
 }
