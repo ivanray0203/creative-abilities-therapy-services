@@ -82,7 +82,7 @@ class SessionNotifier
     private static function adminEmails(): Collection
     {
         return User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->where('session_reminders', true)
             ->pluck('email');

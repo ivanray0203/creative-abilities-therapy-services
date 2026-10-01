@@ -54,7 +54,7 @@ class DemoDataSeeder extends Seeder
         $this->priceServices();
 
         $therapists = $this->therapists();
-        $admin = User::query()->where('role', 'admin')->orderBy('id')->firstOrFail();
+        $admin = User::query()->role('admin')->orderBy('id')->firstOrFail();
 
         $this->pipelineIntakes($therapists);
         $clients = $this->activeClients($therapists);

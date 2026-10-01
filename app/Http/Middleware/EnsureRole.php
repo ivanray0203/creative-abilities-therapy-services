@@ -10,7 +10,7 @@ class EnsureRole
 {
     /**
      * Redirect a user to their own role's home when they hit a route
-     * outside their role, mirroring the reference frontend's
+     * outside the roles they hold, mirroring the reference frontend's
      * ProtectedRoute role-mismatch behavior.
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
@@ -21,8 +21,11 @@ class EnsureRole
             return redirect()->route('public.home');
         }
 
-        if (! in_array($user->role, $roles, true)) {
-            return redirect(self::homeFor($user->role));
+        if (! $user->hasAnyRole($roles)) {
+            // An account whose primary role was never granted (not yet run
+            // through roles:transfer) has no portal to land on; sending it
+            // to that role's home would redirect straight back here.
+            return redirect($user->hasRole($user->role) ? self::homeFor($user->role) : '/');
         }
 
         return $next($request);

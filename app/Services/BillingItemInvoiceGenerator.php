@@ -200,7 +200,7 @@ class BillingItemInvoiceGenerator
             ->whereNull('invoice_id')
             ->when(
                 $user->isAdmin(),
-                fn (Builder $clinic) => $clinic->whereHas('issuedBy', fn (Builder $issuer) => $issuer->where('role', 'admin')),
+                fn (Builder $clinic) => $clinic->whereHas('issuedBy.roles', fn (Builder $role) => $role->where('name', 'admin')),
                 fn (Builder $own) => $own->where('issued_by_id', $user->id),
             );
     }

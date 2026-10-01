@@ -16,7 +16,7 @@ class TherapistListController extends Controller
     {
         return response()->json(
             User::query()
-                ->where('role', 'therapist')
+                ->role('therapist')
                 ->where('is_active', true)
                 ->orderBy('first_name')
                 ->get(['id', 'first_name', 'last_name', 'email'])

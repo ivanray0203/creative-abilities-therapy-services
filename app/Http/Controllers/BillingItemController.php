@@ -173,7 +173,7 @@ class BillingItemController extends Controller
     {
         if ($user->isAdmin()) {
             return BillingItem::query()
-                ->whereHas('issuedBy', fn (Builder $issuer) => $issuer->where('role', 'admin'));
+                ->whereHas('issuedBy.roles', fn (Builder $role) => $role->where('name', 'admin'));
         }
 
         return BillingItem::query()->where('issued_by_id', $user->id);
@@ -193,7 +193,7 @@ class BillingItemController extends Controller
     private function therapists(): Collection
     {
         return User::query()
-            ->where('role', 'therapist')
+            ->role('therapist')
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'email']);
     }

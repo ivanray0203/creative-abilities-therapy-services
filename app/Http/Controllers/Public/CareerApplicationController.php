@@ -104,7 +104,7 @@ class CareerApplicationController extends Controller
         Mail::to($application->email)->send(new CareerApplicationSubmittedConfirmationMail($application));
 
         $adminEmails = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->where('new_applications', true)
             ->pluck('email');

@@ -94,7 +94,7 @@ class HourTrackingController extends Controller
         }
 
         $therapist = isset($validated['therapist_id'])
-            ? User::query()->whereKey($validated['therapist_id'])->where('role', 'therapist')->first()
+            ? User::query()->whereKey($validated['therapist_id'])->role('therapist')->first()
             : null;
 
         return [$from, $to, $therapist];
@@ -110,7 +110,7 @@ class HourTrackingController extends Controller
     private function therapistOptions(): array
     {
         return User::query()
-            ->where('role', 'therapist')
+            ->role('therapist')
             ->whereHas('serviceContracts')
             ->orderBy('first_name')
             ->orderBy('last_name')

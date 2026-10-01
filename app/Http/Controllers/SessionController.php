@@ -561,7 +561,7 @@ class SessionController extends Controller
     private function therapists(): Collection
     {
         return User::query()
-            ->where('role', 'therapist')
+            ->role('therapist')
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'email']);
     }

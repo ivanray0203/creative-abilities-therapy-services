@@ -125,3 +125,46 @@ test('resolving a complaint is refused for a non-admin even when routed directly
 
     expect($complaint->refresh()->status)->toBe('open');
 });
+
+test('a new user is granted the spatie role matching their primary role', function (string $role) {
+    $user = User::factory()->create(['role' => $role]);
+
+    expect($user->getRoleNames()->all())->toBe([$role]);
+    expect(User::query()->role($role)->pluck('id')->all())->toBe([$user->id]);
+})->with(['admin', 'therapist', 'client']);
+
+test('changing the primary role swaps the grant and keeps additional roles', function () {
+    $user = User::factory()->client()->create();
+    $user->assignRole('admin');
+
+    $user->update(['role' => 'therapist']);
+
+    expect($user->refresh()->getRoleNames()->sort()->values()->all())->toBe(['admin', 'therapist']);
+    expect($user->isClient())->toBeFalse();
+});
+
+test('a user holding several roles can reach each of their portals', function () {
+    $user = User::factory()->therapist()->create();
+    TeamMember::factory()->create(['user_id' => $user->id]);
+    $user->assignRole('admin');
+
+    $this->actingAs($user)->get('/therapist')->assertStatus(200);
+    $this->actingAs($user)->get('/admin/intake')->assertStatus(200);
+    // Not a role they hold: back to the home of their primary role.
+    $this->actingAs($user)->get('/client/calendar')->assertRedirect('/therapist');
+});
+
+test('an account whose role was never transferred is sent to the public home instead of looping', function () {
+    $user = User::withoutEvents(fn (): User => User::factory()->admin()->create());
+
+    $this->actingAs($user)->get('/admin/intake')->assertRedirect('/');
+});
+
+test('the shared auth user does not expose spatie role rows', function () {
+    $admin = adminUser();
+
+    $this->actingAs($admin)->get('/admin/intake')->assertInertia(fn ($page) => $page
+        ->where('auth.user.role', 'admin')
+        ->missing('auth.user.roles')
+    );
+});

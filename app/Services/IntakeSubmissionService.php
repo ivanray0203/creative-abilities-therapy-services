@@ -414,7 +414,7 @@ class IntakeSubmissionService
         return function (string $attribute, mixed $value, Closure $fail): void {
             $hasAccount = User::query()
                 ->where('email', $value)
-                ->where('role', 'client')
+                ->role('client')
                 ->exists();
 
             if ($hasAccount) {
@@ -430,7 +430,7 @@ class IntakeSubmissionService
         }
 
         $adminEmails = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->where('new_intake', true)
             ->pluck('email');

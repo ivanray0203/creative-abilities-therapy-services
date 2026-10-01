@@ -53,7 +53,7 @@ class AdministratorController extends Controller
             'logs' => $logs,
             'logStats' => $logStats,
             'logFilters' => ['search' => $search, 'module' => $module],
-            'adminUsers' => User::query()->where('role', 'admin')->orderBy('first_name')->get(),
+            'adminUsers' => User::query()->role('admin')->orderBy('first_name')->get(),
             'services' => Service::query()->orderBy('name')->get(),
             'profile' => $request->user(),
         ]);

@@ -279,7 +279,7 @@ class InvoiceController extends Controller
         );
 
         $adminEmails = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->pluck('email');
 
@@ -481,7 +481,7 @@ class InvoiceController extends Controller
     {
         if ($invoice->billed_by === 'therapist') {
             return User::query()
-                ->where('role', 'admin')
+                ->role('admin')
                 ->where('is_active', true)
                 ->pluck('email')
                 ->all();
@@ -692,7 +692,7 @@ class InvoiceController extends Controller
     {
         return Client::query()
             ->whereHas('billingItems', fn (Builder $outstanding) => $outstanding->whereNull('invoice_id')
-                ->whereHas('issuedBy', fn (Builder $issuer) => $issuer->where('role', 'admin')))
+                ->whereHas('issuedBy.roles', fn (Builder $role) => $role->where('name', 'admin')))
             ->with('originalIntake:id,child_first_name,child_last_name')
             ->get(['id', 'original_intake_id']);
     }

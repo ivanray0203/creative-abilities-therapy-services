@@ -23,7 +23,7 @@ class UserController extends Controller
     public function adminList(): JsonResponse
     {
         return response()->json(
-            User::query()->where('role', 'admin')->get(),
+            User::query()->role('admin')->get(),
         );
     }
 
