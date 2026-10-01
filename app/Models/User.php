@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property int $id
@@ -18,7 +20,7 @@ use Illuminate\Support\Carbon;
  * @property string $first_name
  * @property string $last_name
  * @property string|null $phone
- * @property string $role
+ * @property string $role The primary role: decides the portal the user lands on and acts as. Every role they hold lives in Spatie's tables.
  * @property bool $is_active
  * @property bool $new_intake
  * @property bool $invoice_payments
@@ -31,11 +33,39 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  */
 #[Fillable(['email', 'first_name', 'last_name', 'phone', 'role', 'is_active', 'new_intake', 'invoice_payments', 'session_reminders', 'new_applications', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Hidden(['password', 'remember_token', 'roles', 'permissions'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
+
+    /**
+     * The roles every install has; seeded by the permission tables migration.
+     *
+     * @var array<int, string>
+     */
+    public const ROLES = ['admin', 'therapist', 'client'];
+
+    /**
+     * Keeps the primary `role` column and the Spatie roles in step: a new
+     * user is granted their primary role, and changing the primary role
+     * swaps the grant. Roles assigned on top of it are left alone.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (User $user): void {
+            $user->assignRole(Role::findOrCreate($user->getAttribute('role') ?? 'client'));
+        });
+
+        static::updated(function (User $user): void {
+            if (! $user->wasChanged('role')) {
+                return;
+            }
+
+            $user->removeRole(Role::findOrCreate($user->getOriginal('role')));
+            $user->assignRole(Role::findOrCreate($user->role));
+        });
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -62,17 +92,17 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return $this->hasRole('admin');
     }
 
     public function isTherapist(): bool
     {
-        return $this->role === 'therapist';
+        return $this->hasRole('therapist');
     }
 
     public function isClient(): bool
     {
-        return $this->role === 'client';
+        return $this->hasRole('client');
     }
 
     /**

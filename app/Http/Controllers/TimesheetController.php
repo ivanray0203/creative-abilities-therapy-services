@@ -203,7 +203,7 @@ class TimesheetController extends Controller
         );
 
         $adminEmails = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->pluck('email');
 

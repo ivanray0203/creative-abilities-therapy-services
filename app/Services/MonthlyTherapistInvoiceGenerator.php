@@ -111,7 +111,7 @@ class MonthlyTherapistInvoiceGenerator
     private function notifyAdmins(Invoice $statement): void
     {
         $recipients = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->pluck('email');
 

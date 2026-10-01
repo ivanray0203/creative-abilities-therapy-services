@@ -61,7 +61,7 @@ class CalendarController extends Controller
     private function therapists(): array
     {
         return User::query()
-            ->where('role', 'therapist')
+            ->role('therapist')
             ->whereHas('sessionsAsTherapist')
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'email'])

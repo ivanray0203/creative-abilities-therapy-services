@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -34,7 +35,7 @@ class StoreBillingItemRequest extends FormRequest
                 'nullable',
                 Rule::requiredIf(fn (): bool => $this->user()?->isAdmin() === true),
                 'integer',
-                Rule::exists('users', 'id')->where('role', 'therapist'),
+                Rule::in(User::query()->role('therapist')->pluck('id')),
             ],
             'session_id' => ['nullable', 'integer', 'exists:schedule_sessions,id'],
             'notes' => ['nullable', 'string'],

@@ -754,7 +754,7 @@ class IntakeController extends Controller
 
     private function resolveTherapist(int $therapistId): User
     {
-        $therapist = User::query()->where('id', $therapistId)->where('role', 'therapist')->first();
+        $therapist = User::query()->where('id', $therapistId)->role('therapist')->first();
 
         if (! $therapist) {
             throw ValidationException::withMessages([
@@ -846,7 +846,7 @@ class IntakeController extends Controller
     private function therapists(): Collection
     {
         return User::query()
-            ->where('role', 'therapist')
+            ->role('therapist')
             ->with('teamMember:id,user_id,specializations')
             ->orderBy('first_name')
             ->get(['id', 'first_name', 'last_name', 'email'])

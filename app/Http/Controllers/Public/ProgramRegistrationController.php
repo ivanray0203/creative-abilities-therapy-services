@@ -47,7 +47,7 @@ class ProgramRegistrationController extends Controller
     private function notifyAdmins(ProgramRegistration $registration): void
     {
         $adminEmails = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->pluck('email');
 

@@ -163,7 +163,7 @@ class OfferLetterService
     private function notifyAdmins(Application $application, bool $declined = false): void
     {
         $adminEmails = User::query()
-            ->where('role', 'admin')
+            ->role('admin')
             ->where('is_active', true)
             ->where('new_applications', true)
             ->pluck('email');
