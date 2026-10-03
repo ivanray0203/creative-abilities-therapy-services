@@ -751,7 +751,7 @@ class DemoDataSeeder extends Seeder
         return [
             'FSCD_case_worker_name' => ['Janine Petrov', 'Cory Ahenakew', 'Melanie Dube'][random_int(0, 2)],
             'FSCD_case_worker_email' => 'fscd.worker@gov.ab.example',
-            'FSCD_approval_start_date' => now()->subMonths(5)->toDateString(),
+            'FSCD_number' => 'FSCD-2026-00412',
             'FSCD_approval_end_date' => now()->addMonths(7)->toDateString(),
             'consents' => [
                 ['title' => 'FSCD Worker Communication', 'datetime' => now()->subMonths(5)->toIso8601String()],

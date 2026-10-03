@@ -102,7 +102,7 @@ class PdfService
             default => [
                 'FSCD Case Worker' => $funding['FSCD_case_worker_name'] ?? null,
                 'FSCD Case Worker Email' => $funding['FSCD_case_worker_email'] ?? null,
-                'FSCD Approval Start' => $funding['FSCD_approval_start_date'] ?? null,
+                'FSCD Number' => $funding['FSCD_number'] ?? null,
                 'FSCD Approval End' => $funding['FSCD_approval_end_date'] ?? null,
             ],
         };

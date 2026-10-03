@@ -13,7 +13,7 @@ it('names the fscd variant on an ss-fscd intake', function () {
         'funding_source_info' => [
             'FSCD_case_worker_name' => 'Dana Fitz',
             'FSCD_case_worker_email' => 'dana@example.com',
-            'FSCD_approval_start_date' => '2026-01-05',
+            'FSCD_number' => 'FSCD-123456',
         ],
     ]);
 
@@ -42,7 +42,7 @@ it('distinguishes a bds-fscd intake from a specialized services one', function (
         'funding_source_info' => [
             'FSCD_case_worker_name' => 'Dana Fitz',
             'FSCD_case_worker_email' => 'dana@example.com',
-            'FSCD_approval_start_date' => '2026-01-05',
+            'FSCD_number' => 'FSCD-123456',
         ],
     ]);
 

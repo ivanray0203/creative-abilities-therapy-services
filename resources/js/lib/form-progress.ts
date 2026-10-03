@@ -123,7 +123,7 @@ export function computeIntakeProgress(
         fields.push(
             'fscd_info.FSCD_case_worker_name',
             'fscd_info.FSCD_case_worker_email',
-            'fscd_info.FSCD_approval_start_date',
+            'fscd_info.FSCD_number',
         );
     }
 

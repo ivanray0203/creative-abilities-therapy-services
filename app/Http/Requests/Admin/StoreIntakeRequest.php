@@ -99,7 +99,7 @@ class StoreIntakeRequest extends FormRequest
             'fscd_info' => ['array'],
             'fscd_info.FSCD_case_worker_name' => [Rule::requiredIf($isFscd), 'nullable', 'string', 'max:255'],
             'fscd_info.FSCD_case_worker_email' => [Rule::requiredIf($isFscd), 'nullable', 'email', 'max:255'],
-            'fscd_info.FSCD_approval_start_date' => [Rule::requiredIf($isFscd), 'nullable', 'date'],
+            'fscd_info.FSCD_number' => [Rule::requiredIf($isFscd), 'nullable', 'string', 'max:255'],
             'fscd_info.FSCD_approval_end_date' => ['nullable', 'date'],
 
             'insurance_info' => ['array'],

@@ -135,7 +135,7 @@ class IntakeSubmissionService
             'fscd_info' => ['array'],
             'fscd_info.FSCD_case_worker_name' => [Rule::requiredIf($isFscd), 'nullable', 'string', 'max:255'],
             'fscd_info.FSCD_case_worker_email' => [Rule::requiredIf($isFscd), 'nullable', 'email', 'max:255'],
-            'fscd_info.FSCD_approval_start_date' => [Rule::requiredIf($isFscd), 'nullable', 'date'],
+            'fscd_info.FSCD_number' => [Rule::requiredIf($isFscd), 'nullable', 'string', 'max:255'],
             'fscd_info.FSCD_approval_end_date' => ['nullable', 'date'],
 
             'insurance_info' => ['array'],
@@ -204,7 +204,7 @@ class IntakeSubmissionService
             'emergency_contact_relationship' => 'emergency contact relationship',
             'fscd_info.FSCD_case_worker_name' => 'FSCD case worker name',
             'fscd_info.FSCD_case_worker_email' => 'FSCD case worker email',
-            'fscd_info.FSCD_approval_start_date' => 'FSCD approval start date',
+            'fscd_info.FSCD_number' => 'FSCD number',
             'fscd_info.FSCD_approval_end_date' => 'FSCD approval end date',
             'insurance_info.insurance_provider' => 'insurance provider',
             'insurance_info.policy_number' => 'policy number',
