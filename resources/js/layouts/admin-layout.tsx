@@ -38,7 +38,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
                                     {user.last_name}
                                 </span>
                                 <span className="text-xs text-muted-foreground capitalize">
-                                    {user.role.toLowerCase()}
+                                    admin
                                 </span>
                             </div>
                             <Button

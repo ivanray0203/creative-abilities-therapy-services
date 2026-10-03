@@ -9,6 +9,7 @@ import {
     User,
 } from 'lucide-react';
 
+import { PortalSwitchLinks } from '@/components/portal-switch-links';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
     Sidebar,
@@ -92,6 +93,7 @@ export function ClientSidebar({ onLogout }: { onLogout: () => void }) {
                                     </SidebarMenuItem>
                                 );
                             })}
+                            <PortalSwitchLinks />
                             <SidebarMenuItem className="mt-2 block sm:hidden">
                                 <SidebarMenuButton asChild>
                                     <button

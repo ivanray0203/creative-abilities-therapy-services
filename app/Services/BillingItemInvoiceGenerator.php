@@ -39,7 +39,7 @@ class BillingItemInvoiceGenerator
     public function generate(Client $client, CarbonInterface $from, CarbonInterface $to, User $issuedBy): ?Invoice
     {
         $invoice = DB::transaction(function () use ($client, $from, $to, $issuedBy): ?Invoice {
-            $items = self::invoiceableFor($issuedBy)
+            $items = self::invoiceableFor($issuedBy, 'admin')
                 ->where('client_id', $client->id)
                 ->whereDate('created_at', '>=', $from->toDateString())
                 ->whereDate('created_at', '<=', $to->toDateString())
@@ -110,7 +110,7 @@ class BillingItemInvoiceGenerator
     public function generateForTherapist(User $therapist, CarbonInterface $from, CarbonInterface $to): ?Invoice
     {
         $invoice = DB::transaction(function () use ($therapist, $from, $to): ?Invoice {
-            $items = self::invoiceableFor($therapist)
+            $items = self::invoiceableFor($therapist, 'therapist')
                 ->whereDate('created_at', '>=', $from->toDateString())
                 ->whereDate('created_at', '<=', $to->toDateString())
                 ->lockForUpdate()
@@ -184,8 +184,8 @@ class BillingItemInvoiceGenerator
     }
 
     /**
-     * Billing items this user can still raise an invoice from: the ones on
-     * their own side of the ledger, not yet on any invoice.
+     * Billing items this user can still raise an invoice from on the given
+     * side of the ledger (`admin` or `therapist`), not yet on any invoice.
      *
      * The split matches what each side can see in Billing. A therapist bills
      * the clinic for their own lines; the clinic bills a family for the ones
@@ -194,15 +194,12 @@ class BillingItemInvoiceGenerator
      *
      * @return Builder<BillingItem>
      */
-    public static function invoiceableFor(User $user): Builder
+    public static function invoiceableFor(User $user, string $billedBy): Builder
     {
         return BillingItem::query()
             ->whereNull('invoice_id')
-            ->when(
-                $user->isAdmin(),
-                fn (Builder $clinic) => $clinic->whereHas('issuedBy.roles', fn (Builder $role) => $role->where('name', 'admin')),
-                fn (Builder $own) => $own->where('issued_by_id', $user->id),
-            );
+            ->where('billed_by', $billedBy)
+            ->when($billedBy === 'therapist', fn (Builder $own) => $own->where('issued_by_id', $user->id));
     }
 
     /**

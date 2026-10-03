@@ -35,6 +35,12 @@ export type AuthChild = {
     name: string;
 };
 
+/** A portal the signed-in user can switch to, and its landing page. */
+export type AuthPortal = {
+    role: UserRole;
+    url: string;
+};
+
 export type Auth = {
     user: User | null;
     team_member: TeamMember | null;
@@ -47,4 +53,9 @@ export type Auth = {
     client_id: number | null;
     /** Every child belonging to this parent; empty for non-client roles. */
     children: AuthChild[];
+    /**
+     * The other portals this user's roles open — empty unless they hold
+     * more than one role.
+     */
+    portals: AuthPortal[];
 };

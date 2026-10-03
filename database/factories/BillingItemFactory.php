@@ -33,6 +33,10 @@ class BillingItemFactory extends Factory
             // A bill is normally raised by the therapist who delivered the
             // work; an admin raising one on their behalf overrides this.
             'issued_by_id' => fn (array $attributes): mixed => $attributes['therapist_id'],
+            // The clinic's side of the ledger when an admin raised it.
+            'billed_by' => fn (array $attributes): string => User::query()->whereKey($attributes['issued_by_id'])->value('role') === 'admin'
+                ? 'admin'
+                : 'therapist',
             'invoice_id' => null,
             'notes' => null,
         ];

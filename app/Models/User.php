@@ -47,6 +47,12 @@ class User extends Authenticatable
     public const ROLES = ['admin', 'therapist', 'client'];
 
     /**
+     * The role the user is acting in for this request, set by EnsureRole
+     * from the portal being visited. Null outside the role-guarded portals.
+     */
+    protected ?string $actingRole = null;
+
+    /**
      * Keeps the primary `role` column and the Spatie roles in step: a new
      * user is granted their primary role, and changing the primary role
      * swaps the grant. Roles assigned on top of it are left alone.
@@ -90,19 +96,43 @@ class User extends Authenticatable
         return trim("{$this->first_name} {$this->last_name}");
     }
 
+    /**
+     * Inside a portal these three answer for the portal being visited, not
+     * for every role held: someone who is both an admin and a therapist is
+     * a therapist, and only a therapist, while in the therapist portal.
+     * Outside a portal they answer for any role the user holds.
+     */
     public function isAdmin(): bool
     {
-        return $this->hasRole('admin');
+        return $this->actsAs('admin');
     }
 
     public function isTherapist(): bool
     {
-        return $this->hasRole('therapist');
+        return $this->actsAs('therapist');
     }
 
     public function isClient(): bool
     {
-        return $this->hasRole('client');
+        return $this->actsAs('client');
+    }
+
+    public function actAs(string $role): static
+    {
+        $this->actingRole = $role;
+
+        return $this;
+    }
+
+    /** The role being acted in: the portal's, or the primary role outside one. */
+    public function actingRole(): string
+    {
+        return $this->actingRole ?? $this->role;
+    }
+
+    private function actsAs(string $role): bool
+    {
+        return $this->actingRole !== null ? $this->actingRole === $role : $this->hasRole($role);
     }
 
     /**

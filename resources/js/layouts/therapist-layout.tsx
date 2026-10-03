@@ -40,7 +40,7 @@ export default function TherapistLayout({ children }: PropsWithChildren) {
                                     {user.last_name}
                                 </span>
                                 <span className="text-xs text-muted-foreground capitalize">
-                                    {user.role.toLowerCase()}
+                                    therapist
                                 </span>
                             </div>
                             <Button

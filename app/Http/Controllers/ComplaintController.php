@@ -71,7 +71,7 @@ class ComplaintController extends Controller
             'complaints' => $complaints,
             'stats' => $stats,
             'filters' => ['type' => $type, 'status' => $status],
-            'role' => $user->role,
+            'role' => $user->actingRole(),
         ]);
     }
 
@@ -82,7 +82,7 @@ class ComplaintController extends Controller
         $sessionUserId = $user->isTherapist() ? $user->id : $this->clientContext->currentId($user);
 
         return Inertia::render('complaints/create', [
-            'role' => $user->role,
+            'role' => $user->actingRole(),
             'basePath' => "/{$prefix}/complaints",
             'sessionsUrl' => "/{$prefix}/sessions/by-user?user_id={$sessionUserId}&role={$prefix}",
         ]);
