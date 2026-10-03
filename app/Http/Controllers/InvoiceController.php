@@ -95,7 +95,7 @@ class InvoiceController extends Controller
             'invoices' => $invoices,
             'stats' => $stats,
             'filters' => ['quick' => $quick, 'search' => $search, 'status' => $status, 'direction' => $direction],
-            'role' => $user->role,
+            'role' => $user->actingRole(),
             // Feeds the "Create Invoice" modal. Admin-only: nobody else
             // raises an invoice out of the clinic's billing.
             'billableClients' => $user->isAdmin() ? $this->clientsWithOutstandingBills() : [],
@@ -113,7 +113,7 @@ class InvoiceController extends Controller
 
         return Inertia::render('invoices/show', [
             'invoice' => $invoice,
-            'role' => $request->user()->role,
+            'role' => $request->user()->actingRole(),
         ]);
     }
 
@@ -168,7 +168,7 @@ class InvoiceController extends Controller
     public function create(Request $request): Response
     {
         return Inertia::render('invoices/create', [
-            'role' => $request->user()->role,
+            'role' => $request->user()->actingRole(),
             'clients' => $this->clientOptions($request->user()),
             'services' => $this->serviceOptions($request->user()),
             'therapistInvoices' => $this->recoverableTherapistInvoices($request->user()),
@@ -296,7 +296,7 @@ class InvoiceController extends Controller
 
         return Inertia::render('invoices/edit', [
             'invoice' => $invoice,
-            'role' => $request->user()->role,
+            'role' => $request->user()->actingRole(),
             'clients' => $this->clientOptions($request->user(), $invoice),
             'services' => $this->serviceOptions($request->user()),
             'therapistInvoices' => $this->recoverableTherapistInvoices($request->user(), $invoice),
@@ -692,7 +692,7 @@ class InvoiceController extends Controller
     {
         return Client::query()
             ->whereHas('billingItems', fn (Builder $outstanding) => $outstanding->whereNull('invoice_id')
-                ->whereHas('issuedBy.roles', fn (Builder $role) => $role->where('name', 'admin')))
+                ->where('billed_by', 'admin'))
             ->with('originalIntake:id,child_first_name,child_last_name')
             ->get(['id', 'original_intake_id']);
     }

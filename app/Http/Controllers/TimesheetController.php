@@ -82,7 +82,7 @@ class TimesheetController extends Controller
                 'total_hours' => round((float) (clone $baseQuery)->sum('total_hours'), 2),
             ],
             'filters' => ['search' => $search, 'status' => $status],
-            'role' => $user->role,
+            'role' => $user->actingRole(),
             // Feeds the "Generate Timesheet" modal. Aides only — nobody else
             // raises a form out of logged hours.
             'sheetableClients' => $user->isAide() ? $this->clientsWithUnsheetedHours($user) : [],
@@ -97,7 +97,7 @@ class TimesheetController extends Controller
 
         return Inertia::render('timesheets/show', [
             'timesheet' => $timesheet,
-            'role' => $request->user()->role,
+            'role' => $request->user()->actingRole(),
         ]);
     }
 

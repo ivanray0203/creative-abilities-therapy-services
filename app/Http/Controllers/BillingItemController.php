@@ -70,7 +70,7 @@ class BillingItemController extends Controller
                     ->sum('amount'),
             ],
             'filters' => ['search' => $search, 'status' => $status],
-            'role' => $user->role,
+            'role' => $user->actingRole(),
         ]);
     }
 
@@ -79,7 +79,7 @@ class BillingItemController extends Controller
         $user = $request->user();
 
         return Inertia::render('billing/create', [
-            'role' => $user->role,
+            'role' => $user->actingRole(),
             'clients' => $this->formOptions->clients($user),
             'services' => $this->formOptions->services($user),
             // A bill belongs to the therapist who delivered the work. Only an
@@ -123,6 +123,7 @@ class BillingItemController extends Controller
                     'rate' => $rate,
                     'amount' => round($quantity * $rate, 2),
                     'issued_by_id' => $user->id,
+                    'billed_by' => $user->isAdmin() ? 'admin' : 'therapist',
                     'notes' => $validated['notes'] ?? null,
                 ]);
             }
@@ -172,11 +173,10 @@ class BillingItemController extends Controller
     private function scopedQuery(User $user): Builder
     {
         if ($user->isAdmin()) {
-            return BillingItem::query()
-                ->whereHas('issuedBy.roles', fn (Builder $role) => $role->where('name', 'admin'));
+            return BillingItem::query()->where('billed_by', 'admin');
         }
 
-        return BillingItem::query()->where('issued_by_id', $user->id);
+        return BillingItem::query()->where('billed_by', 'therapist')->where('issued_by_id', $user->id);
     }
 
     private function routeName(Request $request, string $suffix): string
@@ -202,10 +202,10 @@ class BillingItemController extends Controller
     private function canManage(User $user, BillingItem $item): bool
     {
         if ($user->isAdmin()) {
-            return $item->issuedBy?->isAdmin() === true;
+            return $item->billed_by === 'admin';
         }
 
-        return $item->issued_by_id === $user->id;
+        return $item->billed_by === 'therapist' && $item->issued_by_id === $user->id;
     }
 
     /**

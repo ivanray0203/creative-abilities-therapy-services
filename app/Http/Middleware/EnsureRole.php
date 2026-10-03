@@ -12,6 +12,9 @@ class EnsureRole
      * Redirect a user to their own role's home when they hit a route
      * outside the roles they hold, mirroring the reference frontend's
      * ProtectedRoute role-mismatch behavior.
+     *
+     * A user who holds the route's role acts in it for the rest of the
+     * request, so someone with several roles is scoped to this portal.
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
@@ -27,6 +30,8 @@ class EnsureRole
             // to that role's home would redirect straight back here.
             return redirect($user->hasRole($user->role) ? self::homeFor($user->role) : '/');
         }
+
+        $user->actAs(collect($roles)->first(fn (string $role): bool => $user->hasRole($role)));
 
         return $next($request);
     }

@@ -40,7 +40,7 @@ export default function ClientLayout({ children }: PropsWithChildren) {
                                     {user.last_name}
                                 </span>
                                 <span className="text-xs text-muted-foreground capitalize">
-                                    {user.role.toLowerCase()}
+                                    client
                                 </span>
                             </div>
                             <Button

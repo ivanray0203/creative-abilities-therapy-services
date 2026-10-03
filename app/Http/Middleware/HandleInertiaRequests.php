@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Client;
 use App\Models\ScheduleSession;
+use App\Models\User;
 use App\Services\ClientContext;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -67,6 +68,10 @@ class HandleInertiaRequests extends Middleware
                     'id' => $child->id,
                     'name' => $child->displayName(),
                 ])->values(),
+                // The other portals this user's roles open, for the sidebar's
+                // "Switch to ..." links. A closure because the portal being
+                // visited is only known once the route's role middleware ran.
+                'portals' => fn (): array => $user === null ? [] : $this->otherPortals($user),
             ],
             'activeSession' => $user?->isTherapist()
                 ? ScheduleSession::query()
@@ -84,5 +89,17 @@ class HandleInertiaRequests extends Middleware
                 'reference_number' => fn () => $request->session()->get('reference_number'),
             ],
         ];
+    }
+
+    /**
+     * @return array<int, array{role: string, url: string}>
+     */
+    private function otherPortals(User $user): array
+    {
+        return $user->getRoleNames()
+            ->reject(fn (string $role): bool => $role === $user->actingRole() || EnsureRole::homeFor($role) === '/')
+            ->map(fn (string $role): array => ['role' => $role, 'url' => EnsureRole::homeFor($role)])
+            ->values()
+            ->all();
     }
 }

@@ -15,13 +15,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * the billing month closes, at which point the generated invoice claims
  * them by filling `invoice_id`.
  *
+ * @property string $billed_by Which side of the ledger the line is on: `admin` (the clinic's own billing) or `therapist`.
  * @property-read Client|null $client
  * @property-read User|null $therapist
  * @property-read Invoice|null $invoice
  */
 #[Fillable([
     'billing_number', 'therapist_id', 'client_id', 'session_id', 'invoice_service_id',
-    'service_name', 'quantity', 'rate', 'amount', 'issued_by_id', 'invoice_id', 'notes',
+    'service_name', 'quantity', 'rate', 'amount', 'issued_by_id', 'billed_by', 'invoice_id', 'notes',
 ])]
 class BillingItem extends Model
 {
