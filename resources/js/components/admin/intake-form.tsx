@@ -37,7 +37,7 @@ const STATUSES = ['pending', 'under_review', 'waitlist', 'approved', 'denied'];
 interface FscdInfo {
     FSCD_case_worker_name: string;
     FSCD_case_worker_email: string;
-    FSCD_approval_start_date: string;
+    FSCD_number: string;
     FSCD_approval_end_date: string;
 }
 
@@ -183,7 +183,7 @@ function initialValues(intake?: Intake): AdminIntakeFormData {
         fscd_info: {
             FSCD_case_worker_name: funding.FSCD_case_worker_name ?? '',
             FSCD_case_worker_email: funding.FSCD_case_worker_email ?? '',
-            FSCD_approval_start_date: funding.FSCD_approval_start_date ?? '',
+            FSCD_number: funding.FSCD_number ?? '',
             FSCD_approval_end_date: funding.FSCD_approval_end_date ?? '',
         },
         insurance_info: {
@@ -460,17 +460,15 @@ export default function AdminIntakeForm({ intake }: { intake?: Intake }) {
                         />
                     </Field>
                     <Field
-                        label="Approval Start Date *"
-                        error={errors['fscd_info.FSCD_approval_start_date']}
+                        label="FSCD Number *"
+                        error={errors['fscd_info.FSCD_number']}
                     >
                         <Input
-                            type="date"
-                            value={data.fscd_info.FSCD_approval_start_date}
+                            value={data.fscd_info.FSCD_number}
                             onChange={(event) =>
                                 setData('fscd_info', {
                                     ...data.fscd_info,
-                                    FSCD_approval_start_date:
-                                        event.target.value,
+                                    FSCD_number: event.target.value,
                                 })
                             }
                         />

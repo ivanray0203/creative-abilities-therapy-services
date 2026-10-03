@@ -59,7 +59,7 @@ export interface IntakeTherapistReview {
 export interface IntakeFundingSourceInfo {
     FSCD_case_worker_name?: string;
     FSCD_case_worker_email?: string;
-    FSCD_approval_start_date?: string;
+    FSCD_number?: string;
     FSCD_approval_end_date?: string;
     insurance_provider?: string;
     policy_number?: string;

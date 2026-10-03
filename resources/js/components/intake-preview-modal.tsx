@@ -17,7 +17,7 @@ import {
 interface FscdInfoPreview {
     FSCD_case_worker_name?: string;
     FSCD_case_worker_email?: string;
-    FSCD_approval_start_date?: string;
+    FSCD_number?: string;
 }
 
 interface InsuranceInfoPreview {
@@ -449,12 +449,12 @@ export default function IntakePreviewModal({
                                     </div>
                                     <div>
                                         <h3 className="text-sm text-muted-foreground">
-                                            FSCD Contract Start Date
+                                            FSCD Number
                                         </h3>
                                         <p className="font-medium">
                                             {
                                                 applicationData.fscd_info
-                                                    ?.FSCD_approval_start_date
+                                                    ?.FSCD_number
                                             }
                                         </p>
                                     </div>

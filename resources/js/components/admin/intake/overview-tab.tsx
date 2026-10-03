@@ -251,13 +251,9 @@ export default function OverviewTab({
                                     </div>
                                     <div>
                                         <p className="text-xs text-muted-foreground">
-                                            Contract Start Date
+                                            FSCD Number
                                         </p>
-                                        <p>
-                                            {formatDate(
-                                                funding.FSCD_approval_start_date,
-                                            )}
-                                        </p>
+                                        <p>{funding.FSCD_number || '-'}</p>
                                     </div>
                                 </>
                             )}

@@ -75,7 +75,7 @@ const FSCD_FUNDING_SOURCES = ['BDS-FSCD', 'SS-FSCD', 'Counselling-FSCD'];
 interface FscdInfo {
     FSCD_case_worker_name: string;
     FSCD_case_worker_email: string;
-    FSCD_approval_start_date: string;
+    FSCD_number: string;
     FSCD_approval_end_date: string;
 }
 
@@ -187,7 +187,7 @@ const DEFAULT_VALUES: IntakeFormData = {
     fscd_info: {
         FSCD_case_worker_name: '',
         FSCD_case_worker_email: '',
-        FSCD_approval_start_date: '',
+        FSCD_number: '',
         FSCD_approval_end_date: '',
     },
     insurance_info: {
@@ -1798,40 +1798,24 @@ export default function IntakeApplicationForm({
                                 </div>
 
                                 <div className="mt-4 flex flex-col">
-                                    <Label htmlFor="fscdContractDate">
-                                        FSCD Contract Start Date{' '}
+                                    <Label htmlFor="fscdNumber">
+                                        FSCD Number{' '}
                                         <span className="text-red-700">*</span>
                                     </Label>
                                     <Input
-                                        id="fscdContractDate"
-                                        type="date"
-                                        min={
-                                            new Date()
-                                                .toISOString()
-                                                .split('T')[0]
-                                        }
-                                        value={
-                                            data.fscd_info
-                                                .FSCD_approval_start_date
-                                        }
+                                        id="fscdNumber"
+                                        value={data.fscd_info.FSCD_number}
                                         onChange={(e) =>
                                             setData('fscd_info', {
                                                 ...data.fscd_info,
-                                                FSCD_approval_start_date:
-                                                    e.target.value,
+                                                FSCD_number: e.target.value,
                                             })
                                         }
                                         className="mt-2 rounded-[10px]"
                                     />
-                                    {errors[
-                                        'fscd_info.FSCD_approval_start_date'
-                                    ] && (
+                                    {errors['fscd_info.FSCD_number'] && (
                                         <p className="text-sm text-red-600">
-                                            {
-                                                errors[
-                                                    'fscd_info.FSCD_approval_start_date'
-                                                ]
-                                            }
+                                            {errors['fscd_info.FSCD_number']}
                                         </p>
                                     )}
                                 </div>

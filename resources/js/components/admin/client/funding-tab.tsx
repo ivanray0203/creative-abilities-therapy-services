@@ -41,13 +41,9 @@ export default function FundingTab({ client }: { client: Client }) {
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground">
-                                        FSCD Approval Start
+                                        FSCD Number
                                     </p>
-                                    <p>
-                                        {formatDate(
-                                            funding.FSCD_approval_start_date,
-                                        )}
-                                    </p>
+                                    <p>{funding.FSCD_number || '-'}</p>
                                 </div>
                                 <div>
                                     <p className="text-xs text-muted-foreground">

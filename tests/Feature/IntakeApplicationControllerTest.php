@@ -117,7 +117,7 @@ test('an fscd funding source requires fscd case worker fields and produces hardc
         'fscd_info' => [
             'FSCD_case_worker_name' => 'Worker Name',
             'FSCD_case_worker_email' => 'worker@example.com',
-            'FSCD_approval_start_date' => now()->toDateString(),
+            'FSCD_number' => 'FSCD-123456',
         ],
     ]);
 
@@ -139,7 +139,7 @@ test('the fscd case worker name is required when funding source is an fscd varia
     $response->assertSessionHasErrors([
         'fscd_info.FSCD_case_worker_name',
         'fscd_info.FSCD_case_worker_email',
-        'fscd_info.FSCD_approval_start_date',
+        'fscd_info.FSCD_number',
     ]);
 
     expect(Intake::count())->toBe(0);
@@ -151,7 +151,7 @@ test('an ss-fscd application can request the clinical coordinator service', func
         'fscd_info' => [
             'FSCD_case_worker_name' => 'Worker Name',
             'FSCD_case_worker_email' => 'worker@example.com',
-            'FSCD_approval_start_date' => now()->toDateString(),
+            'FSCD_number' => 'FSCD-123456',
         ],
         'services_needed' => ['Clinical Coordinator', 'Occupational Therapy'],
     ]);
@@ -484,7 +484,7 @@ test('validation messages name their field in plain language', function () {
     $payload = validIntakePayload(['funding_source' => 'BDS-FSCD']);
 
     $this->post('/intake/apply', $payload)->assertSessionHasErrors([
-        'fscd_info.FSCD_approval_start_date' => 'The FSCD approval start date field is required.',
+        'fscd_info.FSCD_number' => 'The FSCD number field is required.',
     ]);
 
     $this->post('/intake/apply', validIntakePayload(['child_first_name' => '']))
