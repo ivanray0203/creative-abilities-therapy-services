@@ -79,6 +79,7 @@ interface AdminIntakeFormData {
     theraphy_goals: string;
     funding_source: string;
     availability_slots: AvailabilitySlots;
+    availability_notes: string;
     primary_parent_name: string;
     primary_parent_phone: string;
     primary_parent_email: string;
@@ -159,6 +160,7 @@ function initialValues(intake?: Intake): AdminIntakeFormData {
         theraphy_goals: intake?.theraphy_goals ?? '',
         funding_source: intake?.funding_source ?? '',
         availability_slots: intake?.availability_slots ?? {},
+        availability_notes: intake?.availability_notes ?? '',
         primary_parent_name: intake?.primary_parent_name ?? '',
         primary_parent_phone: intake?.primary_parent_phone ?? '',
         primary_parent_email: intake?.primary_parent_email ?? '',
@@ -744,6 +746,17 @@ export default function AdminIntakeForm({ intake }: { intake?: Intake }) {
                         )
                     }
                 />
+                <Field
+                    label="Additional scheduling details or restrictions"
+                    error={errors.availability_notes}
+                >
+                    <Textarea
+                        value={data.availability_notes}
+                        onChange={(event) =>
+                            setData('availability_notes', event.target.value)
+                        }
+                    />
+                </Field>
             </Section>
 
             <Section title="Primary Parent/Guardian">

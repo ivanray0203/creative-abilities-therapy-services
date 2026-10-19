@@ -115,6 +115,7 @@ interface IntakeFormData {
     require_interpreter: boolean;
     funding_source: string;
     availability_slots: AvailabilitySlots;
+    availability_notes: string;
     primary_parent_name: string;
     primary_parent_phone: string;
     primary_parent_email: string;
@@ -166,6 +167,7 @@ const DEFAULT_VALUES: IntakeFormData = {
     require_interpreter: false,
     funding_source: '',
     availability_slots: {},
+    availability_notes: '',
     primary_parent_name: '',
     primary_parent_phone: '',
     primary_parent_email: '',
@@ -265,22 +267,10 @@ export default function IntakeApplicationForm({
     const [consentGivenTerms, setConsentGivenTerms] = useState(false);
     const [consentGivenPrivacy, setConsentGivenPrivacy] = useState(false);
     const [consentGivenFSCD1, setConsentGivenFSCD1] = useState(false);
-    const [consentGivenFSCD2, setConsentGivenFSCD2] = useState(false);
-    const [consentGivenFSCD3, setConsentGivenFSCD3] = useState(false);
-    // Which FSCD consents the applicant has read to the end, keyed by
-    // consent id. A consent can't be checked until its terms are read.
-    const [fscdTermsRead, setFscdTermsRead] = useState<Record<string, boolean>>(
-        {},
-    );
     const [openFscdTermsId, setOpenFscdTermsId] = useState<string | null>(null);
     const { progress, missingFields } = useMemo(
-        () =>
-            computeIntakeProgress(data, [
-                consentGivenFSCD1,
-                consentGivenFSCD2,
-                consentGivenFSCD3,
-            ]),
-        [data, consentGivenFSCD1, consentGivenFSCD2, consentGivenFSCD3],
+        () => computeIntakeProgress(data, consentGivenFSCD1),
+        [data, consentGivenFSCD1],
     );
     const [previewOpen, setPreviewOpen] = useState(false);
     const [submittedOpen, setSubmittedOpen] = useState(false);
@@ -305,20 +295,11 @@ export default function IntakeApplicationForm({
             checked: consentGivenFSCD1,
             setChecked: setConsentGivenFSCD1,
         },
-        consentFSCD2: {
-            checked: consentGivenFSCD2,
-            setChecked: setConsentGivenFSCD2,
-        },
-        consentFSCD3: {
-            checked: consentGivenFSCD3,
-            setChecked: setConsentGivenFSCD3,
-        },
     };
 
     const openFscdTerms =
         fscdConsentTerms.find((terms) => terms.id === openFscdTermsId) ?? null;
 
-    const allConsentsGiven = requiredConsents.every((c) => consentStates[c.id]);
     const isFscdFunding = FSCD_FUNDING_SOURCES.includes(data.funding_source);
 
     const cookieConsentAllowed = () =>
@@ -522,8 +503,6 @@ export default function IntakeApplicationForm({
                 setConsentGivenTerms(false);
                 setConsentGivenPrivacy(false);
                 setConsentGivenFSCD1(false);
-                setConsentGivenFSCD2(false);
-                setConsentGivenFSCD3(false);
             },
             /*
              * Submission happens from the preview modal, so a rejected
@@ -554,15 +533,25 @@ export default function IntakeApplicationForm({
         });
     };
 
-    const canSubmit =
-        !processing &&
-        allConsentsGiven &&
-        consentGivenTerms &&
-        consentGivenPrivacy &&
-        !primaryEmailMismatch &&
-        !secondaryEmailMismatch &&
-        (!isFscdFunding ||
-            (consentGivenFSCD1 && consentGivenFSCD2 && consentGivenFSCD3));
+    /**
+     * Everything still blocking submission: the required fields the progress
+     * calculator reports, plus the consents and email confirmations it does
+     * not track. The preview button is always clickable; when this list is
+     * not empty it opens the missing-fields modal instead of the preview.
+     */
+    const outstandingItems = [
+        ...missingFields,
+        ...(primaryEmailMismatch ? ['Primary parent email confirmation'] : []),
+        ...(secondaryEmailMismatch
+            ? ['Secondary parent email confirmation']
+            : []),
+        ...(isFscdFunding && !consentGivenFSCD1 ? ['FSCD consent'] : []),
+        ...requiredConsents
+            .filter((consent) => !consentStates[consent.id])
+            .map((consent) => `${consent.title} consent`),
+        ...(consentGivenTerms ? [] : ['Terms and Conditions consent']),
+        ...(consentGivenPrivacy ? [] : ['Privacy Policy consent']),
+    ];
 
     return (
         <div>
@@ -915,7 +904,10 @@ export default function IntakeApplicationForm({
                     <AccordionContent className="p-4 sm:p-5">
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6">
                             <div className="flex flex-col">
-                                <Label htmlFor="gradeLevel">Grade Level</Label>
+                                <Label htmlFor="gradeLevel">
+                                    Grade Level{' '}
+                                    <span className="text-red-700">*</span>
+                                </Label>
                                 <Input
                                     id="gradeLevel"
                                     value={data.grade_level}
@@ -933,7 +925,10 @@ export default function IntakeApplicationForm({
                             </div>
 
                             <div className="flex flex-col">
-                                <Label htmlFor="schoolName">School Name</Label>
+                                <Label htmlFor="schoolName">
+                                    School Name{' '}
+                                    <span className="text-red-700">*</span>
+                                </Label>
                                 <Input
                                     id="schoolName"
                                     value={data.school_name}
@@ -1583,7 +1578,8 @@ export default function IntakeApplicationForm({
 
                         <div className="mt-6">
                             <Label>
-                                Does the child have any medical conditions?
+                                Does the child have any medical conditions?{' '}
+                                <span className="text-red-700">*</span>
                             </Label>
                             <RadioGroup
                                 value={
@@ -1635,7 +1631,8 @@ export default function IntakeApplicationForm({
 
                         <div className="mt-6 flex flex-col">
                             <Label htmlFor="languagesSpoken">
-                                What languages are spoken at home
+                                What languages are spoken at home{' '}
+                                <span className="text-red-700">*</span>
                             </Label>
                             <Input
                                 id="languagesSpoken"
@@ -1822,10 +1819,9 @@ export default function IntakeApplicationForm({
 
                                 <div className="mt-10 space-y-5 border-t border-primary p-5">
                                     <p className="text-lg font-bold text-primary">
-                                        Required FSCD Consents *{' '}
+                                        Required FSCD Consent *{' '}
                                         <span className="text-sm font-light">
-                                            Consent to all items is required to
-                                            move forward
+                                            Consent is required to move forward
                                         </span>
                                     </p>
 
@@ -1833,9 +1829,6 @@ export default function IntakeApplicationForm({
                                         {fscdConsentTerms.map((terms) => {
                                             const state =
                                                 fscdConsentState[terms.id];
-                                            const hasRead = Boolean(
-                                                fscdTermsRead[terms.id],
-                                            );
 
                                             return (
                                                 <div
@@ -1846,8 +1839,7 @@ export default function IntakeApplicationForm({
                                                         type="checkbox"
                                                         id={terms.id}
                                                         checked={state.checked}
-                                                        disabled={!hasRead}
-                                                        className="mt-1 h-5 w-5 accent-primary disabled:cursor-not-allowed disabled:opacity-50"
+                                                        className="mt-1 h-5 w-5 accent-primary"
                                                         onChange={(e) =>
                                                             state.setChecked(
                                                                 e.target
@@ -1857,7 +1849,7 @@ export default function IntakeApplicationForm({
                                                     />
                                                     <label
                                                         htmlFor={terms.id}
-                                                        className={`text-sm sm:text-base ${hasRead ? '' : 'text-charcoal-gray'}`}
+                                                        className="text-sm sm:text-base"
                                                     >
                                                         {terms.label} —{' '}
                                                         <button
@@ -1871,14 +1863,6 @@ export default function IntakeApplicationForm({
                                                         >
                                                             Terms and Conditions
                                                         </button>
-                                                        {!hasRead && (
-                                                            <span className="mt-1 block text-xs text-charcoal-gray">
-                                                                Read the terms
-                                                                to the end to
-                                                                enable this
-                                                                consent.
-                                                            </span>
-                                                        )}
                                                     </label>
                                                 </div>
                                             );
@@ -2244,7 +2228,7 @@ export default function IntakeApplicationForm({
                     <AccordionContent className="p-5">
                         <p className="px-2 text-base leading-relaxed text-muted-foreground sm:px-0 sm:text-lg">
                             Select all services you are interested in for your
-                            child.
+                            child. <span className="text-red-700">*</span>
                         </p>
 
                         <div className="mt-6">
@@ -2305,7 +2289,8 @@ export default function IntakeApplicationForm({
                         <div className="mt-6">
                             <Label>
                                 Is your child currently receiving services from
-                                other programs or agencies?
+                                other programs or agencies?{' '}
+                                <span className="text-red-700">*</span>
                             </Label>
                             <RadioGroup
                                 value={
@@ -2405,6 +2390,31 @@ export default function IntakeApplicationForm({
                                 {errors.availability_slots}
                             </p>
                         )}
+
+                        <div className="mt-6">
+                            <Label htmlFor="availabilityNotes">
+                                Please provide any additional scheduling details
+                                or restrictions
+                            </Label>
+                            <textarea
+                                id="availabilityNotes"
+                                value={data.availability_notes}
+                                onChange={(e) =>
+                                    setData(
+                                        'availability_notes',
+                                        e.target.value,
+                                    )
+                                }
+                                className="mt-2 w-full rounded-[10px] border px-2 py-1"
+                                placeholder="e.g., no sessions during school hours, or unavailable the first week of each month"
+                                rows={3}
+                            />
+                            {errors.availability_notes && (
+                                <p className="mt-2 text-sm text-red-600">
+                                    {errors.availability_notes}
+                                </p>
+                            )}
+                        </div>
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
@@ -2668,10 +2678,10 @@ export default function IntakeApplicationForm({
                 <div className="flex flex-col items-center gap-3 px-6 sm:px-10">
                     <Button
                         className="flex w-full items-center justify-center gap-2 rounded-[10px] border-2 border-primary py-4 text-lg text-white sm:py-5 sm:text-xl"
-                        disabled={!canSubmit}
+                        disabled={processing}
                         type="button"
                         onClick={() => {
-                            if (missingFields.length > 0) {
+                            if (outstandingItems.length > 0) {
                                 setMissingDialogOpen(true);
                             } else {
                                 setPreviewOpen(true);
@@ -2689,7 +2699,8 @@ export default function IntakeApplicationForm({
                     </Button>
 
                     <p className="mt-2 text-center text-sm text-muted-foreground">
-                        Please accept both consents to enable submission
+                        All required fields and consents must be complete before
+                        you can submit
                     </p>
                 </div>
             </div>
@@ -2715,14 +2726,6 @@ export default function IntakeApplicationForm({
                     onOpenChange={(open) =>
                         setOpenFscdTermsId(open ? openFscdTerms.id : null)
                     }
-                    alreadyRead={Boolean(fscdTermsRead[openFscdTerms.id])}
-                    onRead={() =>
-                        setFscdTermsRead((previous) =>
-                            previous[openFscdTerms.id]
-                                ? previous
-                                : { ...previous, [openFscdTerms.id]: true },
-                        )
-                    }
                 />
             )}
 
@@ -2742,7 +2745,7 @@ export default function IntakeApplicationForm({
             <MissingFieldsModal
                 open={missingDialogOpen}
                 onOpenChange={setMissingDialogOpen}
-                missingFields={missingFields}
+                missingFields={outstandingItems}
             />
 
             <Dialog

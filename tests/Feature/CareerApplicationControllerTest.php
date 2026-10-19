@@ -95,3 +95,26 @@ test('the career application form requires the resume file and first reference d
 
     expect(Application::count())->toBe(0);
 });
+
+test('a candidate can add scheduling details beneath their availability', function () {
+    Storage::fake('public');
+
+    $this->post('/careers/apply', validCareerApplicationPayload([
+        'availability_notes' => 'Evenings only on weekdays; away the first week of each month.',
+    ]))->assertSessionHasNoErrors();
+
+    expect(Application::first()->availability_notes)
+        ->toBe('Evenings only on weekdays; away the first week of each month.');
+});
+
+test('scheduling details are optional and capped in length', function () {
+    Storage::fake('public');
+
+    $this->post('/careers/apply', validCareerApplicationPayload())->assertSessionHasNoErrors();
+    expect(Application::first()->availability_notes)->toBeNull();
+
+    $this->post('/careers/apply', validCareerApplicationPayload([
+        'email' => 'second@example.com',
+        'availability_notes' => str_repeat('a', 1001),
+    ]))->assertSessionHasErrors('availability_notes');
+});

@@ -55,6 +55,7 @@ class CareerApplicationController extends Controller
             'availability.*.week_day' => ['required', 'string'],
             'availability.*.time_from' => ['nullable', 'string'],
             'availability.*.time_to' => ['nullable', 'string'],
+            'availability_notes' => ['nullable', 'string', 'max:1000'],
             'resume_file' => ['required', 'file', 'mimes:pdf,doc,docx'],
             'cover_letter_file' => ['nullable', 'file', 'mimes:pdf,doc,docx'],
             'drivers_license' => ['required', 'boolean'],

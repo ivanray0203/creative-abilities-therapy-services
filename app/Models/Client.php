@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,6 +22,8 @@ use Illuminate\Support\Collection;
  * @property array<int, array<string, mixed>>|null $timeline
  * @property array<int, int>|null $consents
  * @property array<int, array<string, mixed>>|null $service_availed
+ * @property Carbon|null $consent_sent_at
+ * @property Carbon|null $consent_signed_at
  * @property-read Intake|null $originalIntake
  * @property-read User|null $user
  */
@@ -47,6 +50,8 @@ class Client extends Model
             'timeline' => 'array',
             'consents' => 'array',
             'service_availed' => 'array',
+            'consent_sent_at' => 'datetime',
+            'consent_signed_at' => 'datetime',
         ];
     }
 

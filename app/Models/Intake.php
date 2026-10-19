@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * @property array<int, string>|null $available_days
  * @property array<int, string>|null $preferred_times
  * @property array<string, array<int, string>>|null $availability_slots
+ * @property string|null $availability_notes
  * @property array<int, array<string, mixed>>|null $notes
  * @property array<int, array<string, mixed>>|null $timeline
  * @property array<string, mixed>|null $funding_source_info
@@ -28,7 +29,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'date_of_birth', 'age', 'gender', 'status', 'street_address', 'address_line_2', 'city',
     'state_province', 'postal_code', 'grade_level', 'school_name', 'services_needed',
     'currently_receiving_services', 'diagnosis', 'has_medical_conditions', 'languages_spoken_at_home',
-    'require_interpreter', 'funding_source', 'available_days', 'preferred_times', 'availability_slots',
+    'require_interpreter', 'funding_source', 'available_days', 'preferred_times', 'availability_slots', 'availability_notes',
     'primary_parent_name', 'primary_parent_phone', 'primary_parent_email', 'primary_relationship_to_child',
     'primary_contact_method', 'secondary_parent_name', 'secondary_parent_phone', 'secondary_parent_email',
     'secondary_relationship_to_child', 'secondary_contact_method', 'additional_information', 'reviewed',

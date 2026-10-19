@@ -3,9 +3,9 @@
 use Pest\Browser\Api\AwaitableWebpage;
 
 /**
- * The three FSCD consents are a funding condition, so the intake form must
- * not let an applicant give them without opening the terms and reading to
- * the end.
+ * An FSCD funding source asks for one consent — communicating with the FSCD
+ * worker — which the applicant can give straight away; the terms are there
+ * to review, not a gate.
  */
 function openFscdFundingSection(): AwaitableWebpage
 {
@@ -13,7 +13,7 @@ function openFscdFundingSection(): AwaitableWebpage
         ->click('Decline')
         ->click('Funding Source')
         ->click('Select a funding')
-        // Any FSCD source shows the consents; this one's label has no slash,
+        // Any FSCD source shows the consent; this one's label has no slash,
         // which the browser plugin would parse as a CSS selector token.
         ->click('Counselling - FSCD');
 }
@@ -31,40 +31,26 @@ it('offers the clinical coordinator service only under ss-fscd funding', functio
         ->assertSee('Clinical Coordinator');
 });
 
-it('disables the fscd consent checkboxes until their terms are opened', function () {
+it('shows only the fscd worker communication consent', function () {
     openFscdFundingSection()
-        ->assertSee('Required FSCD Consents')
-        ->assertDisabled('#consentFSCD1')
-        ->assertDisabled('#consentFSCD2')
-        ->assertDisabled('#consentFSCD3');
+        ->assertSee('Required FSCD Consent')
+        ->assertPresent('#consentFSCD1')
+        ->assertNotPresent('#consentFSCD2')
+        ->assertNotPresent('#consentFSCD3');
 });
 
-it('keeps a consent locked while its terms are only partly read', function () {
+it('lets the consent be checked without opening its terms', function () {
+    openFscdFundingSection()
+        ->assertEnabled('#consentFSCD1')
+        ->click('#consentFSCD1')
+        ->assertChecked('#consentFSCD1');
+});
+
+it('opens the terms for review from the consent label', function () {
     openFscdFundingSection()
         ->click('Terms and Conditions')
         ->assertSee('Consent to Communicate with Your FSCD Worker')
-        ->assertSee('Scroll to the end to unlock this consent.')
+        ->assertSee('End of terms')
         ->click('Close')
-        ->assertDisabled('#consentFSCD1');
-});
-
-it('unlocks a consent once its terms are scrolled to the end', function () {
-    $page = openFscdFundingSection()
-        ->click('Terms and Conditions')
-        ->assertSee('Consent to Communicate with Your FSCD Worker');
-
-    $page->script(<<<'JS'
-        const terms = document.getElementById('fscd-terms-scroll');
-        terms.scrollTop = terms.scrollHeight;
-        terms.dispatchEvent(new Event('scroll'));
-    JS);
-
-    $page->assertSee('You can now check this consent.')
-        ->click('Close')
-        ->assertEnabled('#consentFSCD1')
-        // Reading one document must not unlock the other two.
-        ->assertDisabled('#consentFSCD2')
-        ->assertDisabled('#consentFSCD3')
-        ->click('#consentFSCD1')
-        ->assertChecked('#consentFSCD1');
+        ->assertEnabled('#consentFSCD1');
 });

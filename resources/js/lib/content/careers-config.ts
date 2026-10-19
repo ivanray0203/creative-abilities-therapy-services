@@ -125,6 +125,14 @@ export const WEEK_DAYS = [
     'Sunday',
 ];
 
+export const PROFESSION_STATUS_OPTIONS = [
+    { value: 'licensed', label: 'Fully Licensed/Registered' },
+    { value: 'provisional', label: 'Provisional Registration' },
+    { value: 'inprogress', label: 'In Process' },
+    { value: 'graduate', label: 'Recent Graduate' },
+    { value: 'student', label: 'Student (Practicum)' },
+];
+
 export const RESIDENT_STATUS = [
     'Canadian Citizen',
     'Permanent Resident',

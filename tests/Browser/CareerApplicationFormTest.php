@@ -87,3 +87,15 @@ it('drops resume from the missing list once a file is attached', function () {
 
     unlink($resume);
 });
+
+it('asks for scheduling details under the availability grid', function () {
+    $career = Career::factory()->create();
+
+    visit("/careers/apply/{$career->id}")
+        ->click('Decline')
+        ->click('#availability-trigger')
+        ->assertSee('Please provide any additional scheduling details or restrictions')
+        ->type('#availabilityNotes', 'Evenings only on weekdays')
+        ->assertValue('#availabilityNotes', 'Evenings only on weekdays')
+        ->assertNoJavaScriptErrors();
+});

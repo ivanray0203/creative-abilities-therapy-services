@@ -30,6 +30,7 @@ use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Public\CareerApplicationController;
 use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Public\CheckEmailController;
+use App\Http\Controllers\Public\ClientConsentController;
 use App\Http\Controllers\Public\ContactController;
 use App\Http\Controllers\Public\IntakeApplicationController;
 use App\Http\Controllers\Public\OfferLetterController;
@@ -83,6 +84,14 @@ Route::middleware('signed')->group(function (): void {
     Route::get('offer/{application}', [OfferLetterController::class, 'show'])->name('public.offer.show');
     Route::post('offer/{application}/accept', [OfferLetterController::class, 'accept'])->name('public.offer.accept');
     Route::post('offer/{application}/decline', [OfferLetterController::class, 'decline'])->name('public.offer.decline');
+});
+
+// The parent returns the signed consent through an emailed link, so the
+// signed URL stands in for a login here too.
+Route::middleware('signed')->group(function (): void {
+    Route::get('consent/{client}', [ClientConsentController::class, 'show'])->name('public.consent.show');
+    Route::get('consent/{client}/download', [ClientConsentController::class, 'download'])->name('public.consent.download');
+    Route::post('consent/{client}', [ClientConsentController::class, 'upload'])->name('public.consent.upload');
 });
 
 Route::get('intake/apply', [IntakeApplicationController::class, 'create'])->name('public.intake.create');
@@ -149,6 +158,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::put('clients/{client}/services/{clientService}', [ClientController::class, 'updateService'])->name('admin.client.services.update');
         Route::delete('clients/{client}/services/{clientService}', [ClientController::class, 'destroyService'])->name('admin.client.services.destroy');
         Route::post('clients/{client}/documents', [ClientController::class, 'uploadDocument'])->name('admin.client.documents.store');
+        Route::post('clients/{client}/consent', [ClientController::class, 'sendConsent'])->name('admin.client.consent.send');
         Route::delete('clients/documents/{document}', [ClientController::class, 'deleteDocument'])->name('admin.client.documents.destroy');
         Route::patch('clients/{client}/notes', [ClientController::class, 'addNote'])->name('admin.client.notes.store');
         Route::delete('clients/{client}/notes/{note}', [ClientController::class, 'deleteNote'])->name('admin.client.notes.destroy');
@@ -233,6 +243,8 @@ Route::middleware(['auth', 'role:admin'])
 
         Route::get('applications', [ApplicationController::class, 'index'])->name('admin.applications.index');
         Route::get('applications/{application}', [ApplicationController::class, 'show'])->name('admin.applications.show');
+        Route::get('applications/{application}/edit', [ApplicationController::class, 'edit'])->name('admin.applications.edit');
+        Route::put('applications/{application}', [ApplicationController::class, 'update'])->name('admin.applications.update');
         Route::delete('applications/{application}', [ApplicationController::class, 'destroy'])->name('admin.applications.destroy');
         Route::patch('applications/{application}/status', [ApplicationController::class, 'updateStatus'])->name('admin.applications.update-status');
         Route::patch('applications/{application}/rating', [ApplicationController::class, 'updateRating'])->name('admin.applications.update-rating');

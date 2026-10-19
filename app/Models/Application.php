@@ -37,7 +37,7 @@ use Illuminate\Support\Carbon;
     'internal_notes', 'notes', 'experience', 'expected_salary', 'notice_availability', 'hourly_rate',
     'hire_date', 'interview_date', 'interview_time', 'interview_platform', 'interview_meeting_link',
     'interview_calendar_event_id', 'education', 'skills',
-    'candidate_rating', 'hired', 'declined', 'availability', 'references', 'resident_status',
+    'candidate_rating', 'hired', 'declined', 'availability', 'availability_notes', 'references', 'resident_status',
     'reference_number', 'offer_sent_at', 'offer_expires_at', 'offer_letter',
     'offer_letter_drive_file_id', 'signed_offer_letter', 'signed_offer_letter_drive_file_id',
     'offer_accepted_at', 'offer_declined_at', 'onboarding_started_at',

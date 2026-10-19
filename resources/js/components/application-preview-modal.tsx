@@ -43,6 +43,7 @@ export interface ApplicationPreviewData {
     preferred_start_date: string;
     is_working_with_other: boolean;
     availability: AvailabilityPreviewEntry[];
+    availability_notes: string;
     resume_file: File | null;
     cover_letter_file: File | null;
     drivers_license: boolean;
@@ -231,6 +232,16 @@ export default function ApplicationPreviewModal({
                                     )}
                                 </div>
                             </div>
+                            {applicationData.availability_notes && (
+                                <div className="col-span-full">
+                                    <h3 className="text-sm text-muted-foreground">
+                                        Scheduling Details or Restrictions
+                                    </h3>
+                                    <p className="font-medium whitespace-pre-line">
+                                        {applicationData.availability_notes}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 

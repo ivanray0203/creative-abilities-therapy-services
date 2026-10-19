@@ -16,6 +16,7 @@ use App\Models\ServiceOffering;
 use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ClientConsentService;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\IntakeApprovalService;
 use App\Services\IntakeSubmissionService;
@@ -350,13 +351,13 @@ class IntakeController extends Controller
      * up on the client's service list (e.g. the therapist-facing client
      * card), not just in the intake's review history.
      */
-    public function therapistApprove(Request $request, Intake $intake, IntakeApprovalService $approvalService): RedirectResponse
+    public function therapistApprove(Request $request, Intake $intake, IntakeApprovalService $approvalService, ClientConsentService $consents): RedirectResponse
     {
         $review = $this->resolveReviewForDecision($request, $intake, ['pending', 'reassign']);
 
         abort_unless($request->user()->isAdmin() || $review->therapist_id === $request->user()->id, 403);
 
-        $justPromoted = DB::transaction(function () use ($intake, $review, $approvalService): bool {
+        [$justPromoted, $client] = DB::transaction(function () use ($intake, $review, $approvalService): array {
             $review->update(['status' => 'approved', 'decided_at' => now()]);
 
             IntakeTherapistApprovalHistory::query()->create([
@@ -394,8 +395,14 @@ class IntakeController extends Controller
                 }
             }
 
-            return $justPromoted;
+            return [$justPromoted, $client];
         });
+
+        // Outside the transaction, so the email never goes out for an
+        // approval that ended up rolled back.
+        if ($consents->sendIfReady($client)) {
+            AuditLogger::log('Sent consent', 'Clients', "Sent the consent link for client #{$client->id} once every service was approved");
+        }
 
         AuditLogger::log('Therapist approved intake', 'Intake', "Therapist approved intake #{$intake->id}".($justPromoted ? ' and client created' : ' and added to existing client'));
 
@@ -977,6 +984,7 @@ class IntakeController extends Controller
             'available_days' => $availability['days'],
             'preferred_times' => $availability['times'],
             'availability_slots' => $availability['slots'],
+            'availability_notes' => $validated['availability_notes'] ?? null,
             'primary_parent_name' => $validated['primary_parent_name'],
             'primary_parent_phone' => $validated['primary_parent_phone'],
             'primary_parent_email' => $validated['primary_parent_email'] ?? null,

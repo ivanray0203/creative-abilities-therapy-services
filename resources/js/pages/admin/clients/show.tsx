@@ -5,6 +5,7 @@ import { useState } from 'react';
 import AddClientServiceModal from '@/components/admin/add-client-service-modal';
 import AssignTherapistModal from '@/components/admin/assign-therapist-modal';
 import { ClientStatusBadge } from '@/components/admin/client/badges';
+import ConsentStatus from '@/components/admin/client/consent-status';
 import ContractsTab from '@/components/admin/client/contracts-tab';
 import DocumentsTab from '@/components/admin/client/documents-tab';
 import FundingTab from '@/components/admin/client/funding-tab';
@@ -114,6 +115,8 @@ export default function AdminClientShow({
                         </Button>
                     </div>
                 </div>
+
+                <ConsentStatus client={client} />
 
                 <Tabs defaultValue="overview">
                     <TabsList className="flex w-full flex-wrap justify-start">

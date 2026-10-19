@@ -325,6 +325,11 @@ export default function OverviewTab({
                                 fallbackDays={intake?.available_days}
                                 fallbackTimes={intake?.preferred_times}
                             />
+                            {intake?.availability_notes && (
+                                <p className="mt-4 text-sm text-muted-foreground">
+                                    {intake.availability_notes}
+                                </p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

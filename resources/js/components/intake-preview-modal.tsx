@@ -71,6 +71,7 @@ export interface IntakePreviewData {
     currently_receiving_services: boolean;
     receiving_services_desc?: string;
     availability_slots?: AvailabilitySlots;
+    availability_notes?: string;
     additional_information?: string;
     referral_source: string;
 }
@@ -643,6 +644,11 @@ export default function IntakePreviewModal({
                                             </li>
                                         ))}
                                     </ul>
+                                )}
+                                {applicationData.availability_notes && (
+                                    <p className="mt-2 text-sm">
+                                        {applicationData.availability_notes}
+                                    </p>
                                 )}
                             </div>
                             <div>

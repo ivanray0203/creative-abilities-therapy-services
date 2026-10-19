@@ -76,6 +76,7 @@ export interface Application {
     hired: boolean;
     declined: boolean;
     availability: AvailabilityEntry[] | null;
+    availability_notes: string | null;
     references: Record<string, unknown>[] | null;
     resident_status: string | null;
     reference_number: string | null;

@@ -12,6 +12,7 @@ use App\Models\ServiceContract;
 use App\Models\ServiceOffering;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\ClientConsentService;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\PdfService;
 use App\Services\ServiceContractLedger;
@@ -391,6 +392,23 @@ class ClientController extends Controller
         AuditLogger::log('Uploaded client document', 'Clients', "Uploaded a document to client #{$client->id}");
 
         return back()->with('success', 'Document uploaded successfully.');
+    }
+
+    /**
+     * Sends — or resends — the consent link. Normally it goes out on its own
+     * once every service is approved; this covers a lost email, an expired
+     * link, a client whose services were approved some other way, or a
+     * signed upload that needs replacing after the first link has lapsed.
+     */
+    public function sendConsent(Client $client, ClientConsentService $consents): RedirectResponse
+    {
+        if (! $consents->send($client)) {
+            return back()->with('error', 'There is no parent email on file to send the consent to.');
+        }
+
+        AuditLogger::log('Sent consent', 'Clients', "Sent the consent link for client #{$client->id}");
+
+        return back()->with('success', 'Consent link sent to the parent.');
     }
 
     public function deleteDocument(ClientDocument $document, DriveStorage $drive): RedirectResponse
