@@ -107,6 +107,8 @@ export interface Intake {
     preferred_times: string[] | null;
     /** Day -> times-of-day grid; `available_days`/`preferred_times` are derived from it. */
     availability_slots: Record<string, string[]> | null;
+    /** Optional free-text scheduling details or restrictions. */
+    availability_notes: string | null;
     primary_parent_name: string;
     primary_parent_phone: string | null;
     primary_parent_email: string | null;

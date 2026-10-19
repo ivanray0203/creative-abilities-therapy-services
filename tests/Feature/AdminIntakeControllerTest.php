@@ -118,12 +118,16 @@ test('an admin can update an intake and a timeline entry is appended', function 
     $intake = Intake::factory()->create(['timeline' => []]);
 
     $response = $this->actingAs(adminUser())
-        ->put("/admin/intake/{$intake->id}", validAdminIntakePayload(['child_first_name' => 'Renamed']));
+        ->put("/admin/intake/{$intake->id}", validAdminIntakePayload([
+            'child_first_name' => 'Renamed',
+            'availability_notes' => 'Tuesdays only after 4pm.',
+        ]));
 
     $response->assertSessionHasNoErrors();
 
     $intake->refresh();
     expect($intake->child_first_name)->toBe('Renamed');
+    expect($intake->availability_notes)->toBe('Tuesdays only after 4pm.');
     expect($intake->timeline)->toHaveCount(1);
     expect($intake->timeline[0]['title'])->toBe('Intake Edited via Admin');
 });

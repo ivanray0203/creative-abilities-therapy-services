@@ -51,6 +51,17 @@ export default function AvailabilityTab({
                             </p>
                         </div>
                     )}
+
+                    {application.availability_notes && (
+                        <div className="mt-5">
+                            <p className="text-sm text-muted-foreground">
+                                Scheduling details or restrictions
+                            </p>
+                            <p className="mt-1 whitespace-pre-line">
+                                {application.availability_notes}
+                            </p>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         </div>

@@ -365,6 +365,126 @@ test('an admin can delete an application', function () {
     expect(Application::find($application->id))->toBeNull();
 });
 
+test('the edit page loads the application and the positions to choose from', function () {
+    $application = Application::factory()->create();
+    Career::factory()->create(['position' => 'Speech-Language Pathologist']);
+
+    $this->actingAs(adminUser())->get("/admin/applications/{$application->id}/edit")
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/applications/edit')
+            ->where('application.id', $application->id)
+            ->has('careers', 1)
+        );
+});
+
+test('an admin can edit every detail the candidate submitted', function () {
+    $career = Career::factory()->create(['position' => 'Occupational Therapist']);
+    $application = Application::factory()->create([
+        'application_status' => 'reviewing',
+        'first_name' => 'Jon',
+    ]);
+
+    $this->actingAs(adminUser())->put("/admin/applications/{$application->id}", [
+        'first_name' => 'John',
+        'middle_name' => 'Q',
+        'last_name' => 'Public',
+        'phone' => '403-555-0100',
+        'email' => 'john.public@example.test',
+        'resident_status' => 'Permanent Resident',
+        'street_address' => '1 Main St',
+        'address_line_2' => 'Unit 2',
+        'city' => 'Calgary',
+        'province' => 'Alberta',
+        'zip_code' => 'T2P 1A1',
+        'position_applied' => 'Occupational Therapist',
+        'position_id' => $career->id,
+        'profession_status' => 'licensed',
+        'preferred_start_date' => '2026-11-02',
+        'is_working_with_other' => true,
+        'availability' => [['week_day' => 'Monday', 'time_from' => '09:00', 'time_to' => '17:00']],
+        'availability_notes' => 'No Fridays.',
+        'drivers_license' => true,
+        'has_vehicle' => false,
+        'lead_source' => 'social_media',
+        'reason_for_applying' => 'Love the work.',
+        'other_notes' => 'None',
+        'expected_salary' => '45/hr',
+        'experience' => 'Five years.',
+        'education' => 'bachelors',
+        'skills' => ['ABA', 'PECS'],
+        'references' => [[
+            'full_name' => 'Ref One',
+            'position' => 'Manager',
+            'work' => 'Clinic',
+            'email' => 'ref@example.test',
+            'phone' => '403-555-0101',
+        ]],
+    ])->assertRedirect("/admin/applications/{$application->id}")
+        ->assertSessionHasNoErrors();
+
+    $application->refresh();
+
+    expect($application->first_name)->toBe('John')
+        ->and($application->last_name)->toBe('Public')
+        ->and($application->email)->toBe('john.public@example.test')
+        ->and($application->city)->toBe('Calgary')
+        ->and($application->position_id)->toBe($career->id)
+        ->and($application->preferred_start_date->toDateString())->toBe('2026-11-02')
+        ->and($application->is_working_with_other)->toBeTrue()
+        ->and($application->skills)->toBe(['ABA', 'PECS'])
+        ->and($application->references[0]['full_name'])->toBe('Ref One')
+        ->and($application->availability[0]['time_from'])->toBe('09:00')
+        ->and($application->availability_notes)->toBe('No Fridays.')
+        ->and($application->application_status)->toBe('reviewing');
+});
+
+test('editing an application requires a name, contact details and position', function () {
+    $application = Application::factory()->create();
+
+    $this->actingAs(adminUser())->put("/admin/applications/{$application->id}", [
+        'first_name' => '',
+        'last_name' => '',
+        'email' => 'not-an-email',
+        'phone' => '',
+        'position_applied' => '',
+        'is_working_with_other' => false,
+        'drivers_license' => false,
+        'has_vehicle' => false,
+    ])->assertSessionHasErrors(['first_name', 'last_name', 'email', 'phone', 'position_applied']);
+});
+
+test('editing an application cannot change its pipeline status', function () {
+    $application = Application::factory()->create(['application_status' => 'pending']);
+
+    $this->actingAs(adminUser())->put("/admin/applications/{$application->id}", [
+        'first_name' => $application->first_name,
+        'last_name' => $application->last_name,
+        'email' => $application->email,
+        'phone' => '403-555-0100',
+        'position_applied' => $application->position_applied,
+        'is_working_with_other' => false,
+        'drivers_license' => false,
+        'has_vehicle' => false,
+        'application_status' => 'hired',
+        'hourly_rate' => 99,
+    ])->assertSessionHasNoErrors();
+
+    $application->refresh();
+
+    expect($application->application_status)->toBe('pending')
+        ->and($application->hourly_rate)->toBeNull();
+});
+
+test('a non-admin cannot edit an application', function () {
+    $application = Application::factory()->create();
+
+    $this->actingAs(therapistUser())->get("/admin/applications/{$application->id}/edit")->assertRedirect('/therapist');
+    $this->actingAs(therapistUser())->put("/admin/applications/{$application->id}", ['first_name' => 'Hacked'])->assertRedirect('/therapist');
+
+    expect($application->refresh()->first_name)->not->toBe('Hacked');
+});
+
 test('moving an application to reviewing emails the candidate', function () {
     Mail::fake();
 

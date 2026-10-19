@@ -170,6 +170,10 @@ export interface Client {
     contract_start_date: string | null;
     contract_end_date: string | null;
     signed_date: string | null;
+    /** When the consent link was last emailed to the parent. */
+    consent_sent_at: string | null;
+    /** When the parent uploaded the signed consent; null while awaiting it. */
+    consent_signed_at: string | null;
     timeline: ClientTimelineEntry[] | null;
     status: ClientStatus;
     consents: number[] | null;

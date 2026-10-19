@@ -62,6 +62,15 @@ return [
         'acceptance_days' => (int) env('CATS_OFFER_ACCEPTANCE_DAYS', 5),
     ],
 
+    /*
+     * The consent package a parent downloads, signs and uploads once every
+     * service on their child's intake is approved. `link_days` is how long
+     * the emailed upload link works; an admin resend mints a fresh one.
+     */
+    'consent' => [
+        'link_days' => (int) env('CATS_CONSENT_LINK_DAYS', 30),
+    ],
+
     'invoice' => [
         'legal_name' => env('CATS_LEGAL_NAME', 'Creative Abilities Therapy Services Inc.'),
         'business_partner_number' => env('CATS_BUSINESS_PARTNER_NUMBER', '0020133765'),

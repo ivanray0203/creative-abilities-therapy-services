@@ -111,7 +111,7 @@ test('submitting an intake logs a warning when no admin wants intake notificatio
         ->once();
 });
 
-test('an fscd funding source requires fscd case worker fields and produces hardcoded fscd consents', function () {
+test('an fscd funding source requires fscd case worker fields and produces the hardcoded fscd consent', function () {
     $payload = validIntakePayload([
         'funding_source' => 'BDS-FSCD',
         'fscd_info' => [
@@ -128,7 +128,8 @@ test('an fscd funding source requires fscd case worker fields and produces hardc
 
     $intake = Intake::first();
     expect($intake->funding_source_info['FSCD_case_worker_name'])->toBe('Worker Name');
-    expect($intake->funding_source_info['consents'])->toHaveCount(3);
+    expect($intake->funding_source_info['consents'])->toHaveCount(1)
+        ->and($intake->funding_source_info['consents'][0]['title'])->toBe('FSCD Worker Communication');
 });
 
 test('the fscd case worker name is required when funding source is an fscd variant', function () {
@@ -199,6 +200,60 @@ test('an intake cannot be submitted without any availability', function () {
         ->assertSessionHasErrors(['availability_slots']);
 
     expect(Intake::count())->toBe(0);
+});
+
+test('an intake cannot be submitted without a grade level or school name', function () {
+    $this->post('/intake/apply', validIntakePayload(['grade_level' => '', 'school_name' => '']))
+        ->assertSessionHasErrors([
+            'grade_level' => 'The grade level field is required.',
+            'school_name' => 'The school name field is required.',
+        ]);
+
+    expect(Intake::count())->toBe(0);
+});
+
+test('an intake cannot be submitted without the child\'s background answers', function () {
+    $this->post('/intake/apply', validIntakePayload([
+        'gender' => '',
+        'diagnosis' => [],
+        'services_needed' => [],
+        'languages_spoken_at_home' => '',
+        'has_medical_conditions' => null,
+        'currently_receiving_services' => null,
+    ]))->assertSessionHasErrors([
+        'gender',
+        'diagnosis',
+        'services_needed',
+        'languages_spoken_at_home',
+        'has_medical_conditions',
+        'currently_receiving_services',
+    ]);
+
+    expect(Intake::count())->toBe(0);
+});
+
+test('answering no to the yes/no background questions is accepted', function () {
+    $this->post('/intake/apply', validIntakePayload([
+        'has_medical_conditions' => false,
+        'currently_receiving_services' => false,
+    ]))->assertSessionHasNoErrors();
+
+    expect(Intake::count())->toBe(1);
+});
+
+test('optional scheduling details are stored with the availability', function () {
+    $this->post('/intake/apply', validIntakePayload([
+        'availability_notes' => 'No sessions during school hours.',
+    ]))->assertSessionHasNoErrors();
+
+    expect(Intake::first()->availability_notes)->toBe('No sessions during school hours.');
+
+    $this->post('/intake/apply', validIntakePayload([
+        'primary_parent_email' => 'other@example.com',
+        'primary_parent_email_confirm' => 'other@example.com',
+    ]))->assertSessionHasNoErrors();
+
+    expect(Intake::query()->latest('id')->first()->availability_notes)->toBeNull();
 });
 
 test('an unknown availability day or time is rejected', function () {

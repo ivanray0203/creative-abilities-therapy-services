@@ -102,12 +102,12 @@ const FSCD_FUNDING_SOURCES = ['BDS-FSCD', 'SS-FSCD', 'Counselling-FSCD'];
  * Intake-form progress calculator, mirroring IntakeApplicationForm.tsx's
  * calculateProgress(): the fixed field list above, plus fscd_info/
  * insurance_info sub-fields when the matching funding source is selected,
- * plus (for FSCD sources) the three hardcoded FSCD consent checkboxes,
- * which aren't form fields so are passed in separately.
+ * plus (for FSCD sources) the hardcoded FSCD consent checkbox, which isn't
+ * a form field so is passed in separately.
  */
 export function computeIntakeProgress(
     values: object,
-    fscdConsents: readonly [boolean, boolean, boolean] = [false, false, false],
+    fscdConsentGiven: boolean = false,
 ): FormProgressResult {
     const fundingSource = (values as Record<string, unknown>).funding_source as
         string | undefined;
@@ -145,11 +145,7 @@ export function computeIntakeProgress(
 
     const externalFields =
         fundingSource && FSCD_FUNDING_SOURCES.includes(fundingSource)
-            ? [
-                  { value: fscdConsents[0], key: 'FSCD Consent 1' },
-                  { value: fscdConsents[1], key: 'FSCD Consent 2' },
-                  { value: fscdConsents[2], key: 'FSCD Consent 3' },
-              ]
+            ? [{ value: fscdConsentGiven, key: 'FSCD Consent' }]
             : [];
 
     if (externalFields.length === 0) {

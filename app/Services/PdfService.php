@@ -188,6 +188,47 @@ class PdfService
     }
 
     /**
+     * The consent package a parent prints, signs and uploads back
+     * (resources/views/pdf/client-consent.blade.php): the Therapy Consent
+     * Form, the Family Service Agreement and the Funding Source page, each
+     * prefilled from the intake with blank lines left for signatures.
+     */
+    public function clientConsent(Client $client): string
+    {
+        $client->loadMissing('originalIntake');
+        $intake = $client->originalIntake;
+        $fundingInfo = $intake->funding_source_info ?? [];
+
+        return Pdf::loadView('pdf.client-consent', [
+            'intake' => $intake,
+            'childName' => trim(collect([$intake?->child_first_name, $intake?->child_middle_name, $intake?->child_last_name])->filter()->implode(' ')),
+            'parentName' => $intake->primary_parent_name ?? '',
+            'dateOfBirth' => $intake?->date_of_birth,
+            'fundingSource' => self::FUNDING_SOURCE_LABELS[$intake?->funding_source] ?? $intake?->funding_source,
+            'isFscd' => in_array($intake?->funding_source, IntakeSubmissionService::FSCD_SOURCES, true),
+            'fscdNumber' => $fundingInfo['FSCD_number'] ?? $intake?->funding_number,
+            'caseWorkerName' => $fundingInfo['FSCD_case_worker_name'] ?? null,
+            'caseWorkerEmail' => $fundingInfo['FSCD_case_worker_email'] ?? null,
+            'legalName' => (string) config('cats.invoice.legal_name'),
+            'director' => (string) config('cats.invoice.clinical_director'),
+        ])->output();
+    }
+
+    /**
+     * Display names for the stored funding-source codes, matching
+     * FUNDING_SOURCE_LABELS in resources/js/lib/content/intake-taxonomy.ts.
+     *
+     * @var array<string, string>
+     */
+    private const FUNDING_SOURCE_LABELS = [
+        'BDS-FSCD' => 'Behavioural/Developmental Support (BDS) - FSCD',
+        'SS-FSCD' => 'Specialized Services (SS) - FSCD',
+        'Counselling-FSCD' => 'Counselling - FSCD',
+        'Insurance' => 'Insurance',
+        'private' => 'Private Pay',
+    ];
+
+    /**
      * The client-facing invoice (resources/views/pdf/invoice.blade.php),
      * matching the clinic's printed form.
      *

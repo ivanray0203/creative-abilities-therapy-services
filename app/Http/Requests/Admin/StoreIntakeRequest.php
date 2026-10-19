@@ -75,6 +75,7 @@ class StoreIntakeRequest extends FormRequest
             'availability_slots' => ['array'],
             'availability_slots.*' => ['array'],
             'availability_slots.*.*' => ['string'],
+            'availability_notes' => ['nullable', 'string', 'max:1000'],
 
             'primary_parent_name' => ['required', 'string', 'max:255'],
             'primary_parent_phone' => ['required', 'string', 'max:20'],

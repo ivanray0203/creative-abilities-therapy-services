@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\UpdateApplicationRequest;
 use App\Models\Application;
+use App\Models\Career;
 use App\Models\ClientDocument;
 use App\Models\User;
 use App\Services\ApplicationHiringService;
@@ -25,7 +27,8 @@ use Inertia\Response;
  * Admin hiring pipeline (reference: cats-frontend/src/pages/admin/ApplicationsPage.tsx
  * and ApplicationDetailPage.tsx; business logic: cats-backend/cats/serializers.py
  * ApplicationSerializer). Application creation stays public-only (Phase 5) —
- * this controller never creates applications, only reviews/decides them.
+ * this controller never creates applications, only reviews, corrects and
+ * decides them.
  */
 class ApplicationController extends Controller
 {
@@ -92,6 +95,27 @@ class ApplicationController extends Controller
             'statusTransitions' => self::STATUS_TRANSITIONS[$application->application_status] ?? [],
             'onboarding' => $this->onboardingFor($application, $hiringService),
         ]);
+    }
+
+    public function edit(Application $application): Response
+    {
+        return Inertia::render('admin/applications/edit', [
+            'application' => $application,
+            'careers' => Career::query()->orderBy('position')->get(['id', 'position']),
+        ]);
+    }
+
+    /**
+     * Corrects the details the candidate submitted. Pipeline fields (status,
+     * interview, offer) keep their own actions and are not touched here.
+     */
+    public function update(UpdateApplicationRequest $request, Application $application): RedirectResponse
+    {
+        $application->update($request->validated());
+
+        AuditLogger::log('Updated application', 'Applications', "Updated details on application #{$application->id}");
+
+        return to_route('admin.applications.show', $application)->with('success', 'Application updated successfully.');
     }
 
     /**

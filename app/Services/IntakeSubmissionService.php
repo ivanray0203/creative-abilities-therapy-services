@@ -29,7 +29,7 @@ class IntakeSubmissionService
 {
     /**
      * FSCD funding-source variants that require the FSCD sub-form
-     * and hardcoded FSCD consents in funding_source_info.
+     * and the hardcoded FSCD consent in funding_source_info.
      *
      * @var array<int, string>
      */
@@ -85,24 +85,24 @@ class IntakeSubmissionService
             'child_middle_name' => ['nullable', 'string', 'max:100'],
             'child_last_name' => ['required', 'string', 'max:100'],
             'date_of_birth' => ['required', 'date', 'before_or_equal:today'],
-            'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
+            'gender' => ['required', Rule::in(['male', 'female', 'other'])],
             'street_address' => ['required', 'string', 'max:255'],
             'address_line_2' => ['nullable', 'string', 'max:255'],
             'city' => ['required', 'string', 'max:255'],
             'state_province' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'string', 'max:7'],
-            'grade_level' => ['nullable', 'string', 'max:255'],
-            'school_name' => ['nullable', 'string', 'max:255'],
+            'grade_level' => ['required', 'string', 'max:255'],
+            'school_name' => ['required', 'string', 'max:255'],
 
-            'services_needed' => ['array'],
+            'services_needed' => ['required', 'array', 'min:1'],
             'services_needed.*' => ['string'],
-            'currently_receiving_services' => ['boolean'],
+            'currently_receiving_services' => ['required', 'boolean'],
             'receiving_services_desc' => ['nullable', 'string'],
-            'diagnosis' => ['array'],
+            'diagnosis' => ['required', 'array', 'min:1'],
             'diagnosis.*' => ['string'],
             'diagnosis_other' => [Rule::requiredIf($hasOtherDiagnosis), 'nullable', 'string', 'max:255'],
-            'has_medical_conditions' => ['boolean'],
-            'languages_spoken_at_home' => ['nullable', 'string', 'max:255'],
+            'has_medical_conditions' => ['required', 'boolean'],
+            'languages_spoken_at_home' => ['required', 'string', 'max:255'],
             'require_interpreter' => ['boolean'],
             'interpreter_needed' => ['nullable', 'string', 'max:255'],
             'medical_conditions' => ['nullable', 'string'],
@@ -111,6 +111,7 @@ class IntakeSubmissionService
             'availability_slots' => ['required', 'array', 'min:1', self::rejectUnknownDays()],
             'availability_slots.*' => ['array', 'min:1'],
             'availability_slots.*.*' => ['string', Rule::in(self::AVAILABILITY_TIMES)],
+            'availability_notes' => ['nullable', 'string', 'max:1000'],
 
             'primary_parent_name' => ['required', 'string', 'max:255'],
             'primary_parent_phone' => ['required', 'string', 'max:20'],
@@ -177,6 +178,8 @@ class IntakeSubmissionService
             'date_of_birth' => 'date of birth',
             'state_province' => 'province',
             'postal_code' => 'postal code',
+            'grade_level' => 'grade level',
+            'school_name' => 'school name',
             'services_needed' => 'services needed',
             'currently_receiving_services' => 'currently receiving services',
             'receiving_services_desc' => 'description of current services',
@@ -187,6 +190,7 @@ class IntakeSubmissionService
             'interpreter_needed' => 'interpreter language',
             'funding_source' => 'funding source',
             'availability_slots' => 'availability',
+            'availability_notes' => 'scheduling details',
             'primary_parent_name' => "primary parent's name",
             'primary_parent_phone' => "primary parent's phone",
             'primary_parent_email' => "primary parent's email",
@@ -353,6 +357,7 @@ class IntakeSubmissionService
             'available_days' => $availability['days'],
             'preferred_times' => $availability['times'],
             'availability_slots' => $availability['slots'],
+            'availability_notes' => $validated['availability_notes'] ?? null,
             'primary_parent_name' => $validated['primary_parent_name'],
             'primary_parent_phone' => $validated['primary_parent_phone'],
             'primary_parent_email' => $validated['primary_parent_email'],
@@ -511,11 +516,7 @@ class IntakeSubmissionService
         };
 
         $info['consents'] = $isFscd
-            ? [
-                ['title' => 'FSCD Worker Communication', 'datetime' => now()->toIso8601String()],
-                ['title' => 'Reports Sharing', 'datetime' => now()->toIso8601String()],
-                ['title' => 'Non-Approved Costs Acknowledgment', 'datetime' => now()->toIso8601String()],
-            ]
+            ? [['title' => 'FSCD Worker Communication', 'datetime' => now()->toIso8601String()]]
             : [];
 
         return $info;

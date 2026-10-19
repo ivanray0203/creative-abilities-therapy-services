@@ -48,6 +48,7 @@ import {
 import {
     EDUCATION_OPTIONS,
     LEAD_SOURCE_OPTIONS,
+    PROFESSION_STATUS_OPTIONS,
     RESIDENT_STATUS,
     WEEK_DAYS,
 } from '@/lib/content/careers-config';
@@ -115,6 +116,7 @@ interface CareerApplicationFormData {
     preferred_start_date: string;
     is_working_with_other: boolean;
     availability: AvailabilityEntry[];
+    availability_notes: string;
     resume_file: File | null;
     cover_letter_file: File | null;
     drivers_license: boolean;
@@ -152,6 +154,7 @@ const DEFAULT_VALUES: CareerApplicationFormData = {
         time_from: '',
         time_to: '',
     })),
+    availability_notes: '',
     resume_file: null,
     cover_letter_file: null,
     drivers_license: false,
@@ -168,14 +171,6 @@ const DEFAULT_VALUES: CareerApplicationFormData = {
         { full_name: '', position: '', work: '', email: '', phone: '' },
     ],
 };
-
-const PROFESSION_STATUS_OPTIONS = [
-    { value: 'licensed', label: 'Fully Licensed/Registered' },
-    { value: 'provisional', label: 'Provisional Registration' },
-    { value: 'inprogress', label: 'In Process' },
-    { value: 'graduate', label: 'Recent Graduate' },
-    { value: 'student', label: 'Student (Practicum)' },
-];
 
 interface FileUploadFieldProps {
     label: string;
@@ -961,6 +956,31 @@ export default function CareerApplicationForm({
                                     </div>
                                 </div>
                             ))}
+                        </div>
+
+                        <div className="mt-6">
+                            <Label htmlFor="availabilityNotes">
+                                Please provide any additional scheduling details
+                                or restrictions
+                            </Label>
+                            <textarea
+                                id="availabilityNotes"
+                                value={data.availability_notes}
+                                onChange={(e) =>
+                                    setData(
+                                        'availability_notes',
+                                        e.target.value,
+                                    )
+                                }
+                                className="mt-2 w-full rounded-[10px] border px-2 py-1"
+                                placeholder="e.g., evenings only on weekdays, or unavailable the first week of each month"
+                                rows={3}
+                            />
+                            {errors.availability_notes && (
+                                <p className="mt-2 text-sm text-red-600">
+                                    {errors.availability_notes}
+                                </p>
+                            )}
                         </div>
 
                         <div className="mt-4">

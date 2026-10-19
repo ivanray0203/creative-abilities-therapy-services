@@ -10,6 +10,7 @@ import {
     FileSignature,
     Clock as ClockIcon,
     Heart,
+    Pencil,
     UserCheck2,
     Video,
 } from 'lucide-react';
@@ -138,6 +139,14 @@ export default function AdminApplicationShow({
                     <Button variant="ghost" className="hidden md:flex" asChild>
                         <Link href="/admin/applications">
                             <ArrowLeftIcon /> Back
+                        </Link>
+                    </Button>
+
+                    <Button variant="outline" className="rounded-[5px]" asChild>
+                        <Link
+                            href={`/admin/applications/${application.id}/edit`}
+                        >
+                            <Pencil /> Edit Details
                         </Link>
                     </Button>
 
