@@ -64,6 +64,7 @@ class ReferenceNumberGenerator
             $last = DB::table($table)
                 ->where($column, 'like', "{$yearPrefix}%")
                 ->lockForUpdate()
+                ->orderByRaw("LENGTH({$column}) DESC")
                 ->orderByDesc($column)
                 ->value($column);
 
