@@ -55,6 +55,9 @@ class ReferenceNumberGenerator
         return $this->next('service_contracts', 'CON', 'contract_number');
     }
 
+    /**
+     * @param  literal-string  $column
+     */
     private function next(string $table, string $prefix, string $column = 'reference_number'): string
     {
         $year = now()->year;
@@ -64,6 +67,7 @@ class ReferenceNumberGenerator
             $last = DB::table($table)
                 ->where($column, 'like', "{$yearPrefix}%")
                 ->lockForUpdate()
+                ->orderByRaw("LENGTH({$column}) DESC")
                 ->orderByDesc($column)
                 ->value($column);
 
