@@ -2,7 +2,10 @@
 
 use App\Console\Commands\AssignClientTherapistsCommand;
 use App\Models\Client;
+use App\Models\ClientService;
 use App\Models\Intake;
+use App\Models\Service;
+use App\Models\ServiceOffering;
 use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -174,6 +177,76 @@ test('running it twice assigns nothing new the second time', function () {
 
     expect(Artisan::output())->toContain('Assigned 0 therapist(s), 0 as primary; 1 already assigned.');
     expect($client->careTeam()->count())->toBe(1);
+});
+
+test('each therapist is recorded as providing their service, adding offerings the catalog is missing', function () {
+    $client = caseloadClient('Abubakarr', 'Jalloh');
+    $consultant = caseloadTherapist('Angela', 'Cua');
+    $aide = caseloadTherapist('Tsedal', 'Tewolde');
+    $consulting = ServiceOffering::factory()->create(['name' => 'Behavioural Consulting']);
+
+    registerAssignTherapistsWith([
+        'Abubakarr Jalloh' => [
+            'Angela Cua' => 'Behavioural Consultant',
+            'Tsedal Tewolde' => 'Behavioural Aide',
+        ],
+    ]);
+
+    Artisan::call('clients:assign-therapists');
+
+    $aideServices = ServiceOffering::where('name', 'Behavioural Aide Services')->sole();
+
+    expect(Artisan::output())
+        ->toContain('Added 2 client service(s); 0 already recorded.')
+        ->toContain('Added service offering(s) missing from the catalog (not shown on public pages): Behavioural Aide Services');
+
+    expect(ServiceOffering::where('name', 'Behavioural Consulting')->count())->toBe(1)
+        ->and($aideServices->is_active)->toBeTrue()
+        ->and(Service::count())->toBe(0);
+
+    expect(ClientService::where('client_id', $client->id)->get(['service_id', 'therapist_id'])->toArray())
+        ->toEqualCanonicalizing([
+            ['service_id' => $consulting->id, 'therapist_id' => $consultant->id],
+            ['service_id' => $aideServices->id, 'therapist_id' => $aide->id],
+        ]);
+
+    expect(collect($client->refresh()->service_availed)->pluck('therapist_name')->all())
+        ->toEqualCanonicalizing(['Angela Cua', 'Tsedal Tewolde']);
+});
+
+test('services already recorded are not added again', function () {
+    $client = caseloadClient('Abel', 'Mwangi');
+    caseloadTherapist('Deon', 'Kruger');
+
+    registerAssignTherapistsWith(['Abel Mwangi' => ['Deon Kruger' => 'Occupational Therapist']]);
+
+    Artisan::call('clients:assign-therapists');
+    Artisan::call('clients:assign-therapists');
+
+    expect(Artisan::output())->toContain('Added 0 client service(s); 1 already recorded.');
+    expect(ClientService::where('client_id', $client->id)->count())->toBe(1)
+        ->and(ServiceOffering::where('name', 'Occupational Therapy')->count())->toBe(1);
+});
+
+test('a dry run adds no services or offerings', function () {
+    caseloadClient('Abel', 'Mwangi');
+    caseloadTherapist('Deon', 'Kruger');
+
+    registerAssignTherapistsWith(['Abel Mwangi' => ['Deon Kruger' => 'Occupational Therapist']]);
+
+    Artisan::call('clients:assign-therapists', ['--dry-run' => true]);
+
+    expect(Artisan::output())
+        ->toContain('Would add service Occupational Therapy by Deon Kruger for Abel Mwangi.')
+        ->toContain('Would add service offering(s) missing from the catalog (not shown on public pages): Occupational Therapy');
+    expect(ClientService::count())->toBe(0)
+        ->and(ServiceOffering::count())->toBe(0);
+});
+
+test('every caseload role maps to a service', function () {
+    $roles = collect(AssignClientTherapistsCommand::CASELOAD)->flatMap(fn (array $therapists): array => array_values($therapists))->unique();
+
+    expect($roles->diff(array_keys(AssignClientTherapistsCommand::ROLE_SERVICES))->all())->toBe([]);
 });
 
 test('the real caseload leaves out the PT placeholder and non-provider columns', function () {

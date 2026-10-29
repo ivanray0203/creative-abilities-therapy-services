@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Star, UserPlus, Users2Icon, X } from 'lucide-react';
+import { Star, Stethoscope, UserPlus, Users2Icon, X } from 'lucide-react';
 import { useState } from 'react';
 
 import AddTherapistModal from '@/components/admin/client/add-therapist-modal';
@@ -21,6 +21,16 @@ export default function TherapistTab({
 }) {
     const [addOpen, setAddOpen] = useState(false);
     const careTeam = client.care_team ?? [];
+    const clientServices = client.client_services ?? [];
+
+    /** Names of the services a therapist provides for this client. */
+    const servicesFor = (therapistId: number): string[] => [
+        ...new Set(
+            clientServices
+                .filter((service) => service.therapist_id === therapistId)
+                .map((service) => service.service?.name ?? 'Service'),
+        ),
+    ];
 
     const removeFromCareTeam = (therapistId: number) => {
         router.patch(
@@ -64,6 +74,7 @@ export default function TherapistTab({
                                     const isPrimary =
                                         therapist.id ===
                                         client.primary_therapist_id;
+                                    const services = servicesFor(therapist.id);
 
                                     return (
                                         <div
@@ -90,6 +101,29 @@ export default function TherapistTab({
                                                             {therapist.email}
                                                         </p>
                                                     )}
+                                                    <div className="mt-2 flex flex-wrap gap-1.5">
+                                                        {services.length > 0 ? (
+                                                            services.map(
+                                                                (name) => (
+                                                                    <Badge
+                                                                        key={
+                                                                            name
+                                                                        }
+                                                                        variant="outline"
+                                                                        className="gap-1 rounded-[5px] border-primary/30 bg-primary/5 text-primary"
+                                                                    >
+                                                                        <Stethoscope className="h-3 w-3" />
+                                                                        {name}
+                                                                    </Badge>
+                                                                ),
+                                                            )
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground italic">
+                                                                No services
+                                                                assigned
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
 

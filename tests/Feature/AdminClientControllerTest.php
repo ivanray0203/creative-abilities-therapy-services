@@ -56,6 +56,22 @@ test('the client show page loads scoped relations', function () {
     expect($therapist)->not->toBeNull();
 });
 
+test('the client show page sends each care team therapist\'s services for the therapist tab', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $therapist = therapistUser();
+    $client->careTeam()->attach($therapist->id);
+    $service = ServiceOffering::factory()->create(['name' => 'Occupational Therapy']);
+    ClientService::factory()->for($client)->create(['service_id' => $service->id, 'therapist_id' => $therapist->id]);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->component('admin/clients/show')
+            ->where('client.care_team.0.id', $therapist->id)
+            ->where('client.client_services.0.therapist_id', $therapist->id)
+            ->where('client.client_services.0.service.name', 'Occupational Therapy')
+        );
+});
+
 test('an admin can update client status and contract dates', function () {
     $client = Client::factory()->create(['status' => 'active']);
 
