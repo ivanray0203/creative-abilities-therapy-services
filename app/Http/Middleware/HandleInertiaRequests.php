@@ -81,9 +81,10 @@ class HandleInertiaRequests extends Middleware
                     ->with(['client.originalIntake', 'service'])
                     ->first()
                 : null,
-            // Admins are prompted to connect Google Drive until someone has;
-            // uploads made before then wait on the server (FallbackDriveStorage).
-            'googleDrive' => fn (): ?array => $user?->isAdmin() === true
+            // The admin who owns the Drive connection is prompted to connect it
+            // until it is; uploads made before then wait on the server
+            // (FallbackDriveStorage).
+            'googleDrive' => fn (): ?array => $user?->isAdmin() === true && $this->ownsDriveConnection($user)
                 ? app(GoogleDriveStatus::class)->toArray()
                 : null,
             'flash' => [
@@ -95,6 +96,11 @@ class HandleInertiaRequests extends Middleware
                 'reference_number' => fn () => $request->session()->get('reference_number'),
             ],
         ];
+    }
+
+    private function ownsDriveConnection(User $user): bool
+    {
+        return strcasecmp((string) $user->email, (string) config('services.google_drive.owner_email')) === 0;
     }
 
     /**
