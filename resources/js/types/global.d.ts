@@ -15,7 +15,7 @@ declare module '@inertiajs/core' {
             auth: Auth;
             sidebarOpen: boolean;
             activeSession: ScheduleSession | null;
-            /** Admins only; null for everyone else. */
+            /** Only the Drive owner (services.google_drive.owner_email); null for everyone else. */
             googleDrive: {
                 configured: boolean;
                 connected: boolean;
