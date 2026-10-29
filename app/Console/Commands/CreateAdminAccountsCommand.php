@@ -41,6 +41,7 @@ class CreateAdminAccountsCommand extends Command
             'last_name' => 'Lerit',
             'email' => 'bryan.lerit@creativeabilitiestherapyservices.ca',
             'roles' => ['admin', 'therapist'],
+            'position' => 'Behavioural & Developmental Aide',
         ],
         [
             'first_name' => 'Bernard',

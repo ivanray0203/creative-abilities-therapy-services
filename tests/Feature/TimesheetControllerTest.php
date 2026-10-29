@@ -484,7 +484,7 @@ test('the printed form carries the child, DOB and FSCD file number off the intak
     expect($html)->toContain('Rowan Blake')
         ->toContain('2019-Apr-11')
         ->toContain('FSCD-99812')
-        ->toContain($aide->full_name)
+        ->toContain(e($aide->full_name))
         ->toContain('Dana Reyes')
         ->toContain('Awaiting signature');
 });

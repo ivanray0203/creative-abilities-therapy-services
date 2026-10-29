@@ -24,6 +24,7 @@ test('it creates the admin accounts with their roles and emails each a temporary
         ->and($bryan->getRoleNames()->sort()->values()->all())->toBe(['admin', 'therapist'])
         ->and($bryan->first_name)->toBe('Bryan')
         ->and($bryan->is_active)->toBeTrue()
+        ->and($bryan->teamMember->position)->toBe('Behavioural & Developmental Aide')
         ->and($bryan->teamMember->employment_status)->toBe('active')
         ->and($bernard->getRoleNames()->all())->toBe(['admin'])
         ->and($bernard->teamMember)->toBeNull();
@@ -57,7 +58,7 @@ test('an existing admin account is granted the therapist role without a new pass
     expect($bryan->password)->toBe($passwordBefore)
         ->and($bryan->role)->toBe('admin')
         ->and($bryan->getRoleNames()->sort()->values()->all())->toBe(['admin', 'therapist'])
-        ->and($bryan->teamMember)->not->toBeNull();
+        ->and($bryan->teamMember->position)->toBe('Behavioural & Developmental Aide');
 
     Mail::assertNotQueued(StaffInviteMail::class, fn (StaffInviteMail $mail) => $mail->hasTo($bryan->email));
 

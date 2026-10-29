@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Client;
+use App\Models\ClientService;
+use App\Models\ServiceOffering;
 use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\AuditLogger;
@@ -26,12 +28,20 @@ use Illuminate\Support\Str;
  * therapists are listed clinical roles first, aides last, so the primary is
  * a clinician wherever the client has one.
  *
- * Assignments are only ever added, never removed, and an existing primary
- * therapist is never replaced, so the command is safe to re-run.
+ * Each therapist is also recorded as providing their column's service for
+ * the client (a `client_services` row, like the intake approval flow
+ * writes), so it shows on the client's Services tab. A service the
+ * `service_offerings` catalog doesn't have yet is added to it. That catalog
+ * is internal (admin, scheduling, billing): the public services pages never
+ * read it, and the command never touches the public `services` table.
+ *
+ * Assignments and services are only ever added, never removed, and an
+ * existing primary therapist is never replaced, so the command is safe to
+ * re-run.
  */
 #[Signature('clients:assign-therapists
     {--dry-run : Show what would be assigned without changing anything}')]
-#[Description('Assign each client in the caseload directory to their therapists (care team + primary therapist)')]
+#[Description('Assign each client in the caseload directory to their therapists (care team, primary therapist and services)')]
 class AssignClientTherapistsCommand extends Command
 {
     /**
@@ -53,6 +63,21 @@ class AssignClientTherapistsCommand extends Command
      */
     public const THERAPIST_ALIASES = [
         'Connie Lo' => 'Hiu Hung Lo',
+    ];
+
+    /**
+     * Caseload role => the service offering it provides, named as on the
+     * intake form's "Services Needed" list.
+     *
+     * @var array<string, string>
+     */
+    public const ROLE_SERVICES = [
+        'Behavioural Aide' => 'Behavioural Aide Services',
+        'Behavioural Consultant' => 'Behavioural Consulting',
+        'Occupational Therapist' => 'Occupational Therapy',
+        'Physiotherapist' => 'Physiotherapy',
+        'Psychologist' => 'Psychological Support',
+        'Speech-Language Pathologist' => 'Speech and Language Therapy',
     ];
 
     /**
@@ -642,6 +667,20 @@ class AssignClientTherapistsCommand extends Command
 
     private int $primariesSet = 0;
 
+    private int $servicesAdded = 0;
+
+    private int $servicesExisting = 0;
+
+    /**
+     * Service offerings keyed by normalized name.
+     *
+     * @var Collection<string, ServiceOffering>
+     */
+    private Collection $offerings;
+
+    /** @var array<string, true> */
+    private array $offeringsCreated = [];
+
     /**
      * Clients given a primary therapist during this run.
      *
@@ -664,6 +703,7 @@ class AssignClientTherapistsCommand extends Command
         $this->resetTallies();
         $clients = $this->clientsByName();
         $therapists = $this->therapistsByName();
+        $this->offerings = $this->offeringsByName();
 
         foreach ($this->caseload() as $clientName => $caseload) {
             $client = $this->findClient($clients, $clientName);
@@ -671,6 +711,8 @@ class AssignClientTherapistsCommand extends Command
             if ($client === null) {
                 continue;
             }
+
+            $servicesBefore = $this->servicesAdded;
 
             foreach ($caseload as $therapistName => $role) {
                 $therapist = $therapists->get($this->normalize(self::THERAPIST_ALIASES[$therapistName] ?? $therapistName));
@@ -683,6 +725,11 @@ class AssignClientTherapistsCommand extends Command
                 }
 
                 $this->assign($client, $therapist, $role, $dryRun);
+                $this->recordService($client, $therapist, $role, $dryRun);
+            }
+
+            if (! $dryRun && $this->servicesAdded > $servicesBefore) {
+                $client->refreshServiceAvailedCache();
             }
         }
 
@@ -740,6 +787,60 @@ class AssignClientTherapistsCommand extends Command
 
         $verb = $dryRun ? 'Would assign' : 'Assigned';
         $this->info("{$verb} {$label}".($becomesPrimary ? ' as primary therapist.' : '.'));
+    }
+
+    /**
+     * Records the therapist as providing the role's service for the client,
+     * the same (client, service, therapist) row the intake approval flow
+     * (IntakeController::recordClientService) writes.
+     */
+    private function recordService(Client $client, User $therapist, string $role, bool $dryRun): void
+    {
+        $serviceName = self::ROLE_SERVICES[$role] ?? $role;
+        $offering = $this->offerings->get($this->normalize($serviceName));
+        $attributes = ['client_id' => $client->id, 'therapist_id' => $therapist->id];
+
+        if ($offering !== null && ClientService::query()->where($attributes)->where('service_id', $offering->id)->exists()) {
+            $this->servicesExisting++;
+
+            return;
+        }
+
+        if (! $dryRun) {
+            $offering ??= $this->createOffering($serviceName);
+            ClientService::query()->create([...$attributes, 'service_id' => $offering->id]);
+
+            AuditLogger::log('Added client service', 'Clients', "Added {$serviceName} by {$therapist->full_name} to client #{$client->id} via clients:assign-therapists");
+        } elseif ($offering === null) {
+            $this->offeringsCreated[$serviceName] = true;
+        }
+
+        $this->servicesAdded++;
+
+        $verb = $dryRun ? 'Would add' : 'Added';
+        $this->info("{$verb} service {$serviceName} by {$therapist->full_name} for {$client->displayName()}.");
+    }
+
+    /**
+     * Adds a service the catalog is missing. It goes into the internal
+     * `service_offerings` catalog only, which the public pages never show.
+     */
+    private function createOffering(string $name): ServiceOffering
+    {
+        $code = Str::slug($name);
+
+        if (ServiceOffering::query()->where('code', $code)->exists()) {
+            $code .= '-'.Str::lower(Str::random(6));
+        }
+
+        $offering = ServiceOffering::query()->create(['name' => $name, 'code' => $code, 'is_active' => true]);
+
+        AuditLogger::log('Added service offering', 'Services', "Added service offering #{$offering->id} ({$name}) via clients:assign-therapists");
+
+        $this->offerings->put($this->normalize($name), $offering);
+        $this->offeringsCreated[$name] = true;
+
+        return $offering;
     }
 
     /**
@@ -810,6 +911,15 @@ class AssignClientTherapistsCommand extends Command
             ->keyBy(fn (User $user): string => $this->normalize("{$user->first_name} {$user->last_name}"));
     }
 
+    /** @return Collection<string, ServiceOffering> */
+    private function offeringsByName(): Collection
+    {
+        return ServiceOffering::query()
+            ->orderByDesc('id')
+            ->get()
+            ->keyBy(fn (ServiceOffering $offering): string => $this->normalize($offering->name));
+    }
+
     private function normalize(string $name): string
     {
         return Str::of($name)->squish()->lower()->toString();
@@ -829,6 +939,9 @@ class AssignClientTherapistsCommand extends Command
         $this->alreadyAssigned = 0;
         $this->primariesSet = 0;
         $this->primaryGiven = [];
+        $this->servicesAdded = 0;
+        $this->servicesExisting = 0;
+        $this->offeringsCreated = [];
         $this->missingClients = [];
         $this->missingTherapists = [];
         $this->ambiguousClients = [];
@@ -840,6 +953,11 @@ class AssignClientTherapistsCommand extends Command
 
         $this->newLine();
         $this->info("{$verb} {$this->assigned} therapist(s), {$this->primariesSet} as primary; {$this->alreadyAssigned} already assigned.");
+        $this->info(($dryRun ? 'Would add' : 'Added')." {$this->servicesAdded} client service(s); {$this->servicesExisting} already recorded.");
+
+        if ($this->offeringsCreated !== []) {
+            $this->info(($dryRun ? 'Would add' : 'Added').' service offering(s) missing from the catalog (not shown on public pages): '.implode(', ', array_keys($this->offeringsCreated)));
+        }
 
         if ($this->missingClients !== []) {
             $this->warn('Clients not found ('.count($this->missingClients).'): '.implode(', ', array_keys($this->missingClients)));
