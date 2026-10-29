@@ -59,6 +59,9 @@ return [
         'client_secret' => env('GOOGLE_DRIVE_CLIENT_SECRET'),
         'token_path' => storage_path('app/google-drive-token.json'),
         'shared_drive_id' => env('SHARED_DRIVE_ID'),
+        // The admin who owns the Drive connection; only they get the
+        // "Connect Google Drive" prompt.
+        'owner_email' => env('GOOGLE_DRIVE_OWNER_EMAIL', 'bernard.lerit@creativeabilitiestherapyservices.ca'),
     ],
 
     'mailcow' => [
