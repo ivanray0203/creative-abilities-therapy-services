@@ -2,6 +2,9 @@ import { router } from '@inertiajs/react';
 import { LogOut } from 'lucide-react';
 import type { PropsWithChildren } from 'react';
 
+import ConnectGoogleDriveDialog, {
+    clearGoogleDrivePromptDismissal,
+} from '@/components/admin/connect-google-drive-dialog';
 import { AdminSidebar } from '@/components/admin-sidebar';
 import FlashToaster from '@/components/flash-toaster';
 import { Button } from '@/components/ui/button';
@@ -11,11 +14,15 @@ import { useAuthUser } from '@/hooks/use-auth-user';
 export default function AdminLayout({ children }: PropsWithChildren) {
     const user = useAuthUser();
 
-    const handleLogout = () => router.post('/logout');
+    const handleLogout = () => {
+        clearGoogleDrivePromptDismissal();
+        router.post('/logout');
+    };
 
     return (
         <SidebarProvider>
             <FlashToaster />
+            <ConnectGoogleDriveDialog />
             <div className="flex min-h-screen w-full">
                 <AdminSidebar onLogout={handleLogout} />
                 <div className="flex flex-1 flex-col">

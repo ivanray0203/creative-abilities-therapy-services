@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\ScheduleSession;
 use App\Models\User;
 use App\Services\ClientContext;
+use App\Services\GoogleDrive\GoogleDriveStatus;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -79,6 +80,11 @@ class HandleInertiaRequests extends Middleware
                     ->where('status', 'inprogress')
                     ->with(['client.originalIntake', 'service'])
                     ->first()
+                : null,
+            // Admins are prompted to connect Google Drive until someone has;
+            // uploads made before then wait on the server (FallbackDriveStorage).
+            'googleDrive' => fn (): ?array => $user?->isAdmin() === true
+                ? app(GoogleDriveStatus::class)->toArray()
                 : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

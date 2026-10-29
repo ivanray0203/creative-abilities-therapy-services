@@ -37,6 +37,7 @@ use App\Http\Controllers\Public\OfferLetterController;
 use App\Http\Controllers\Public\ProgramController;
 use App\Http\Controllers\Public\ProgramRegistrationController;
 use App\Http\Controllers\SessionController;
+use App\Http\Controllers\StoredFileController;
 use App\Http\Controllers\TherapistClientController;
 use App\Http\Controllers\TherapistDashboardController;
 use App\Http\Controllers\TherapistIntakeController;
@@ -103,6 +104,9 @@ Route::get('check-email', CheckEmailController::class)
     ->name('public.check-email');
 
 Route::get('therapists', TherapistListController::class)->middleware('auth')->name('therapists.index');
+
+// Uploads held on the server while Google Drive was unavailable.
+Route::get('stored-files/{pendingDriveUpload}', StoredFileController::class)->middleware('auth')->name('stored-files.show');
 
 Route::prefix('consent-acceptances')->name('consent-acceptances.')->group(function () {
     Route::get('required', [ConsentAcceptanceController::class, 'required'])->name('required');

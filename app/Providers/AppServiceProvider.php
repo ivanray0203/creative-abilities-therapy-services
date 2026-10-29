@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\GoogleDrive\DriveStorage;
+use App\Services\GoogleDrive\FallbackDriveStorage;
 use App\Services\GoogleDrive\GoogleAccountClient;
 use App\Services\GoogleDrive\GoogleDriveService;
 use App\Services\GoogleDrive\LocalDriveStorage;
@@ -28,11 +29,16 @@ class AppServiceProvider extends ServiceProvider
             $tokenPath = config('services.google_drive.token_path');
             $rootFolderId = config('services.google_drive.shared_drive_id');
 
-            if (blank($clientId) || blank($clientSecret) || blank($rootFolderId) || ! is_file($tokenPath)) {
+            // Not configured at all (local dev, tests): files stay on the public disk.
+            if (blank($clientId) || blank($clientSecret) || blank($rootFolderId)) {
                 return new LocalDriveStorage;
             }
 
-            return new GoogleDriveService(new GoogleAccountClient($clientId, $clientSecret, $tokenPath), $rootFolderId);
+            // Configured: Drive when an admin has connected the account, and
+            // a pending hold on the private disk whenever it isn't or fails.
+            return new FallbackDriveStorage(is_file($tokenPath)
+                ? new GoogleDriveService(new GoogleAccountClient($clientId, $clientSecret, $tokenPath), $rootFolderId)
+                : null);
         });
 
         // Google Meet links come from the same connected Google account as
