@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\PendingDriveUpload;
+
 beforeEach(function () {
     config()->set('services.google_drive.client_id', 'test-client-id');
     config()->set('services.google_drive.client_secret', 'test-client-secret');
@@ -41,4 +43,37 @@ test('the callback is closed to guests and to non-admins', function () {
     $this->get('/admin/google-drive/callback')->assertRedirect('/login');
 
     $this->actingAs(therapistUser())->get('/admin/google-drive/callback')->assertRedirect('/therapist');
+});
+
+test('admins are told when Google Drive still needs connecting, with the uploads waiting on it', function () {
+    config()->set('services.google_drive.shared_drive_id', 'root-folder');
+    config()->set('services.google_drive.token_path', storage_path('framework/testing/no-token.json'));
+    PendingDriveUpload::factory()->count(2)->create();
+    PendingDriveUpload::factory()->synced()->create();
+
+    $this->actingAs(adminUser())->get('/admin')
+        ->assertInertia(fn ($page) => $page->where('googleDrive', [
+            'configured' => true,
+            'connected' => false,
+            'pending_uploads' => 2,
+        ]));
+});
+
+test('the prompt goes away once Google Drive is connected', function () {
+    $tokenPath = storage_path('framework/testing/drive-token-'.uniqid().'.json');
+    file_put_contents($tokenPath, '{}');
+    config()->set('services.google_drive.shared_drive_id', 'root-folder');
+    config()->set('services.google_drive.token_path', $tokenPath);
+
+    try {
+        $this->actingAs(adminUser())->get('/admin')
+            ->assertInertia(fn ($page) => $page->where('googleDrive.connected', true));
+    } finally {
+        unlink($tokenPath);
+    }
+});
+
+test('only admins get the Google Drive status', function () {
+    $this->actingAs(therapistUser())->get('/therapist')
+        ->assertInertia(fn ($page) => $page->where('googleDrive', null));
 });

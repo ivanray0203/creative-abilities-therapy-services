@@ -20,3 +20,6 @@ Schedule::command('contracts:sweep')->daily();
 // Requires a scheduler runner (`schedule:work`, or cron calling
 // `schedule:run` every minute) — declaring it here does not fire it.
 Schedule::command('invoices:generate-monthly')->monthlyOn(1, '00:30');
+// Moves uploads held on the server while Google Drive was unavailable into
+// Drive. A no-op while Drive is not connected.
+Schedule::command('drive:sync-pending')->everyTenMinutes()->withoutOverlapping();

@@ -8,6 +8,7 @@ use Google\Service\Calendar as GoogleCalendar;
 use Google\Service\Drive as GoogleDrive;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -65,6 +66,10 @@ class GoogleDriveConnectionController extends Controller
         if (file_put_contents($path, json_encode($token)) === false) {
             return $this->fail("Google Drive connected, but the token could not be saved to {$path}. Check the directory is writable.");
         }
+
+        // Uploads held on the server while Drive was disconnected go up now
+        // rather than at the next scheduled run.
+        Artisan::queue('drive:sync-pending', ['--force' => true]);
 
         return redirect()->route('admin.dashboard')->with('success', 'Google Drive connected successfully.');
     }

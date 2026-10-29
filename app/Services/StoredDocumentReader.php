@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\PendingDriveUpload;
 use App\Services\GoogleDrive\DriveStorage;
 use Illuminate\Support\Facades\Storage;
 
@@ -32,6 +33,11 @@ class StoredDocumentReader
             return Storage::disk('public')->exists($path)
                 ? Storage::disk('public')->get($path)
                 : null;
+        }
+
+        // Held on the server while Drive was unavailable (FallbackDriveStorage).
+        if (preg_match('~/stored-files/([0-9a-fA-F-]{36})$~', $url, $matches)) {
+            return $this->drive->get(PendingDriveUpload::ID_PREFIX.$matches[1]);
         }
 
         if (! preg_match('~(?:[?&]id=|/d/)([A-Za-z0-9_-]{10,})~', $url, $matches)) {

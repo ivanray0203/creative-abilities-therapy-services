@@ -15,6 +15,12 @@ declare module '@inertiajs/core' {
             auth: Auth;
             sidebarOpen: boolean;
             activeSession: ScheduleSession | null;
+            /** Admins only; null for everyone else. */
+            googleDrive: {
+                configured: boolean;
+                connected: boolean;
+                pending_uploads: number;
+            } | null;
             flash: {
                 success: string | null;
                 error: string | null;
