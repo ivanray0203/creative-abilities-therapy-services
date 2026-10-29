@@ -150,3 +150,12 @@ test('reference number generator produces sequential, year-scoped numbers', func
     expect($first)->toStartWith('INT-'.now()->year.'-')
         ->and($second)->not->toBe($first);
 });
+
+test('reference numbers keep counting past 999', function () {
+    $prefix = 'INT-'.now()->year.'-';
+
+    Intake::factory()->create(['reference_number' => $prefix.'999']);
+    Intake::factory()->create(['reference_number' => $prefix.'1000']);
+
+    expect((new ReferenceNumberGenerator)->intake())->toBe($prefix.'1001');
+});

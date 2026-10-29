@@ -25,6 +25,7 @@ test('it creates the admin accounts with their roles and emails each a temporary
         ->and($bryan->first_name)->toBe('Bryan')
         ->and($bryan->is_active)->toBeTrue()
         ->and($bryan->teamMember->position)->toBe('Behavioural & Developmental Aide')
+        ->and($bryan->teamMember->employment_status)->toBe('active')
         ->and($bernard->getRoleNames()->all())->toBe(['admin'])
         ->and($bernard->teamMember)->toBeNull();
 
@@ -41,6 +42,28 @@ test('it creates the admin accounts with their roles and emails each a temporary
             && strlen($mail->password) === 10
             && Hash::check($mail->password, $maryAnn->password);
     });
+});
+
+test('an existing admin account is granted the therapist role without a new password or email', function () {
+    Mail::fake();
+
+    $bryan = User::factory()->admin()->create(['email' => 'bryan.lerit@creativeabilitiestherapyservices.ca']);
+    $passwordBefore = $bryan->password;
+
+    Artisan::call('admins:create');
+
+    expect(Artisan::output())->toContain('Skipped Bryan Lerit <bryan.lerit@creativeabilitiestherapyservices.ca>: already has an account, granted therapist.');
+
+    $bryan->refresh();
+    expect($bryan->password)->toBe($passwordBefore)
+        ->and($bryan->role)->toBe('admin')
+        ->and($bryan->getRoleNames()->sort()->values()->all())->toBe(['admin', 'therapist'])
+        ->and($bryan->teamMember->position)->toBe('Behavioural & Developmental Aide');
+
+    Mail::assertNotQueued(StaffInviteMail::class, fn (StaffInviteMail $mail) => $mail->hasTo($bryan->email));
+
+    $this->actingAs($bryan)->get('/admin/intake')->assertStatus(200);
+    $this->actingAs($bryan)->get('/therapist')->assertStatus(200);
 });
 
 test('the account holding both roles can reach the admin and therapist portals', function () {
@@ -82,24 +105,6 @@ test('an existing account keeps its password, gets no email, and is granted only
     Artisan::call('admins:create');
     expect(Artisan::output())->toContain('Created 0, skipped 3 existing');
     Mail::assertQueued(StaffInviteMail::class, 1);
-});
-
-test('an existing admin-only account is granted the therapist role and a team-member profile', function () {
-    Mail::fake();
-
-    $bryan = User::factory()->admin()->create(['email' => 'bryan.lerit@creativeabilitiestherapyservices.ca']);
-    $passwordBefore = $bryan->password;
-
-    Artisan::call('admins:create');
-
-    expect(Artisan::output())->toContain('Skipped Bryan Lerit <bryan.lerit@creativeabilitiestherapyservices.ca>: already has an account, granted therapist.');
-
-    $bryan->refresh();
-    expect($bryan->password)->toBe($passwordBefore)
-        ->and($bryan->getRoleNames()->sort()->values()->all())->toBe(['admin', 'therapist'])
-        ->and($bryan->teamMember->position)->toBe('Behavioural & Developmental Aide');
-
-    Mail::assertNotQueued(StaffInviteMail::class, fn (StaffInviteMail $mail) => $mail->hasTo($bryan->email));
 });
 
 test('a dry run reports without creating anything or sending mail', function () {
