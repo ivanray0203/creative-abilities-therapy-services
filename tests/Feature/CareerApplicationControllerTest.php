@@ -2,6 +2,7 @@
 
 use App\Models\Application;
 use App\Models\Career;
+use App\Services\GoogleDrive\DriveStorage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -83,6 +84,38 @@ test('a visitor can submit a career application with a resume upload', function 
     Storage::disk('public')->assertExists($resumePath);
     expect($resumePath)->toBe($application->resume_drive_file_id);
     expect($resumePath)->toContain("drive/CATS/applications/{$application->id}-jane-doe/");
+});
+
+test('a resume and cover letter filed on Drive are saved with their viewer links', function () {
+    $this->mock(DriveStorage::class)
+        ->shouldReceive('upload')
+        ->twice()
+        ->andReturn(
+            [
+                'drive_file_id' => 'resume-id',
+                'drive_file_url' => 'https://drive.google.com/uc?id=resume-id&export=download',
+                'drive_web_view' => 'https://drive.google.com/file/d/resume-id/view',
+            ],
+            [
+                'drive_file_id' => 'cover-id',
+                'drive_file_url' => 'https://drive.google.com/uc?id=cover-id&export=download',
+                'drive_web_view' => 'https://drive.google.com/file/d/cover-id/view',
+            ],
+        );
+
+    $career = Career::factory()->create(['is_active' => true]);
+
+    $this->post('/careers/apply', validCareerApplicationPayload([
+        'position_id' => $career->id,
+        'cover_letter_file' => UploadedFile::fake()->create('cover.pdf', 100, 'application/pdf'),
+    ]))->assertSessionHasNoErrors();
+
+    $application = Application::query()->sole();
+
+    expect($application->resume)->toBe('https://drive.google.com/file/d/resume-id/view')
+        ->and($application->resume_drive_file_id)->toBe('resume-id')
+        ->and($application->cover_letter)->toBe('https://drive.google.com/file/d/cover-id/view')
+        ->and($application->cover_letter_drive_file_id)->toBe('cover-id');
 });
 
 test('the career application form requires the resume file and first reference details', function () {

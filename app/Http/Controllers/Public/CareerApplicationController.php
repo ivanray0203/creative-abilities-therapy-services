@@ -96,9 +96,11 @@ class CareerApplicationController extends Controller
             : null;
 
         $application->update([
-            'resume' => $resume['drive_file_url'],
+            // `drive_file_url` is Drive's webContentLink, whose download
+            // endpoint answers 403 under the wrong signed-in Google account.
+            'resume' => $resume['drive_web_view'],
             'resume_drive_file_id' => $resume['drive_file_id'],
-            'cover_letter' => $coverLetter['drive_file_url'] ?? null,
+            'cover_letter' => $coverLetter['drive_web_view'] ?? null,
             'cover_letter_drive_file_id' => $coverLetter['drive_file_id'] ?? null,
         ]);
 
