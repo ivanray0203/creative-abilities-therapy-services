@@ -180,7 +180,7 @@ test('the sync moves held files into their Drive folder and repoints every recor
         ->and($document->drive_file_url)->toBe('https://drive.google.com/uc?id=drive-1&export=download')
         ->and($document->drive_web_view)->toBe('https://drive.google.com/file/d/drive-1/view')
         ->and($application->refresh()->resume_drive_file_id)->toBe('drive-2')
-        ->and($application->resume)->toBe('https://drive.google.com/uc?id=drive-2&export=download')
+        ->and($application->resume)->toBe('https://drive.google.com/file/d/drive-2/view')
         ->and($invoice->refresh()->not_signed_invoice)->toBe('https://drive.google.com/file/d/drive-3/view');
 
     expect(Storage::disk('local')->allFiles())->toBe([]);
