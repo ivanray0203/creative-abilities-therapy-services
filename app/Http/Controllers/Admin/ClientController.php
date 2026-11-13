@@ -391,7 +391,11 @@ class ClientController extends Controller
 
         $serviceName = $clientService->service?->name;
 
-        if ($serviceName !== null && ! in_array($serviceName, $therapist->teamMember?->specializations ?? [], true)) {
+        // A therapist account may have no team member profile yet; `??`
+        // covers that as well as an empty specializations column.
+        $specializations = $therapist->teamMember->specializations ?? [];
+
+        if ($serviceName !== null && ! in_array($serviceName, $specializations, true)) {
             throw ValidationException::withMessages([
                 'therapist_id' => "{$therapist->full_name} does not have the {$serviceName} specialization.",
             ]);

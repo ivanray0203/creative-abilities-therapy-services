@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Env;
 use Opcodes\LogViewer\Enums\SortingMethod;
 use Opcodes\LogViewer\Enums\SortingOrder;
 use Opcodes\LogViewer\Enums\Theme;
@@ -126,7 +127,10 @@ return [
         AuthorizeLogViewer::class,
     ],
 
-    'api_stateful_domains' => env('LOG_VIEWER_API_STATEFUL_DOMAINS') ? explode(',', env('LOG_VIEWER_API_STATEFUL_DOMAINS')) : null,
+    // Read raw from the environment so the value is always a string or null.
+    'api_stateful_domains' => ($statefulDomains = Env::getRepository()->get('LOG_VIEWER_API_STATEFUL_DOMAINS'))
+        ? explode(',', $statefulDomains)
+        : null,
 
     /*
     |--------------------------------------------------------------------------
@@ -140,7 +144,7 @@ return [
 
     'hosts' => [
         'local' => [
-            'name' => ucfirst(env('APP_ENV', 'local')),
+            'name' => ucfirst(Env::getRepository()->get('APP_ENV') ?? 'local'),
         ],
 
         // 'staging' => [
