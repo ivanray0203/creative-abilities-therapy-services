@@ -3,6 +3,8 @@ import { useState } from 'react';
 
 import DeleteDocumentModal from '@/components/admin/delete-document-modal';
 import UploadDocumentModal from '@/components/admin/upload-document-modal';
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/helpers';
@@ -19,6 +21,9 @@ export default function DocumentsTab({
     const [uploadOpen, setUploadOpen] = useState(false);
     const [documentToDelete, setDocumentToDelete] =
         useState<IntakeDocument | null>(null);
+
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
 
     const documents = intake.documents ?? [];
 
@@ -77,11 +82,10 @@ export default function DocumentsTab({
                                                     variant="ghost"
                                                     className="rounded-[5px]"
                                                     onClick={() =>
-                                                        window.open(
-                                                            document.drive_web_view ??
-                                                                undefined,
-                                                            '_blank',
-                                                        )
+                                                        setDocumentToView({
+                                                            title: document.name,
+                                                            url: `/files/intake-documents/${document.id}`,
+                                                        })
                                                     }
                                                 >
                                                     View
@@ -98,10 +102,7 @@ export default function DocumentsTab({
                                                     Delete
                                                 </Button>
                                                 <a
-                                                    href={
-                                                        document.drive_web_view ??
-                                                        undefined
-                                                    }
+                                                    href={`/files/intake-documents/${document.id}?download=1`}
                                                     download
                                                 >
                                                     <Button
@@ -124,6 +125,11 @@ export default function DocumentsTab({
                     </CardContent>
                 </Card>
             </div>
+
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
+            />
 
             {!isPreview && (
                 <>

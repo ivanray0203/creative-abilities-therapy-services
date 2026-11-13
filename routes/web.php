@@ -25,6 +25,7 @@ use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\ClientProfileController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\ConsentAcceptanceController;
+use App\Http\Controllers\DocumentFileController;
 use App\Http\Controllers\HourTrackingController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\Public\CareerApplicationController;
@@ -108,6 +109,17 @@ Route::get('therapists', TherapistListController::class)->middleware('auth')->na
 // Uploads held on the server while Google Drive was unavailable.
 Route::get('stored-files/{pendingDriveUpload}', StoredFileController::class)->middleware('auth')->name('stored-files.show');
 
+// Uploaded files, streamed under our own origin for the in-app viewer. Each
+// action checks the viewer may see the record that holds the file.
+Route::middleware('auth')->prefix('files')->name('files.')->group(function (): void {
+    Route::get('intake-documents/{intakeDocument}', [DocumentFileController::class, 'intakeDocument'])->name('intake-documents.show');
+    Route::get('client-documents/{clientDocument}', [DocumentFileController::class, 'clientDocument'])->name('client-documents.show');
+    Route::get('complaints/{complaint}', [DocumentFileController::class, 'complaint'])->name('complaints.show');
+    Route::get('applications/{application}/{file}', [DocumentFileController::class, 'application'])
+        ->whereIn('file', ['resume', 'cover-letter', 'offer-letter', 'signed-offer-letter'])
+        ->name('applications.show');
+});
+
 Route::prefix('consent-acceptances')->name('consent-acceptances.')->group(function () {
     Route::get('required', [ConsentAcceptanceController::class, 'required'])->name('required');
     Route::post('/', [ConsentAcceptanceController::class, 'store'])->name('store');
@@ -161,6 +173,7 @@ Route::middleware(['auth', 'role:admin'])
         Route::post('clients/{client}/services', [ClientController::class, 'storeService'])->name('admin.client.services.store');
         Route::put('clients/{client}/services/{clientService}', [ClientController::class, 'updateService'])->name('admin.client.services.update');
         Route::delete('clients/{client}/services/{clientService}', [ClientController::class, 'destroyService'])->name('admin.client.services.destroy');
+        Route::patch('clients/{client}/services/{clientService}/therapist', [ClientController::class, 'reassignService'])->name('admin.client.services.reassign');
         Route::post('clients/{client}/documents', [ClientController::class, 'uploadDocument'])->name('admin.client.documents.store');
         Route::post('clients/{client}/consent', [ClientController::class, 'sendConsent'])->name('admin.client.consent.send');
         Route::delete('clients/documents/{document}', [ClientController::class, 'deleteDocument'])->name('admin.client.documents.destroy');

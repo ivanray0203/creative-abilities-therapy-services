@@ -1,12 +1,20 @@
 import { router } from '@inertiajs/react';
-import { Star, Stethoscope, UserPlus, Users2Icon, X } from 'lucide-react';
+import {
+    ArrowLeftRight,
+    Star,
+    Stethoscope,
+    UserPlus,
+    Users2Icon,
+    X,
+} from 'lucide-react';
 import { useState } from 'react';
 
 import AddTherapistModal from '@/components/admin/client/add-therapist-modal';
+import ReassignClientServiceModal from '@/components/admin/client/reassign-client-service-modal';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import type { Client } from '@/types/client';
+import type { Client, ClientService } from '@/types/client';
 import type { TherapistOption } from '@/types/intake';
 
 /** Reference: cats-frontend/src/pages/admin/clientTabs/Therapist.tsx */
@@ -20,17 +28,16 @@ export default function TherapistTab({
     isPreview?: boolean;
 }) {
     const [addOpen, setAddOpen] = useState(false);
+    const [serviceToReassign, setServiceToReassign] =
+        useState<ClientService | null>(null);
     const careTeam = client.care_team ?? [];
     const clientServices = client.client_services ?? [];
 
-    /** Names of the services a therapist provides for this client. */
-    const servicesFor = (therapistId: number): string[] => [
-        ...new Set(
-            clientServices
-                .filter((service) => service.therapist_id === therapistId)
-                .map((service) => service.service?.name ?? 'Service'),
-        ),
-    ];
+    /** The services a therapist provides for this client. */
+    const servicesFor = (therapistId: number): ClientService[] =>
+        clientServices.filter(
+            (service) => service.therapist_id === therapistId,
+        );
 
     const removeFromCareTeam = (therapistId: number) => {
         router.patch(
@@ -104,17 +111,39 @@ export default function TherapistTab({
                                                     <div className="mt-2 flex flex-wrap gap-1.5">
                                                         {services.length > 0 ? (
                                                             services.map(
-                                                                (name) => (
-                                                                    <Badge
+                                                                (service) => (
+                                                                    <span
                                                                         key={
-                                                                            name
+                                                                            service.id
                                                                         }
-                                                                        variant="outline"
-                                                                        className="gap-1 rounded-[5px] border-primary/30 bg-primary/5 text-primary"
+                                                                        className="inline-flex items-center gap-1"
                                                                     >
-                                                                        <Stethoscope className="h-3 w-3" />
-                                                                        {name}
-                                                                    </Badge>
+                                                                        <Badge
+                                                                            variant="outline"
+                                                                            className="gap-1 rounded-[5px] border-primary/30 bg-primary/5 text-primary"
+                                                                        >
+                                                                            <Stethoscope className="h-3 w-3" />
+                                                                            {service
+                                                                                .service
+                                                                                ?.name ??
+                                                                                'Service'}
+                                                                        </Badge>
+                                                                        {!isPreview && (
+                                                                            <Button
+                                                                                variant="outline"
+                                                                                size="sm"
+                                                                                className="h-6 gap-1 rounded-[5px] px-2 text-xs"
+                                                                                onClick={() =>
+                                                                                    setServiceToReassign(
+                                                                                        service,
+                                                                                    )
+                                                                                }
+                                                                            >
+                                                                                <ArrowLeftRight className="h-3 w-3" />
+                                                                                Reassign
+                                                                            </Button>
+                                                                        )}
+                                                                    </span>
                                                                 ),
                                                             )
                                                         ) : (
@@ -154,12 +183,20 @@ export default function TherapistTab({
             </div>
 
             {!isPreview && (
-                <AddTherapistModal
-                    client={client}
-                    therapists={therapists}
-                    isOpen={addOpen}
-                    onClose={() => setAddOpen(false)}
-                />
+                <>
+                    <AddTherapistModal
+                        client={client}
+                        therapists={therapists}
+                        isOpen={addOpen}
+                        onClose={() => setAddOpen(false)}
+                    />
+                    <ReassignClientServiceModal
+                        clientId={client.id}
+                        clientService={serviceToReassign}
+                        therapists={therapists}
+                        onClose={() => setServiceToReassign(null)}
+                    />
+                </>
             )}
         </>
     );

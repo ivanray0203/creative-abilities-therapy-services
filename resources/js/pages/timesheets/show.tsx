@@ -109,14 +109,13 @@ export default function TimesheetShow({ timesheet, role }: TimesheetShowProps) {
                         <FileCheck2 className="h-5 w-5 shrink-0 text-primary" />
                         <p className="text-sm">
                             Signed by the parent.{' '}
-                            <a
-                                href={timesheet.signed_timesheet}
-                                target="_blank"
-                                rel="noreferrer"
+                            <button
+                                type="button"
+                                onClick={() => setPdfOpen(true)}
                                 className="text-primary underline"
                             >
                                 View the signed PDF
-                            </a>
+                            </button>
                         </p>
                     </div>
                 )}

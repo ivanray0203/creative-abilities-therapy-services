@@ -4,7 +4,10 @@ import {
     Download,
     ReceiptText,
 } from 'lucide-react';
+import { useState } from 'react';
 
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/helpers';
@@ -22,11 +25,35 @@ export default function DocumentsTab({
     application: Application;
     onboarding: ApplicationOnboarding | null;
 }) {
-    const applicationFiles: { label: string; url: string | null }[] = [
-        { label: 'Resume', url: application.resume },
-        { label: 'Cover Letter', url: application.cover_letter },
-        { label: 'Offer Letter', url: application.offer_letter },
-        { label: 'Signed Offer Letter', url: application.signed_offer_letter },
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
+
+    const filesUrl = `/files/applications/${application.id}`;
+    const applicationFiles: {
+        label: string;
+        isProvided: boolean;
+        url: string;
+    }[] = [
+        {
+            label: 'Resume',
+            isProvided: Boolean(application.resume),
+            url: `${filesUrl}/resume`,
+        },
+        {
+            label: 'Cover Letter',
+            isProvided: Boolean(application.cover_letter),
+            url: `${filesUrl}/cover-letter`,
+        },
+        {
+            label: 'Offer Letter',
+            isProvided: Boolean(application.offer_letter),
+            url: `${filesUrl}/offer-letter`,
+        },
+        {
+            label: 'Signed Offer Letter',
+            isProvided: Boolean(application.signed_offer_letter),
+            url: `${filesUrl}/signed-offer-letter`,
+        },
     ];
 
     const missingDocuments = onboarding?.missing_documents ?? [];
@@ -47,20 +74,22 @@ export default function DocumentsTab({
                         >
                             <div className="min-w-0 flex-1">
                                 <p className="font-bold">{file.label}</p>
-                                <p className="truncate font-mono text-sm">
-                                    {file.url || 'Not Provided'}
+                                <p className="text-sm text-muted-foreground">
+                                    {file.isProvided
+                                        ? 'Uploaded'
+                                        : 'Not Provided'}
                                 </p>
                             </div>
 
-                            {file.url && (
+                            {file.isProvided && (
                                 <Button
                                     variant="outline"
                                     className="mt-2 rounded-[5px] whitespace-nowrap sm:mt-0"
                                     onClick={() =>
-                                        window.open(
-                                            file.url as string,
-                                            '_blank',
-                                        )
+                                        setDocumentToView({
+                                            title: file.label,
+                                            url: file.url,
+                                        })
                                     }
                                 >
                                     <Download className="mr-2 h-4 w-4" />
@@ -134,10 +163,10 @@ export default function DocumentsTab({
                                                 variant="outline"
                                                 className="mt-2 rounded-[5px] whitespace-nowrap sm:mt-0"
                                                 onClick={() =>
-                                                    window.open(
-                                                        document.drive_web_view as string,
-                                                        '_blank',
-                                                    )
+                                                    setDocumentToView({
+                                                        title: document.title,
+                                                        url: `/files/client-documents/${document.id}`,
+                                                    })
                                                 }
                                             >
                                                 <Download className="mr-2 h-4 w-4" />
@@ -155,6 +184,11 @@ export default function DocumentsTab({
                     )}
                 </CardContent>
             </Card>
+
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
+            />
         </div>
     );
 }

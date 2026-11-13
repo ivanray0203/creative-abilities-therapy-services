@@ -1,6 +1,9 @@
-import { Download } from 'lucide-react';
+import { Paperclip } from 'lucide-react';
+import { useState } from 'react';
 
 import { ComplaintStatusBadge } from '@/components/complaints/badges';
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import {
     Dialog,
     DialogContent,
@@ -20,6 +23,9 @@ export default function ComplaintDetailModal({
     isOpen: boolean;
     onClose: () => void;
 }) {
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
+
     if (!complaint) {
         return null;
     }
@@ -86,14 +92,18 @@ export default function ComplaintDetailModal({
                 </div>
 
                 {complaint.drive_web_view && (
-                    <a
-                        href={complaint.drive_web_view}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setDocumentToView({
+                                title: `${complaint.subject} — Attachment`,
+                                url: `/files/complaints/${complaint.id}`,
+                            })
+                        }
                         className="flex items-center gap-2 text-sm text-primary"
                     >
-                        <Download className="h-4 w-4" /> View Attachment
-                    </a>
+                        <Paperclip className="h-4 w-4" /> View Attachment
+                    </button>
                 )}
 
                 {complaint.status === 'resolved' &&
@@ -114,6 +124,11 @@ export default function ComplaintDetailModal({
                     </div>
                 )}
             </DialogContent>
+
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
+            />
         </Dialog>
     );
 }

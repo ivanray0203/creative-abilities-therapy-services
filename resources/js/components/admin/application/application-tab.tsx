@@ -1,5 +1,8 @@
-import { Download } from 'lucide-react';
+import { Eye } from 'lucide-react';
+import { useState } from 'react';
 
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import type { Application } from '@/types/application';
@@ -10,9 +13,16 @@ export default function ApplicationTab({
 }: {
     application: Application;
 }) {
-    const documents: { key: 'resume' | 'cover_letter'; label: string }[] = [
-        { key: 'resume', label: 'Resume' },
-        { key: 'cover_letter', label: 'Cover Letter' },
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
+
+    const documents: {
+        key: 'resume' | 'cover_letter';
+        label: string;
+        segment: string;
+    }[] = [
+        { key: 'resume', label: 'Resume', segment: 'resume' },
+        { key: 'cover_letter', label: 'Cover Letter', segment: 'cover-letter' },
     ];
 
     return (
@@ -61,9 +71,10 @@ export default function ApplicationTab({
                         >
                             <div className="min-w-0 flex-1">
                                 <p className="font-bold">{document.label}</p>
-                                <p className="truncate font-mono text-sm">
-                                    {application[document.key] ||
-                                        'Not Provided'}
+                                <p className="text-sm text-muted-foreground">
+                                    {application[document.key]
+                                        ? 'Uploaded'
+                                        : 'Not Provided'}
                                 </p>
                             </div>
 
@@ -72,19 +83,24 @@ export default function ApplicationTab({
                                     variant="outline"
                                     className="mt-2 rounded-[5px] whitespace-nowrap sm:mt-0"
                                     onClick={() =>
-                                        window.open(
-                                            application[document.key] as string,
-                                            '_blank',
-                                        )
+                                        setDocumentToView({
+                                            title: document.label,
+                                            url: `/files/applications/${application.id}/${document.segment}`,
+                                        })
                                     }
                                 >
-                                    <Download className="mr-2" /> Download
+                                    <Eye className="mr-2" /> View
                                 </Button>
                             )}
                         </div>
                     ))}
                 </CardContent>
             </Card>
+
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
+            />
         </div>
     );
 }

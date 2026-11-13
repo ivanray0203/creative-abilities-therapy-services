@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\ConsentDeliveryFailed;
 use App\Mail\ClientConsentMail;
 use App\Mail\ClientConsentSignedAdminNotification;
 use App\Models\Client;
@@ -67,12 +68,20 @@ class ClientConsentService
             return false;
         }
 
-        return $this->send($client);
+        // A failed send must not fail the approval that triggered it; it is
+        // logged, and the admin can send it again from the client page.
+        try {
+            return $this->send($client);
+        } catch (ConsentDeliveryFailed) {
+            return false;
+        }
     }
 
     /**
      * Emails the parent a fresh link with the consent PDF attached. Returns
      * false when the intake has no parent email to send to.
+     *
+     * @throws ConsentDeliveryFailed when the package can't be built or the mail server refuses it.
      */
     public function send(Client $client): bool
     {
@@ -82,13 +91,25 @@ class ClientConsentService
             return false;
         }
 
-        $client->forceFill(['consent_sent_at' => now()])->save();
+        try {
+            Mail::to($email)->send(new ClientConsentMail(
+                $client,
+                $this->signedUrl($client),
+                $this->pdf($client),
+            ));
+        } catch (\Throwable $exception) {
+            Log::error('The consent could not be sent.', [
+                'client_id' => $client->id,
+                'error' => $exception->getMessage(),
+                'exception' => $exception,
+            ]);
 
-        Mail::to($email)->send(new ClientConsentMail(
-            $client,
-            $this->signedUrl($client),
-            $this->pdf($client),
-        ));
+            throw ConsentDeliveryFailed::because($exception);
+        }
+
+        // Only once the mailer has taken it, so a failed send never shows
+        // on the client page as sent.
+        $client->forceFill(['consent_sent_at' => now()])->save();
 
         return true;
     }

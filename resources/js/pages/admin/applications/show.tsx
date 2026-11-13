@@ -23,6 +23,8 @@ import DocumentsTab from '@/components/admin/application/documents-tab';
 import NotesTab from '@/components/admin/application/notes-tab';
 import OverviewTab from '@/components/admin/application/overview-tab';
 import UpdateApplicationStatusModal from '@/components/admin/update-application-status-modal';
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -51,6 +53,8 @@ export default function AdminApplicationShow({
         '',
     );
     const [modalOpen, setModalOpen] = useState(false);
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
 
     const canReview =
         application.application_status === 'pending' &&
@@ -339,13 +343,17 @@ export default function AdminApplicationShow({
                                 className="rounded-[5px] border-orange-500 text-orange-600"
                                 asChild
                             >
-                                <a
-                                    href={application.offer_letter}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setDocumentToView({
+                                            title: 'Offer Letter',
+                                            url: `/files/applications/${application.id}/offer-letter`,
+                                        })
+                                    }
                                 >
                                     Letter
-                                </a>
+                                </button>
                             </Button>
                         )}
                         {application.signed_offer_letter && (
@@ -354,13 +362,17 @@ export default function AdminApplicationShow({
                                 className="rounded-[5px] border-orange-500 text-orange-600"
                                 asChild
                             >
-                                <a
-                                    href={application.signed_offer_letter}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setDocumentToView({
+                                            title: 'Signed Offer Letter',
+                                            url: `/files/applications/${application.id}/signed-offer-letter`,
+                                        })
+                                    }
                                 >
                                     Signed copy
-                                </a>
+                                </button>
                             </Button>
                         )}
                     </div>
@@ -456,14 +468,18 @@ export default function AdminApplicationShow({
                                                     : ''}
                                             </span>
                                             {doc.drive_web_view && (
-                                                <a
-                                                    href={doc.drive_web_view}
-                                                    target="_blank"
-                                                    rel="noreferrer"
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setDocumentToView({
+                                                            title: doc.title,
+                                                            url: `/files/client-documents/${doc.id}`,
+                                                        })
+                                                    }
                                                     className="text-xs underline"
                                                 >
                                                     View
-                                                </a>
+                                                </button>
                                             )}
                                         </li>
                                     ))}
@@ -629,6 +645,10 @@ export default function AdminApplicationShow({
                 targetStatus={statusUpdate}
                 isOpen={modalOpen}
                 onClose={() => setModalOpen(false)}
+            />
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
             />
         </div>
     );
