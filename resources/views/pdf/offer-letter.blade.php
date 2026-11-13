@@ -30,9 +30,9 @@
     </style>
 </head>
 <body>
-    @php($logoPath = public_path('CatsLogo/web-app-manifest-512x512.png'))
-    @if (file_exists($logoPath))
-        <img src="{{ $logoPath }}" class="logo">
+    @php($logo = \App\Support\BrandLogo::dataUri(512))
+    @if ($logo !== '')
+        <img src="{{ $logo }}" class="logo">
     @endif
 
     <div class="letterhead">{{ Str::upper($legalName) }}</div>
