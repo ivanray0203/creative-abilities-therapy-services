@@ -185,10 +185,12 @@ test('the sync moves held files into their Drive folder and repoints every recor
 
     expect(Storage::disk('local')->allFiles())->toBe([]);
 
-    // A link handed out while the file was held now leads to Drive.
+    // A link handed out while the file was held now streams it from Drive,
+    // still under our own origin rather than sending the viewer to Drive.
     $pending = PendingDriveUpload::query()->where('drive_file_id', 'drive-1')->sole();
-    $this->actingAs(adminUser())->get(route('stored-files.show', $pending))
-        ->assertRedirect('https://drive.google.com/file/d/drive-1/view');
+    $response = $this->actingAs(adminUser())->get(route('stored-files.show', $pending));
+    $response->assertOk();
+    expect($response->getContent())->toBe('remote:drive-1');
 });
 
 test('a fresh upload is left alone until its record has had time to save', function () {

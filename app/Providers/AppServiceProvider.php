@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Services\GoogleDrive\DriveStorage;
 use App\Services\GoogleDrive\FallbackDriveStorage;
 use App\Services\GoogleDrive\GoogleAccountClient;
@@ -13,6 +14,7 @@ use App\Services\Interviews\NullMeetingLinkGenerator;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -63,6 +65,10 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        // The log viewer (/admin/log-viewer) is for admins only, in every
+        // environment — its routes also carry the `role:admin` middleware.
+        Gate::define('viewLogViewer', fn (?User $user): bool => $user?->isAdmin() ?? false);
     }
 
     /**

@@ -1,9 +1,8 @@
 import { Head, Link } from '@inertiajs/react';
-import { Edit, Plus, Printer, Trash, UserCog } from 'lucide-react';
+import { Edit, Plus, Printer, Trash } from 'lucide-react';
 import { useState } from 'react';
 
 import AddClientServiceModal from '@/components/admin/add-client-service-modal';
-import AssignTherapistModal from '@/components/admin/assign-therapist-modal';
 import { ClientStatusBadge } from '@/components/admin/client/badges';
 import ConsentStatus from '@/components/admin/client/consent-status';
 import ContractsTab from '@/components/admin/client/contracts-tab';
@@ -16,6 +15,7 @@ import ProgressTab from '@/components/admin/client/progress-tab';
 import SessionsTab from '@/components/admin/client/sessions-tab';
 import TherapistTab from '@/components/admin/client/therapist-tab';
 import DeleteClientModal from '@/components/admin/delete-client-modal';
+import FamilyTab from '@/components/admin/intake/family-tab';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AdminLayout from '@/layouts/admin-layout';
@@ -41,7 +41,6 @@ export default function AdminClientShow({
     services,
     fundingCodes,
 }: ClientShowProps) {
-    const [assignOpen, setAssignOpen] = useState(false);
     const [addServiceOpen, setAddServiceOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -69,13 +68,6 @@ export default function AdminClientShow({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        <Button
-                            variant="outline"
-                            className="rounded-[10px]"
-                            onClick={() => setAssignOpen(true)}
-                        >
-                            <UserCog /> Reassign Therapist
-                        </Button>
                         <Button
                             variant="outline"
                             className="rounded-[10px]"
@@ -121,6 +113,9 @@ export default function AdminClientShow({
                 <Tabs defaultValue="overview">
                     <TabsList className="flex w-full flex-wrap justify-start">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
+                        {client.original_intake && (
+                            <TabsTrigger value="family">Family</TabsTrigger>
+                        )}
                         <TabsTrigger value="sessions">Sessions</TabsTrigger>
                         <TabsTrigger value="contracts">Contracts</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -138,6 +133,11 @@ export default function AdminClientShow({
                             therapists={therapists}
                         />
                     </TabsContent>
+                    {client.original_intake && (
+                        <TabsContent value="family">
+                            <FamilyTab intake={client.original_intake} />
+                        </TabsContent>
+                    )}
                     <TabsContent value="sessions">
                         <SessionsTab client={client} />
                     </TabsContent>
@@ -172,12 +172,6 @@ export default function AdminClientShow({
                 </Tabs>
             </div>
 
-            <AssignTherapistModal
-                client={client}
-                therapists={therapists}
-                isOpen={assignOpen}
-                onClose={() => setAssignOpen(false)}
-            />
             <AddClientServiceModal
                 client={client}
                 services={services}

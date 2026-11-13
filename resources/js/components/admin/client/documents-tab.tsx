@@ -3,6 +3,8 @@ import { useState } from 'react';
 
 import DeleteDocumentModal from '@/components/admin/client/delete-document-modal';
 import UploadDocumentModal from '@/components/admin/client/upload-document-modal';
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/helpers';
@@ -20,7 +22,13 @@ export default function DocumentsTab({
     const [documentToDelete, setDocumentToDelete] =
         useState<ClientDocument | null>(null);
 
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
+
     const documents = client.documents ?? [];
+    // Files the family sent with the intake application. They stay on the
+    // intake record, so they are listed here read-only.
+    const intakeDocuments = client.original_intake?.documents ?? [];
 
     return (
         <>
@@ -78,11 +86,10 @@ export default function DocumentsTab({
                                                     variant="ghost"
                                                     className="rounded-[5px]"
                                                     onClick={() =>
-                                                        window.open(
-                                                            document.drive_web_view ??
-                                                                undefined,
-                                                            '_blank',
-                                                        )
+                                                        setDocumentToView({
+                                                            title: document.title,
+                                                            url: `/files/client-documents/${document.id}`,
+                                                        })
                                                     }
                                                 >
                                                     View
@@ -99,10 +106,7 @@ export default function DocumentsTab({
                                                     Delete
                                                 </Button>
                                                 <a
-                                                    href={
-                                                        document.drive_web_view ??
-                                                        undefined
-                                                    }
+                                                    href={`/files/client-documents/${document.id}?download=1`}
                                                     download
                                                 >
                                                     <Button
@@ -124,7 +128,75 @@ export default function DocumentsTab({
                         </div>
                     </CardContent>
                 </Card>
+
+                {intakeDocuments.length > 0 && (
+                    <Card className="rounded-[10px]">
+                        <CardContent className="p-5">
+                            <p>Intake Application Documents</p>
+                            <p className="text-sm text-muted-foreground">
+                                Files submitted with the intake application
+                            </p>
+
+                            <div className="mt-10 grid grid-cols-1 gap-5">
+                                {intakeDocuments.map((document) => (
+                                    <div
+                                        key={document.id}
+                                        className="flex flex-row justify-between rounded-sm border p-3"
+                                    >
+                                        <div className="flex flex-row items-center gap-3">
+                                            <div className="flex rounded-[5px] bg-secondary-orange/10 p-3 text-primary">
+                                                <ReceiptText />
+                                            </div>
+                                            <div>
+                                                <p>{document.name}</p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    {document.type} • Uploaded{' '}
+                                                    {formatDate(
+                                                        document.uploaded_at,
+                                                    )}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {!isPreview && (
+                                            <div className="flex gap-3">
+                                                <Button
+                                                    variant="ghost"
+                                                    className="rounded-[5px]"
+                                                    onClick={() =>
+                                                        setDocumentToView({
+                                                            title: document.name,
+                                                            url: `/files/intake-documents/${document.id}`,
+                                                        })
+                                                    }
+                                                >
+                                                    View
+                                                </Button>
+                                                <a
+                                                    href={`/files/intake-documents/${document.id}?download=1`}
+                                                    download
+                                                >
+                                                    <Button
+                                                        variant="outline"
+                                                        className="rounded-[5px]"
+                                                    >
+                                                        <Download />
+                                                    </Button>
+                                                </a>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
+
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
+            />
 
             {!isPreview && (
                 <>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exceptions\ConsentDeliveryFailed;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateClientRequest;
 use App\Models\Client;
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -106,6 +108,7 @@ class ClientController extends Controller
     {
         $client->load([
             'originalIntake.therapistReviews.therapist',
+            'originalIntake.documents',
             'assignedTherapist',
             'primaryTherapist',
             'careTeam',
@@ -358,6 +361,73 @@ class ClientController extends Controller
         return back()->with('success', 'Service updated successfully.');
     }
 
+    /**
+     * Moves one availed service to another therapist, from the Therapist tab,
+     * replacing the previous one: the new therapist joins the care team, and
+     * when that was the previous therapist's last service for this child they
+     * leave it — handing over the primary role too if they held it. A
+     * previous therapist who still provides another service stays.
+     *
+     * Blocked while the service has a live contract, for the same reason as
+     * updateService(): a contract authorizes one particular therapist.
+     */
+    public function reassignService(Request $request, Client $client, ClientService $clientService): RedirectResponse
+    {
+        $this->guardServiceBelongsToClient($client, $clientService);
+
+        $therapist = $this->resolveTherapist($this->validatedTherapistId($request));
+
+        if ($therapist->id === $clientService->therapist_id) {
+            throw ValidationException::withMessages([
+                'therapist_id' => 'This therapist already provides this service.',
+            ]);
+        }
+
+        if ($clientService->contracts()->where('status', '!=', ServiceContract::STATUS_CANCELLED)->exists()) {
+            throw ValidationException::withMessages([
+                'therapist_id' => 'This service has a live contract. Cancel it before moving the service to another therapist.',
+            ]);
+        }
+
+        $serviceName = $clientService->service?->name;
+
+        // A therapist account may have no team member profile yet; `??`
+        // covers that as well as an empty specializations column.
+        $specializations = $therapist->teamMember->specializations ?? [];
+
+        if ($serviceName !== null && ! in_array($serviceName, $specializations, true)) {
+            throw ValidationException::withMessages([
+                'therapist_id' => "{$therapist->full_name} does not have the {$serviceName} specialization.",
+            ]);
+        }
+
+        $previousTherapistId = $clientService->therapist_id;
+
+        DB::transaction(function () use ($request, $client, $clientService, $therapist, $previousTherapistId): void {
+            $clientService->update(['therapist_id' => $therapist->id]);
+            $client->careTeam()->syncWithoutDetaching([$therapist->id]);
+
+            $previousStillProvidesServices = $previousTherapistId !== null
+                && $client->clientServices()->where('therapist_id', $previousTherapistId)->exists();
+
+            if ($previousTherapistId !== null && ! $previousStillProvidesServices) {
+                if (in_array($previousTherapistId, [$client->primary_therapist_id, $client->assigned_therapist_id], true)) {
+                    $client->reassignPrimaryTherapist($therapist, $request->user());
+                }
+
+                $client->careTeam()->detach($previousTherapistId);
+            }
+
+            $client->refreshServiceAvailedCache();
+        });
+
+        $serviceName ??= "service #{$clientService->id}";
+
+        AuditLogger::log('Reassigned client service', 'Clients', "Moved {$serviceName} for client #{$client->id} to {$therapist->full_name}");
+
+        return back()->with('success', "{$serviceName} reassigned to {$therapist->full_name}.");
+    }
+
     public function destroyService(Client $client, ClientService $clientService): RedirectResponse
     {
         $this->guardServiceBelongsToClient($client, $clientService);
@@ -402,7 +472,13 @@ class ClientController extends Controller
      */
     public function sendConsent(Client $client, ClientConsentService $consents): RedirectResponse
     {
-        if (! $consents->send($client)) {
+        try {
+            $sent = $consents->send($client);
+        } catch (ConsentDeliveryFailed $exception) {
+            return back()->with('error', "The consent could not be sent: {$exception->getMessage()}");
+        }
+
+        if (! $sent) {
             return back()->with('error', 'There is no parent email on file to send the consent to.');
         }
 
@@ -511,12 +587,28 @@ class ClientController extends Controller
     /**
      * @return Collection<int, User>
      */
+    /**
+     * Therapist picker source, with each therapist's specializations so a
+     * service can only be handed to someone specialized in it.
+     *
+     * @return Collection<int, array{id: int, first_name: string, last_name: string, email: string, specializations: array<int, string>}>
+     */
     private function therapists(): Collection
     {
         return User::query()
             ->role('therapist')
+            ->with('teamMember:id,user_id,specializations')
             ->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'email']);
+            ->get(['id', 'first_name', 'last_name', 'email'])
+            ->map(fn (User $therapist): array => [
+                'id' => $therapist->id,
+                'first_name' => $therapist->first_name,
+                'last_name' => $therapist->last_name,
+                'email' => $therapist->email,
+                // @phpstan-ignore nullsafe.neverNull (a therapist User isn't guaranteed to have a TeamMember row; Larastan doesn't model that)
+                'specializations' => $therapist->teamMember?->specializations ?? [],
+            ])
+            ->values();
     }
 
     /**

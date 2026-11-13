@@ -4,15 +4,27 @@ use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\ClientService;
 use App\Models\Intake;
+use App\Models\IntakeDocument;
 use App\Models\IntakeTherapistApproval;
 use App\Models\ScheduleSession;
+use App\Models\ServiceContract;
 use App\Models\ServiceOffering;
+use App\Models\TeamMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
+
+/** Gives a therapist the specialization matching a client service, so it can be handed to them. */
+function specializeIn(User $therapist, ClientService $clientService): void
+{
+    TeamMember::factory()->create([
+        'user_id' => $therapist->id,
+        'specializations' => [$clientService->service->name],
+    ]);
+}
 
 test('the client index shows stats, funding overview, and filtered results', function () {
     $fscdIntake = Intake::factory()->create(['funding_source' => 'BDS-FSCD']);
@@ -54,6 +66,40 @@ test('the client show page loads scoped relations', function () {
     );
 
     expect($therapist)->not->toBeNull();
+});
+
+test('the client show page carries the intake details and documents it was approved from', function () {
+    $intake = Intake::factory()->create(['school_name' => 'Maple Elementary', 'theraphy_goals' => 'Improve speech']);
+    $document = IntakeDocument::factory()->for($intake)->create(['name' => 'Assessment report']);
+    $client = Client::factory()->for($intake, 'originalIntake')->create();
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->where('client.original_intake.school_name', 'Maple Elementary')
+            ->where('client.original_intake.theraphy_goals', 'Improve speech')
+            ->has('client.original_intake.documents', 1)
+            ->where('client.original_intake.documents.0.id', $document->id)
+            ->where('client.original_intake.documents.0.name', 'Assessment report')
+        );
+});
+
+test('the client show page sends every therapist the overview lists as assigned', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $primary = therapistUser();
+    $other = therapistUser();
+    $client->assignTherapist($primary);
+    $client->careTeam()->attach($other->id);
+    ClientService::factory()->for($client)->create(['therapist_id' => $primary->id]);
+    ClientService::factory()->for($client)->create(['therapist_id' => $other->id]);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page
+            ->where('client.primary_therapist.id', $primary->id)
+            ->has('client.care_team', 2)
+            ->has('client.client_services', 2)
+            ->has('client.client_services.0.therapist')
+            ->has('client.client_services.1.therapist')
+        );
 });
 
 test('the client show page sends each care team therapist\'s services for the therapist tab', function () {
@@ -428,4 +474,111 @@ test('the progress tab reports nothing to show for a client with no services or 
             ->where('progress.attendance.rate', null)
             ->where('progress.hours.total', 0)
         );
+});
+
+test('an admin moves one service to another therapist from the therapist tab', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $current = therapistUser();
+    $replacement = therapistUser();
+    $client->careTeam()->attach($current->id);
+    $moved = ClientService::factory()->for($client)->create(['therapist_id' => $current->id]);
+    $kept = ClientService::factory()->for($client)->create(['therapist_id' => $current->id]);
+
+    specializeIn($replacement, $moved);
+
+    $this->actingAs(adminUser())
+        ->patch("/admin/clients/{$client->id}/services/{$moved->id}/therapist", ['therapist_id' => $replacement->id])
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('success');
+
+    expect($moved->refresh()->therapist_id)->toBe($replacement->id)
+        ->and($kept->refresh()->therapist_id)->toBe($current->id)
+        ->and($client->careTeam()->pluck('users.id')->all())->toContain($replacement->id, $current->id);
+});
+
+test('reassigning a therapist\'s only service replaces them on the care team', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $current = therapistUser();
+    $replacement = therapistUser();
+    $client->careTeam()->attach($current->id);
+    $service = ClientService::factory()->for($client)->create(['therapist_id' => $current->id]);
+
+    specializeIn($replacement, $service);
+
+    $this->actingAs(adminUser())
+        ->patch("/admin/clients/{$client->id}/services/{$service->id}/therapist", ['therapist_id' => $replacement->id])
+        ->assertSessionHasNoErrors();
+
+    expect($client->careTeam()->pluck('users.id')->all())->toBe([$replacement->id]);
+});
+
+test('reassigning the primary therapist\'s only service makes the new therapist primary', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $current = therapistUser();
+    $replacement = therapistUser();
+    $client->assignTherapist($current);
+    $service = ClientService::factory()->for($client)->create(['therapist_id' => $current->id]);
+
+    specializeIn($replacement, $service);
+
+    $this->actingAs(adminUser())
+        ->patch("/admin/clients/{$client->id}/services/{$service->id}/therapist", ['therapist_id' => $replacement->id])
+        ->assertSessionHasNoErrors();
+
+    $client->refresh();
+
+    expect($client->primary_therapist_id)->toBe($replacement->id)
+        ->and($client->assigned_therapist_id)->toBe($replacement->id)
+        ->and($client->careTeam()->pluck('users.id')->all())->toBe([$replacement->id]);
+});
+
+test('a service with a live contract cannot be moved to another therapist', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $current = therapistUser();
+    $service = ClientService::factory()->for($client)->create(['therapist_id' => $current->id]);
+    ServiceContract::factory()->create(['client_service_id' => $service->id]);
+
+    $this->actingAs(adminUser())
+        ->patch("/admin/clients/{$client->id}/services/{$service->id}/therapist", ['therapist_id' => therapistUser()->id])
+        ->assertSessionHasErrors('therapist_id');
+
+    expect($service->refresh()->therapist_id)->toBe($current->id);
+});
+
+test('a service cannot be reassigned through another client', function () {
+    $service = ClientService::factory()->create(['therapist_id' => therapistUser()->id]);
+    $otherClient = Client::factory()->create();
+
+    $this->actingAs(adminUser())
+        ->patch("/admin/clients/{$otherClient->id}/services/{$service->id}/therapist", ['therapist_id' => therapistUser()->id])
+        ->assertNotFound();
+});
+
+test('a service can only be reassigned to a therapist specialized in it', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $current = therapistUser();
+    $unqualified = therapistUser();
+    TeamMember::factory()->create(['user_id' => $unqualified->id, 'specializations' => ['Physiotherapy']]);
+    $service = ClientService::factory()->for($client)->create([
+        'therapist_id' => $current->id,
+        'service_id' => ServiceOffering::factory()->create(['name' => 'Occupational Therapy'])->id,
+    ]);
+
+    $this->actingAs(adminUser())
+        ->patch("/admin/clients/{$client->id}/services/{$service->id}/therapist", ['therapist_id' => $unqualified->id])
+        ->assertSessionHasErrors('therapist_id');
+
+    expect($service->refresh()->therapist_id)->toBe($current->id);
+});
+
+test('the client page sends each therapist\'s specializations for the reassign picker', function () {
+    $client = Client::factory()->for(Intake::factory(), 'originalIntake')->create();
+    $therapist = therapistUser();
+    TeamMember::factory()->create(['user_id' => $therapist->id, 'specializations' => ['Occupational Therapy']]);
+
+    $this->actingAs(adminUser())->get("/admin/clients/{$client->id}")
+        ->assertInertia(fn ($page) => $page->where(
+            'therapists',
+            fn ($therapists) => collect($therapists)->firstWhere('id', $therapist->id)['specializations'] === ['Occupational Therapy'],
+        ));
 });

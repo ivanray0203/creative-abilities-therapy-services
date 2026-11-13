@@ -9,6 +9,8 @@ import { useState } from 'react';
 
 import DeleteDocumentModal from '@/components/admin/team-member/delete-document-modal';
 import UploadDocumentModal from '@/components/admin/team-member/upload-document-modal';
+import DocumentViewerModal from '@/components/document-viewer-modal';
+import type { ViewableDocument } from '@/components/document-viewer-modal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatDate } from '@/lib/helpers';
@@ -32,6 +34,8 @@ export default function DocumentsTab({
     const [uploadOpen, setUploadOpen] = useState(false);
     const [documentToDelete, setDocumentToDelete] =
         useState<TeamMemberDocument | null>(null);
+    const [documentToView, setDocumentToView] =
+        useState<ViewableDocument | null>(null);
 
     return (
         <div className="grid grid-cols-1 gap-2 pt-2 md:p-5 md:pt-0">
@@ -110,11 +114,10 @@ export default function DocumentsTab({
                                             variant="ghost"
                                             className="rounded-[5px]"
                                             onClick={() =>
-                                                window.open(
-                                                    document.drive_web_view ??
-                                                        undefined,
-                                                    '_blank',
-                                                )
+                                                setDocumentToView({
+                                                    title: document.title,
+                                                    url: `/files/client-documents/${document.id}`,
+                                                })
                                             }
                                         >
                                             View
@@ -129,10 +132,7 @@ export default function DocumentsTab({
                                             Delete
                                         </Button>
                                         <a
-                                            href={
-                                                document.drive_web_view ??
-                                                undefined
-                                            }
+                                            href={`/files/client-documents/${document.id}?download=1`}
                                             download
                                         >
                                             <Button
@@ -154,6 +154,10 @@ export default function DocumentsTab({
                 </CardContent>
             </Card>
 
+            <DocumentViewerModal
+                document={documentToView}
+                onClose={() => setDocumentToView(null)}
+            />
             <UploadDocumentModal
                 teamMember={teamMember}
                 isOpen={uploadOpen}

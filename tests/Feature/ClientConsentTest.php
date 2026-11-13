@@ -8,6 +8,7 @@ use App\Models\Intake;
 use App\Models\IntakeTherapistApproval;
 use App\Models\User;
 use App\Services\ClientConsentService;
+use App\Services\GoogleDrive\DriveStorage;
 use App\Services\PdfService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -295,4 +296,26 @@ test('the consent emails render', function () {
         ->toContain('Signed Consent Returned');
     expect((new ClientConsentSignedAdminNotification($client, replaced: true))->render())
         ->toContain('Signed Consent Replaced');
+});
+
+test('a refused consent email shows the reason instead of a server error', function () {
+    $client = Client::factory()->create();
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('Expected response code "250" but got code "550", with message "550 Sender address rejected".'));
+
+    $this->actingAs(adminUser())
+        ->post("/admin/clients/{$client->id}/consent")
+        ->assertRedirect()
+        ->assertSessionHas('error', fn (string $message): bool => str_contains($message, 'Sender address rejected'));
+
+    expect($client->refresh()->consent_sent_at)->toBeNull();
+});
+
+test('a refused consent email does not fail the approval that triggered it', function () {
+    $client = Client::factory()->create();
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('Connection could not be established with host "smtp.example.com"'));
+    $service = Mockery::mock(ClientConsentService::class, [app(PdfService::class), app(DriveStorage::class)])->makePartial();
+    $service->shouldReceive('allServicesApproved')->andReturnTrue();
+
+    expect($service->sendIfReady($client))->toBeFalse()
+        ->and($client->refresh()->consent_sent_at)->toBeNull();
 });

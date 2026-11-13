@@ -13,6 +13,7 @@ import {
     NotebookPen,
     Receipt,
     MessageSquare,
+    ScrollText,
     Sparkles,
     Shield,
     UserCog,
@@ -62,6 +63,16 @@ const menuItems = [
         icon: MessageSquare,
     },
     { title: 'Administrator', url: '/admin/administrator', icon: Shield },
+    /*
+     * The log viewer is its own page rather than an Inertia one, so it is
+     * opened with a full page load (see `fullPageLoad` below).
+     */
+    {
+        title: 'Error Logs',
+        url: '/admin/log-viewer',
+        icon: ScrollText,
+        fullPageLoad: true,
+    },
 ];
 
 export function AdminSidebar({ onLogout }: { onLogout: () => void }) {
@@ -103,23 +114,36 @@ export function AdminSidebar({ onLogout }: { onLogout: () => void }) {
                                     item.url,
                                     { exact: item.url === '/admin' },
                                 );
+                                const className = `flex items-center gap-2 rounded-[5px] px-3 py-2 ${
+                                    isSelected
+                                        ? 'bg-secondary-orange/10 font-medium text-primary'
+                                        : 'text-sidebar-foreground hover:bg-secondary-orange/20'
+                                }`;
+                                const label = (
+                                    <>
+                                        <item.icon className="h-4 w-4" />
+                                        {open && <span>{item.title}</span>}
+                                    </>
+                                );
 
                                 return (
                                     <SidebarMenuItem key={item.title}>
                                         <SidebarMenuButton asChild>
-                                            <Link
-                                                href={item.url}
-                                                className={`flex items-center gap-2 rounded-[5px] px-3 py-2 ${
-                                                    isSelected
-                                                        ? 'bg-secondary-orange/10 font-medium text-primary'
-                                                        : 'text-sidebar-foreground hover:bg-secondary-orange/20'
-                                                }`}
-                                            >
-                                                <item.icon className="h-4 w-4" />
-                                                {open && (
-                                                    <span>{item.title}</span>
-                                                )}
-                                            </Link>
+                                            {'fullPageLoad' in item ? (
+                                                <a
+                                                    href={item.url}
+                                                    className={className}
+                                                >
+                                                    {label}
+                                                </a>
+                                            ) : (
+                                                <Link
+                                                    href={item.url}
+                                                    className={className}
+                                                >
+                                                    {label}
+                                                </Link>
+                                            )}
                                         </SidebarMenuButton>
                                     </SidebarMenuItem>
                                 );

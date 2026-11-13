@@ -1,25 +1,84 @@
-import {
-    Calendar,
-    Check,
-    LucideBriefcaseMedical,
-    Mail,
-    Phone,
-    User,
-    UserCog,
-    UserX,
-} from 'lucide-react';
+import { Check, UserCog, UserX } from 'lucide-react';
 import { useState } from 'react';
 
 import ReassignServiceModal from '@/components/admin/client/reassign-service-modal';
 import ServiceModal from '@/components/admin/client/service-modal';
-import AvailabilitySummary from '@/components/availability-summary';
+import {
+    AvailabilityCard,
+    ChildInformationCard,
+    EducationCard,
+    FundingInformationCard,
+    GoalsCard,
+    MedicalHistoryCard,
+    OtherProgramsCard,
+} from '@/components/admin/intake/overview-tab';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { capitalize, formatDate } from '@/lib/helpers';
+import { formatDate } from '@/lib/helpers';
 import type { Client, ClientService } from '@/types/client';
 import type { DeclinedService, TherapistOption } from '@/types/intake';
 
-/** Reference: cats-frontend/src/pages/admin/clientTabs/Overview.tsx */
+interface AssignedTherapist {
+    therapist: TherapistOption;
+    isPrimary: boolean;
+    services: string[];
+}
+
+/**
+ * Everyone working with the child, once each: the primary therapist first,
+ * then whoever holds one of the child's services, then the rest of the care
+ * team. Each carries the services they provide.
+ */
+function listAssignedTherapists(client: Client): AssignedTherapist[] {
+    const byId = new Map<number, AssignedTherapist>();
+    const add = (therapist: TherapistOption | null | undefined) => {
+        if (!therapist) {
+            return null;
+        }
+
+        if (!byId.has(therapist.id)) {
+            byId.set(therapist.id, {
+                therapist,
+                isPrimary: false,
+                services: [],
+            });
+        }
+
+        return byId.get(therapist.id)!;
+    };
+
+    const primary = add(client.primary_therapist ?? client.assigned_therapist);
+
+    if (primary) {
+        primary.isPrimary = true;
+    }
+
+    add(client.assigned_therapist);
+
+    for (const clientService of client.client_services ?? []) {
+        const assigned = add(clientService.therapist);
+        const name = clientService.service?.name;
+
+        if (assigned && name && !assigned.services.includes(name)) {
+            assigned.services.push(name);
+        }
+    }
+
+    for (const member of client.care_team ?? []) {
+        add(member);
+    }
+
+    return [...byId.values()];
+}
+
+/**
+ * Reference: cats-frontend/src/pages/admin/clientTabs/Overview.tsx
+ *
+ * The child's details come from the intake the client was approved from,
+ * through the intake page's own section cards, so both pages show the same
+ * data. The client-only parts — assigned therapists and availed services —
+ * sit alongside them.
+ */
 export default function OverviewTab({
     client,
     declinedServices = [],
@@ -44,68 +103,59 @@ export default function OverviewTab({
     const requestedServices = (intake?.services_needed ?? []).filter(
         (service) => !availedNames.has(service),
     );
+    const assignedTherapists = listAssignedTherapists(client);
 
     return (
         <>
             <div className="grid grid-cols-1 gap-2 pt-2 md:grid-cols-2 md:p-5 md:pt-0">
-                <Card className="rounded-[10px]">
-                    <CardContent className="p-5">
-                        <p className="flex flex-row items-center gap-3">
-                            <User className="text-primary" /> Child Information
-                        </p>
-
-                        <div className="mt-10 grid grid-cols-2 gap-5">
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Full Name
-                                </p>
-                                <p>
-                                    {intake?.child_first_name}{' '}
-                                    {intake?.child_last_name}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Gender
-                                </p>
-                                <p>{capitalize(intake?.gender ?? null)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Date of Birth
-                                </p>
-                                <p>{formatDate(intake?.date_of_birth)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-muted-foreground">
-                                    Age
-                                </p>
-                                <p>{intake?.age} years old</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                {intake && <ChildInformationCard intake={intake} />}
 
                 <Card className="rounded-[10px]">
                     <CardContent className="p-5">
                         <p className="flex flex-row items-center gap-3">
                             <UserCog className="text-primary" /> Assigned
-                            Therapist
+                            Therapists
                         </p>
 
-                        <div className="mt-10 grid grid-cols-1 gap-5">
-                            {client.assigned_therapist ? (
-                                <div>
-                                    <p>
-                                        {client.assigned_therapist.first_name}{' '}
-                                        {client.assigned_therapist.last_name}
-                                    </p>
-                                    {client.assigned_therapist.email && (
-                                        <p className="text-sm text-muted-foreground">
-                                            {client.assigned_therapist.email}
-                                        </p>
-                                    )}
-                                </div>
+                        <div className="mt-10 grid grid-cols-1 gap-4">
+                            {assignedTherapists.length > 0 ? (
+                                assignedTherapists.map((assigned) => (
+                                    <div
+                                        key={assigned.therapist.id}
+                                        className="border-b pb-4 last:border-b-0 last:pb-0"
+                                    >
+                                        <div className="flex flex-row flex-wrap items-center gap-2">
+                                            <p>
+                                                {assigned.therapist.first_name}{' '}
+                                                {assigned.therapist.last_name}
+                                            </p>
+                                            {assigned.isPrimary && (
+                                                <span className="rounded-[5px] bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                                                    Primary
+                                                </span>
+                                            )}
+                                        </div>
+                                        {assigned.therapist.email && (
+                                            <p className="text-sm text-muted-foreground">
+                                                {assigned.therapist.email}
+                                            </p>
+                                        )}
+                                        {assigned.services.length > 0 && (
+                                            <div className="mt-2 flex flex-row flex-wrap gap-2">
+                                                {assigned.services.map(
+                                                    (service) => (
+                                                        <span
+                                                            key={service}
+                                                            className="rounded-[5px] border px-2 py-0.5 text-xs"
+                                                        >
+                                                            {service}
+                                                        </span>
+                                                    ),
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
                             ) : (
                                 <p className="text-muted-foreground">
                                     No therapist assigned yet
@@ -117,85 +167,15 @@ export default function OverviewTab({
             </div>
 
             <div className="grid grid-cols-1 gap-2 pt-2 md:grid-cols-2 md:p-5 md:pt-0">
-                <Card className="rounded-[10px]">
-                    <CardContent className="p-5">
-                        <p className="flex flex-row items-center gap-3">
-                            <User className="text-primary" /> Primary
-                            Parent/Guardian
-                        </p>
-
-                        <div className="mt-10 grid grid-cols-1 gap-3">
-                            <p>{intake?.primary_parent_name}</p>
-                            <div className="flex flex-row items-center gap-3">
-                                <Mail className="h-4 w-4 text-muted-foreground" />
-                                <p>{intake?.primary_parent_email || '-'}</p>
-                            </div>
-                            <div className="flex flex-row items-center gap-3">
-                                <Phone className="h-4 w-4 text-muted-foreground" />
-                                <p>{intake?.primary_parent_phone || '-'}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="rounded-[10px] border border-primary bg-gradient-to-b from-primary/20 to-transparent">
-                    <CardContent className="p-5">
-                        <p className="flex flex-row items-center gap-3">
-                            <User className="text-primary" /> Emergency Contact
-                        </p>
-
-                        <div className="mt-10 grid grid-cols-1 gap-3">
-                            <p>{intake?.emergency_contact_name || '-'}</p>
-                            <p className="text-sm text-muted-foreground">
-                                {capitalize(
-                                    intake?.emergency_contact_relationship ??
-                                        null,
-                                )}
-                            </p>
-                            <div className="flex flex-row items-center gap-3">
-                                <Phone className="h-4 w-4" />
-                                <p>{intake?.emergency_contact_phone || '-'}</p>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                {intake && <EducationCard intake={intake} />}
+                {intake && <AvailabilityCard intake={intake} />}
             </div>
 
             <div className="grid grid-cols-1 gap-2 pt-2 md:p-5 md:pt-0">
-                <Card className="rounded-[10px]">
-                    <CardContent className="p-5">
-                        <p className="flex flex-row items-center gap-3">
-                            <LucideBriefcaseMedical className="text-primary" />{' '}
-                            Medical History
-                        </p>
-
-                        <div className="mt-10 border-b pb-5">
-                            <p className="text-xs text-muted-foreground">
-                                Diagnosis
-                            </p>
-                            <div className="mt-3 flex flex-row flex-wrap gap-3">
-                                {(intake?.diagnosis ?? []).map((diagnosis) => (
-                                    <p
-                                        key={diagnosis}
-                                        className="rounded-[5px] bg-gray-500 p-1 text-sm text-white"
-                                    >
-                                        {diagnosis}
-                                    </p>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mt-5">
-                            <p className="text-xs text-muted-foreground">
-                                Medical Conditions
-                            </p>
-                            <p>{intake?.medical_conditions || '-'}</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                {intake && <MedicalHistoryCard intake={intake} />}
             </div>
 
-            <div className="grid grid-cols-1 gap-2 pt-2 md:grid-cols-2 md:p-5 md:pt-0">
+            <div className="grid grid-cols-1 gap-2 pt-2 md:p-5 md:pt-0">
                 <Card className="rounded-[10px]">
                     <CardContent className="p-5">
                         <p className="flex flex-row items-center gap-3">
@@ -312,28 +292,21 @@ export default function OverviewTab({
                         )}
                     </CardContent>
                 </Card>
-
-                <Card className="rounded-[10px]">
-                    <CardContent className="p-5">
-                        <p className="flex flex-row items-center gap-3">
-                            <Calendar className="text-primary" /> Availability
-                        </p>
-
-                        <div className="mt-10">
-                            <AvailabilitySummary
-                                slots={intake?.availability_slots}
-                                fallbackDays={intake?.available_days}
-                                fallbackTimes={intake?.preferred_times}
-                            />
-                            {intake?.availability_notes && (
-                                <p className="mt-4 text-sm text-muted-foreground">
-                                    {intake.availability_notes}
-                                </p>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
             </div>
+
+            {intake && (
+                <>
+                    <div className="grid grid-cols-1 gap-2 pt-2 md:p-5 md:pt-0">
+                        <FundingInformationCard intake={intake} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 pt-2 md:p-5 md:pt-0">
+                        <OtherProgramsCard intake={intake} />
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 pt-2 md:p-5 md:pt-0">
+                        <GoalsCard intake={intake} />
+                    </div>
+                </>
+            )}
 
             {!isPreview && (
                 <>
