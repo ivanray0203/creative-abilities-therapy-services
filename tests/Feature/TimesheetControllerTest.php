@@ -8,6 +8,7 @@ use App\Models\Timesheet;
 use App\Models\TimesheetEntry;
 use App\Models\User;
 use App\Services\PdfService;
+use App\Support\BrandLogo;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
@@ -469,7 +470,7 @@ test('the printed form carries the child, DOB and FSCD file number off the intak
     // output is compressed, so the text is not readable there.
     $html = view('pdf.timesheet', [
         'timesheet' => $timesheet->fresh()->load('client.originalIntake', 'therapist'),
-        'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+        'logo' => BrandLogo::dataUri(),
         'clientDetails' => [
             'name' => $timesheet->client->displayName(),
             'date_of_birth' => '2019-Apr-11',

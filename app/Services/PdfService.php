@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\TeamMember;
 use App\Models\Timesheet;
 use App\Models\User;
+use App\Support\BrandLogo;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\CarbonInterface;
 
@@ -242,13 +243,14 @@ class PdfService
         $intake = $invoice->client?->originalIntake;
 
         $directorSignature = config('cats.invoice.clinical_director_signature');
-        $directorPath = $directorSignature !== null && is_file(public_path($directorSignature))
-            ? public_path($directorSignature)
+        // Inlined like the logo: dompdf can't hand a file path to Imagick.
+        $directorImage = $directorSignature !== null
+            ? (BrandLogo::inline(public_path($directorSignature)) ?: null)
             : null;
 
         return Pdf::loadView('pdf.invoice', [
             'invoice' => $invoice,
-            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'logo' => BrandLogo::dataUri(),
             'billTo' => [
                 // The invoice is addressed to whoever is billed, falling back
                 // to the parent captured on the intake.
@@ -263,7 +265,7 @@ class PdfService
                 'number' => $invoice->client?->id !== null ? (string) $invoice->client->id : '',
             ],
             'parentSignature' => $parentSignature,
-            'directorSignature' => $directorPath,
+            'directorSignature' => $directorImage,
         ])->output();
     }
 
@@ -287,7 +289,7 @@ class PdfService
 
         return Pdf::loadView('pdf.timesheet', [
             'timesheet' => $timesheet,
-            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'logo' => BrandLogo::dataUri(),
             'clientDetails' => [
                 'name' => $timesheet->client?->displayName() ?? 'Client',
                 'date_of_birth' => $intake?->date_of_birth?->format('Y-M-d') ?? '',
@@ -318,7 +320,7 @@ class PdfService
 
         return Pdf::loadView('pdf.therapist-invoice', [
             'invoice' => $invoice,
-            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'logo' => BrandLogo::dataUri(),
             'therapist' => [
                 'name' => $therapist !== null
                     ? trim("{$therapist->first_name} {$therapist->last_name}")
@@ -347,7 +349,7 @@ class PdfService
     {
         return Pdf::loadView('pdf.hour-tracking', [
             'report' => $report,
-            'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+            'logo' => BrandLogo::dataUri(),
             'therapistName' => $therapist !== null
                 ? (trim("{$therapist->first_name} {$therapist->last_name}") ?: 'Therapist')
                 : 'All therapists',

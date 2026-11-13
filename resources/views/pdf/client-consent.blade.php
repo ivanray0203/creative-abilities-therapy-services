@@ -32,7 +32,7 @@
     </style>
 </head>
 <body>
-    @php($logoPath = public_path('CatsLogo/web-app-manifest-512x512.png'))
+    @php($logo = \App\Support\BrandLogo::dataUri(512))
     @php($dob = $dateOfBirth?->format('m-d-Y') ?? '')
 
     {{-- Page 1: who the consent is for --}}
@@ -66,8 +66,8 @@
     <table class="header">
         <tr>
             <td style="width: 1.6in;">
-                @if (file_exists($logoPath))
-                    <img src="{{ $logoPath }}" class="logo">
+                @if ($logo !== '')
+                    <img src="{{ $logo }}" class="logo">
                 @endif
             </td>
             <td>
@@ -110,8 +110,8 @@
     <table class="header">
         <tr>
             <td style="width: 1.6in;">
-                @if (file_exists($logoPath))
-                    <img src="{{ $logoPath }}" class="logo">
+                @if ($logo !== '')
+                    <img src="{{ $logo }}" class="logo">
                 @endif
             </td>
             <td>
@@ -289,8 +289,8 @@
     <table class="header">
         <tr>
             <td style="width: 1.6in;">
-                @if (file_exists($logoPath))
-                    <img src="{{ $logoPath }}" class="logo">
+                @if ($logo !== '')
+                    <img src="{{ $logo }}" class="logo">
                 @endif
             </td>
             <td>

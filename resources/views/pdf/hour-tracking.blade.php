@@ -137,7 +137,7 @@
 <table>
     <tr>
         <td class="head-logo">
-            <img src="{{ $logoPath }}" alt="">
+            <img src="{{ $logo }}" alt="">
         </td>
         <td class="head-brand">
             <div class="brand-kicker">Creative Abilities Therapy Services</div>

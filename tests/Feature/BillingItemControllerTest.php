@@ -6,6 +6,7 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\InvoiceService;
 use App\Models\ScheduleSession;
+use App\Support\BrandLogo;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 
@@ -502,7 +503,7 @@ test('the therapist invoice keeps its own statement format', function () {
 
     $html = view('pdf.therapist-invoice', [
         'invoice' => $invoice,
-        'logoPath' => public_path('CatsLogo/web-app-manifest-192x192.png'),
+        'logo' => BrandLogo::dataUri(),
         'therapist' => ['name' => 'Robin Vale', 'email' => 'robin@example.test'],
     ])->render();
 
