@@ -96,6 +96,7 @@ export interface TeamMemberShowProps {
     clients: Client[];
     recentSessions: ScheduleSession[];
     documents: TeamMemberDocument[];
+    requiredDocuments: string[];
     missingDocuments: string[];
     invoiceServices: InvoiceService[];
     /** Keyed by invoice service id; a missing key means no override. */

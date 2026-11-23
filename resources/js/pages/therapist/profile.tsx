@@ -17,6 +17,7 @@ import type { TeamMember, TeamMemberDocument } from '@/types/team-member';
 interface ProfileProps {
     teamMember: TeamMember;
     documents: TeamMemberDocument[];
+    requiredDocuments: string[];
     missingDocuments: string[];
 }
 
@@ -42,6 +43,7 @@ interface ProfileForm {
 export default function TherapistProfile({
     teamMember,
     documents,
+    requiredDocuments,
     missingDocuments,
 }: ProfileProps) {
     const { data, setData, put, processing, errors } = useForm<ProfileForm>({
@@ -385,6 +387,7 @@ export default function TherapistProfile({
                         <DocumentsTab
                             teamMember={teamMember}
                             documents={documents}
+                            requiredDocuments={requiredDocuments}
                             missingDocuments={missingDocuments}
                             uploadUrl="/therapist/profile/documents"
                             deleteUrl={(documentId) =>

@@ -90,8 +90,8 @@ class TeamMemberController extends Controller
     {
         $teamMember->load('user', 'application', 'invoiceServiceRates');
 
-        $career = Career::query()->where('position', $teamMember->position)->first();
         $documents = $this->documentsFor($teamMember);
+        $requiredDocuments = $teamMember->requiredDocuments();
 
         return Inertia::render('admin/team/show', [
             'teamMember' => $teamMember,
@@ -104,10 +104,8 @@ class TeamMemberController extends Controller
                 ->limit(10)
                 ->get(),
             'documents' => $documents,
-            'missingDocuments' => array_values(array_diff(
-                $career !== null ? ($career->required_documents ?? []) : [],
-                $documents->pluck('doc_type')->all(),
-            )),
+            'requiredDocuments' => $requiredDocuments,
+            'missingDocuments' => array_values(array_diff($requiredDocuments, $documents->pluck('doc_type')->all())),
             'invoiceServices' => InvoiceService::query()
                 ->active()
                 ->orderBy('sort_order')
@@ -336,16 +334,14 @@ class TeamMemberController extends Controller
         $teamMember = TeamMember::query()->where('user_id', $request->user()->id)->firstOrFail();
         $teamMember->load('user');
 
-        $career = Career::query()->where('position', $teamMember->position)->first();
         $documents = $this->documentsFor($teamMember);
+        $requiredDocuments = $teamMember->requiredDocuments();
 
         return Inertia::render('therapist/profile', [
             'teamMember' => $teamMember,
             'documents' => $documents,
-            'missingDocuments' => array_values(array_diff(
-                $career !== null ? ($career->required_documents ?? []) : [],
-                $documents->pluck('doc_type')->all(),
-            )),
+            'requiredDocuments' => $requiredDocuments,
+            'missingDocuments' => array_values(array_diff($requiredDocuments, $documents->pluck('doc_type')->all())),
         ]);
     }
 
