@@ -13,6 +13,7 @@ use App\Models\ClientDocument;
 use App\Models\TeamMember;
 use App\Models\User;
 use App\Services\Interviews\MeetingLinkGenerator;
+use App\Support\OnboardingDocuments;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
@@ -180,7 +181,12 @@ test('starting onboarding creates a therapist account and emails credentials wit
         LoginCredentialsMail::class,
         fn (LoginCredentialsMail $mail): bool => $mail->hasTo('new.hire@example.com')
             && $mail->password !== null
-            && $mail->requiredDocuments === ['Police Information Check with Vulnerable Sector Check', 'Professional License']
+            && $mail->requiredDocuments === [
+                ...OnboardingDocuments::FOR_EVERYONE,
+                ...OnboardingDocuments::CLINICIAN_ONLY,
+                'Police Information Check with Vulnerable Sector Check',
+                'Professional License',
+            ]
     );
 });
 
@@ -228,8 +234,17 @@ test('the application page lists the onboarding document checklist', function ()
     $this->actingAs(adminUser())->get("/admin/applications/{$application->id}")
         ->assertInertia(fn ($page) => $page
             ->component('admin/applications/show')
-            ->where('onboarding.required_documents', ['Professional License', 'Police Check'])
-            ->where('onboarding.missing_documents', ['Professional License'])
+            ->where('onboarding.required_documents', [
+                ...OnboardingDocuments::FOR_EVERYONE,
+                ...OnboardingDocuments::CLINICIAN_ONLY,
+                'Professional License',
+                'Police Check',
+            ])
+            ->where('onboarding.missing_documents', [
+                ...OnboardingDocuments::FOR_EVERYONE,
+                ...OnboardingDocuments::CLINICIAN_ONLY,
+                'Professional License',
+            ])
             ->has('onboarding.documents', 1)
         );
 });
@@ -238,7 +253,7 @@ test('hiring an onboarded candidate activates their team member and emails them'
     Mail::fake();
 
     [$application, $user] = onboardingCandidate(['Professional License']);
-    ClientDocument::factory()->create(['client_id' => null, 'user_id' => $user->id, 'doc_type' => 'Professional License']);
+    uploadDocuments($user, $application->requiredDocuments());
 
     $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
         'application_status' => 'hired',
@@ -269,6 +284,7 @@ test('an application cannot be hired twice', function () {
 
 test('an onboarding therapist can only reach their profile until they are hired', function () {
     [$application, $user] = onboardingCandidate([]);
+    uploadDocuments($user, $application->requiredDocuments());
 
     $this->actingAs($user)->get('/therapist')->assertRedirect('/therapist/profile');
     $this->actingAs($user)->get('/therapist/clients')->assertRedirect('/therapist/profile');
@@ -296,9 +312,9 @@ test('an onboarding therapist can only reach their profile until they are hired'
  * @param  array<int, string>  $requiredDocuments
  * @return array{0: Application, 1: User}
  */
-function onboardingCandidate(array $requiredDocuments): array
+function onboardingCandidate(array $requiredDocuments, string $position = 'Occupational Therapist (OT)'): array
 {
-    $career = Career::factory()->create(['required_documents' => $requiredDocuments]);
+    $career = Career::factory()->create(['position' => $position, 'required_documents' => $requiredDocuments]);
     $application = Application::factory()->onboarding()->create([
         'position_id' => $career->id,
         'position_applied' => $career->position,
@@ -313,6 +329,25 @@ function onboardingCandidate(array $requiredDocuments): array
 
     return [$application, $user->load('teamMember')];
 }
+
+/**
+ * Files one upload per document type for the user, as if they had handed
+ * everything in.
+ *
+ * @param  array<int, string>  $documentTypes
+ */
+function uploadDocuments(User $user, array $documentTypes): void
+{
+    foreach ($documentTypes as $documentType) {
+        ClientDocument::factory()->create(['client_id' => null, 'user_id' => $user->id, 'doc_type' => $documentType]);
+    }
+}
+
+test('an aide is not asked for a license or liability insurance', function () {
+    [$application] = onboardingCandidate([], 'Behavioural & Developmental Aide');
+
+    expect($application->requiredDocuments())->toBe(OnboardingDocuments::FOR_EVERYONE);
+});
 
 test('declining an application sets the declined flag', function () {
     $application = Application::factory()->create(['application_status' => 'reviewing']);

@@ -12,6 +12,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import type { TeamMember } from '@/types/team-member';
 
 interface UploadDocumentForm {
@@ -20,20 +27,34 @@ interface UploadDocumentForm {
     file: File | null;
 }
 
-/** Reference: cats-frontend's UploadDocumentModal, scoped to a team member's own documents. */
+/** The Select value standing for "a type that isn't on the list". */
+const OTHER_TYPE = '__other__';
+
+/**
+ * Reference: cats-frontend's UploadDocumentModal, scoped to a team member's
+ * own documents.
+ *
+ * The type is picked from the documents this person is required to hand in,
+ * because an upload only counts towards a requirement when its type matches
+ * the name exactly (see App\Support\OnboardingDocuments). "Other" takes a
+ * free-text type for anything else.
+ */
 export default function UploadDocumentModal({
     teamMember,
+    documentTypes,
     isOpen,
     onClose,
     uploadUrl,
 }: {
     teamMember: TeamMember;
+    /** The required documents, offered as the document type. */
+    documentTypes: string[];
     isOpen: boolean;
     onClose: () => void;
     /** Defaults to the admin route; pass the therapist self-service route when used from the Profile page. */
     uploadUrl?: string;
 }) {
-    const [type, setType] = useState('');
+    const [selection, setSelection] = useState('');
 
     const { data, setData, post, processing, errors, reset, clearErrors } =
         useForm<UploadDocumentForm>({
@@ -45,7 +66,7 @@ export default function UploadDocumentModal({
     const closeAndReset = () => {
         reset();
         clearErrors();
-        setType('');
+        setSelection('');
         onClose();
     };
 
@@ -72,16 +93,47 @@ export default function UploadDocumentModal({
                 <div className="space-y-3">
                     <div>
                         <Label htmlFor="document-type">Document Type *</Label>
-                        <Input
-                            id="document-type"
-                            value={type}
-                            placeholder="e.g. Police Information Check"
-                            className="mt-2 rounded-[10px]"
-                            onChange={(event) => {
-                                setType(event.target.value);
-                                setData('type', event.target.value);
+                        <Select
+                            value={selection}
+                            onValueChange={(value) => {
+                                setSelection(value);
+                                setData(
+                                    'type',
+                                    value === OTHER_TYPE ? '' : value,
+                                );
                             }}
-                        />
+                        >
+                            <SelectTrigger
+                                id="document-type"
+                                className="mt-2 rounded-[10px]"
+                            >
+                                <SelectValue placeholder="Select document type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {documentTypes.map((documentType) => (
+                                    <SelectItem
+                                        key={documentType}
+                                        value={documentType}
+                                    >
+                                        {documentType}
+                                    </SelectItem>
+                                ))}
+                                <SelectItem value={OTHER_TYPE}>
+                                    Other document
+                                </SelectItem>
+                            </SelectContent>
+                        </Select>
+                        {selection === OTHER_TYPE && (
+                            <Input
+                                id="document-type-other"
+                                value={data.type}
+                                placeholder="Type of document"
+                                className="mt-2 rounded-[10px]"
+                                onChange={(event) =>
+                                    setData('type', event.target.value)
+                                }
+                            />
+                        )}
                         {errors.type && (
                             <p className="mt-1 text-sm text-destructive">
                                 {errors.type}

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\OnboardingDocuments;
 use Database\Factories\TeamMemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -73,7 +74,21 @@ class TeamMember extends Model
      */
     public function isAide(): bool
     {
-        return str_ends_with(strtolower(trim((string) $this->position)), 'aide');
+        return OnboardingDocuments::isAidePosition($this->position);
+    }
+
+    /**
+     * The onboarding documents this team member must hand in: the standard
+     * set for their role plus anything their position (Admin → Positions)
+     * asks for on top.
+     *
+     * @return array<int, string>
+     */
+    public function requiredDocuments(): array
+    {
+        $career = Career::query()->where('position', $this->position)->first();
+
+        return OnboardingDocuments::forPosition($this->position, $career->required_documents ?? []);
     }
 
     /** @return BelongsTo<User, $this> */

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\OnboardingDocuments;
 use Carbon\CarbonImmutable;
 use Database\Factories\ApplicationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -159,9 +160,11 @@ class Application extends Model
     }
 
     /**
-     * The documents the position asks every new hire to hand in, as listed
-     * on the Career posting the candidate applied to. Read at onboarding to
-     * tell the candidate what to upload, and at hire to check it all came in.
+     * The documents the new hire must hand in: the standard onboarding set
+     * for the role (clinicians also hand in their license and liability
+     * insurance), plus anything the Career posting they applied to asks for
+     * on top. Read at onboarding to tell the candidate what to upload, and at
+     * hire to check it all came in.
      *
      * @return array<int, string>
      */
@@ -169,7 +172,10 @@ class Application extends Model
     {
         $career = $this->position ?? Career::query()->where('position', $this->position_applied)->first();
 
-        return array_values($career->required_documents ?? []);
+        return OnboardingDocuments::forPosition(
+            $career->position ?? $this->position_applied,
+            $career->required_documents ?? [],
+        );
     }
 
     /** @return BelongsTo<Career, $this> */

@@ -1,30 +1,36 @@
 <?php
 
 use App\Mail\LoginCredentialsMail;
+use App\Support\OnboardingDocuments;
 
-test('the onboarding email lists the standard documents every new hire must upload', function () {
-    $mail = new LoginCredentialsMail('Jamie', 'jamie@example.com', 'secret1234');
+test('the onboarding email lists a clinician\'s documents, license and insurance included', function () {
+    $mail = new LoginCredentialsMail('Jamie', 'jamie@example.com', 'secret1234', OnboardingDocuments::forPosition('Occupational Therapist (OT)'));
 
     $mail->assertSeeInOrderInText([
         'upload and submit each of the following',
         "Driver's License",
         'Criminal Record / Vulnerable Sector Check',
+        'Void Cheque / Direct Deposit Information',
         'Professional License and Certification',
         'Professional Liability Insurance',
     ]);
 });
 
-test('the onboarding email adds the position documents after the standard ones without repeats', function () {
+test('the onboarding email leaves the license and insurance off an aide\'s list', function () {
+    $mail = new LoginCredentialsMail('Jamie', 'jamie@example.com', 'secret1234', OnboardingDocuments::forPosition('Behavioural & Developmental Aide'));
+
+    $mail->assertSeeInOrderInText(["Driver's License", 'Criminal Record / Vulnerable Sector Check', 'Void Cheque / Direct Deposit Information']);
+    $mail->assertDontSeeInText('Professional License and Certification');
+    $mail->assertDontSeeInText('Professional Liability Insurance');
+});
+
+test('the onboarding email lists each document once', function () {
     $mail = new LoginCredentialsMail('Jamie', 'jamie@example.com', null, [
         'Professional Liability Insurance',
         'First Aid Certificate',
+        'Professional Liability Insurance',
     ]);
 
-    expect($mail->documents())->toBe([
-        ...LoginCredentialsMail::STANDARD_DOCUMENTS,
-        'First Aid Certificate',
-    ]);
-
-    $mail->assertSeeInOrderInText(['Professional Liability Insurance', 'First Aid Certificate']);
-    expect(substr_count($mail->render(), 'Professional Liability Insurance'))->toBe(1);
+    expect($mail->documents())->toBe(['Professional Liability Insurance', 'First Aid Certificate'])
+        ->and(substr_count($mail->render(), 'Professional Liability Insurance'))->toBe(1);
 });

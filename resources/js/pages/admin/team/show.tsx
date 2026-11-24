@@ -25,6 +25,7 @@ export default function AdminTeamShow({
     clients,
     recentSessions,
     documents,
+    requiredDocuments,
     missingDocuments,
     invoiceServices,
     invoiceServiceRates,
@@ -149,6 +150,7 @@ export default function AdminTeamShow({
                         <DocumentsTab
                             teamMember={teamMember}
                             documents={documents}
+                            requiredDocuments={requiredDocuments}
                             missingDocuments={missingDocuments}
                         />
                     </TabsContent>

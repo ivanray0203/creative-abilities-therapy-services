@@ -5,6 +5,7 @@ use App\Models\Client;
 use App\Models\ClientDocument;
 use App\Models\TeamMember;
 use App\Models\User;
+use App\Support\OnboardingDocuments;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -119,7 +120,17 @@ test('the missing-required-docs diff compares uploaded documents against the car
 
     $response->assertInertia(fn ($page) => $page
         ->component('admin/team/show')
-        ->where('missingDocuments', ['Police Check'])
+        ->where('requiredDocuments', [
+            ...OnboardingDocuments::FOR_EVERYONE,
+            ...OnboardingDocuments::CLINICIAN_ONLY,
+            'Police Check',
+            'First Aid Certificate',
+        ])
+        ->where('missingDocuments', [
+            ...OnboardingDocuments::FOR_EVERYONE,
+            ...OnboardingDocuments::CLINICIAN_ONLY,
+            'Police Check',
+        ])
     );
 });
 

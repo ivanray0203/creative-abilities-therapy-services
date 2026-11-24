@@ -20,12 +20,15 @@ import type { TeamMember, TeamMemberDocument } from '@/types/team-member';
 export default function DocumentsTab({
     teamMember,
     documents,
+    requiredDocuments,
     missingDocuments,
     uploadUrl,
     deleteUrl,
 }: {
     teamMember: TeamMember;
     documents: TeamMemberDocument[];
+    /** Every onboarding document this person must hand in (offered as upload types). */
+    requiredDocuments: string[];
     missingDocuments: string[];
     /** Defaults to the admin routes; pass therapist self-service routes when used from the Profile page. */
     uploadUrl?: string;
@@ -51,12 +54,11 @@ export default function DocumentsTab({
                         ))}
                     </ul>
                     {missingDocuments.includes(
-                        'Police Information Check with Vulnerable Sector Check',
+                        'Criminal Record / Vulnerable Sector Check',
                     ) && (
                         <p className="text-sm">
-                            A current Police Information Check with Vulnerable
-                            Sector Check is required for all staff working with
-                            clients.
+                            A current Criminal Record / Vulnerable Sector Check
+                            is required for all staff working with clients.
                         </p>
                     )}
                 </div>
@@ -160,6 +162,7 @@ export default function DocumentsTab({
             />
             <UploadDocumentModal
                 teamMember={teamMember}
+                documentTypes={requiredDocuments}
                 isOpen={uploadOpen}
                 onClose={() => setUploadOpen(false)}
                 uploadUrl={uploadUrl}
