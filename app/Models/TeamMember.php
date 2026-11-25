@@ -54,10 +54,19 @@ class TeamMember extends Model
     /**
      * SIN is stored one-way hashed (SHA-256), matching the reference
      * implementation — plaintext is never persisted or retrievable.
+     *
+     * Spaces and dashes are dropped first, so "123 456 789" and
+     * "123-456-789" hash the same as "123456789".
      */
     public function setSinNumberAttribute(?string $value): void
     {
-        $this->attributes['sin_number'] = $value === null ? null : hash('sha256', $value);
+        $this->attributes['sin_number'] = $value === null ? null : hash('sha256', preg_replace('/\D/', '', $value) ?? $value);
+    }
+
+    /** Whether a SIN is on file. Onboarding cannot finish without one. */
+    public function hasSin(): bool
+    {
+        return filled($this->attributes['sin_number'] ?? null);
     }
 
     /**

@@ -18,6 +18,7 @@ use App\Services\PdfService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -364,7 +365,17 @@ class TeamMemberController extends Controller
             'availability.*.week_day' => ['required_with:availability', 'string'],
             'availability.*.time_from' => ['nullable', 'string'],
             'availability.*.time_to' => ['nullable', 'string'],
+            // Onboarding candidates enter it on the onboarding form, where it
+            // is required. The stored value is a hash the form cannot show
+            // back, so a blank field keeps the SIN already saved.
+            'sin_number' => ['nullable', 'string', 'regex:/^\d{3}[\s-]?\d{3}[\s-]?\d{3}$/'],
+        ], [
+            'sin_number.regex' => 'Enter your 9-digit SIN.',
         ]);
+
+        if (blank($validated['sin_number'] ?? null)) {
+            unset($validated['sin_number']);
+        }
 
         $teamMember->update($validated);
 
@@ -405,6 +416,65 @@ class TeamMemberController extends Controller
         AuditLogger::log('Uploaded document', 'Users', "{$request->user()->email} uploaded their own document");
 
         return back()->with('success', 'Document uploaded successfully.');
+    }
+
+    /**
+     * The onboarding form: one file per required document plus the SIN,
+     * submitted together. Files are optional per row so a candidate can
+     * hand in what they have and come back for the rest; the SIN is
+     * required until one is on file. Hire is held until both are complete.
+     */
+    public function submitOnboarding(Request $request, DriveStorage $drive): RedirectResponse
+    {
+        $teamMember = TeamMember::query()->where('user_id', $request->user()->id)->firstOrFail();
+
+        abort_unless($teamMember->employment_status === 'onboarding', 403);
+
+        $validated = $request->validate([
+            'documents' => ['nullable', 'array'],
+            'documents.*.type' => ['required', 'string', Rule::in($teamMember->requiredDocuments())],
+            'documents.*.file' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:10240'],
+            'sin_number' => [
+                $teamMember->hasSin() ? 'nullable' : 'required',
+                'string',
+                'regex:/^\d{3}[\s-]?\d{3}[\s-]?\d{3}$/',
+            ],
+        ], [
+            'sin_number.required' => 'Your SIN is required to complete onboarding.',
+            'sin_number.regex' => 'Enter your 9-digit SIN.',
+            'documents.*.file.mimes' => 'Upload a PDF, Word document or image.',
+            'documents.*.file.max' => 'Each file must be 10 MB or smaller.',
+        ]);
+
+        foreach (array_keys($validated['documents'] ?? []) as $index) {
+            $file = $request->file("documents.{$index}.file");
+
+            if (! $file instanceof UploadedFile) {
+                continue;
+            }
+
+            $uploaded = $drive->upload($file, 'therapists', $this->teamMemberFolderName($teamMember));
+
+            ClientDocument::query()->create([
+                'user_id' => $teamMember->user_id,
+                'title' => $file->getClientOriginalName(),
+                'doc_type' => $validated['documents'][$index]['type'],
+                ...$uploaded,
+                'upload_origin' => 'admin',
+                'uploaded_by_id' => $request->user()->id,
+                'uploaded_at' => now(),
+            ]);
+        }
+
+        if (filled($validated['sin_number'] ?? null)) {
+            $teamMember->update(['sin_number' => $validated['sin_number']]);
+        }
+
+        $this->refreshDocumentsCache($teamMember);
+
+        AuditLogger::log('Submitted onboarding', 'Users', "{$request->user()->email} submitted onboarding details");
+
+        return back()->with('success', 'Onboarding details saved.');
     }
 
     public function deleteMyDocument(Request $request, ClientDocument $document, DriveStorage $drive): RedirectResponse

@@ -4,6 +4,7 @@ import { ClipboardCheck } from 'lucide-react';
 import ChangePasswordCard from '@/components/admin/administrator/change-password-card';
 import { EmploymentStatusBadge } from '@/components/admin/team-member/badges';
 import DocumentsTab from '@/components/admin/team-member/documents-tab';
+import OnboardingTab from '@/components/therapist/onboarding-tab';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,7 @@ interface ProfileForm {
     zip_code: string;
     emergency_contact_name: string;
     emergency_contact_phone: string;
+    sin_number: string;
     availability: { week_day: string; time_from: string; time_to: string }[];
 }
 
@@ -57,6 +59,7 @@ export default function TherapistProfile({
         zip_code: teamMember.zip_code ?? '',
         emergency_contact_name: teamMember.emergency_contact_name ?? '',
         emergency_contact_phone: teamMember.emergency_contact_phone ?? '',
+        sin_number: '',
         availability: WEEK_DAYS.map((day) => {
             const existing = teamMember.availability?.find(
                 (slot) => slot.week_day === day,
@@ -84,31 +87,64 @@ export default function TherapistProfile({
     };
 
     const submit = () => {
-        put('/therapist/profile');
+        put('/therapist/profile', {
+            preserveScroll: true,
+            onSuccess: () => setData('sin_number', ''),
+        });
     };
 
     const isOnboarding = teamMember.employment_status === 'onboarding';
+    // Only the hash is stored, so all the page can tell is whether one is on file.
+    const hasSin = Boolean(teamMember.sin_number);
 
-    return (
-        <>
-            <Head title="My Profile" />
+    // Until they are hired, a candidate sees the onboarding form and nothing else.
+    if (isOnboarding) {
+        const isComplete = missingDocuments.length === 0 && hasSin;
 
-            <div className="p-6">
-                {isOnboarding && (
+        return (
+            <>
+                <Head title="Onboarding" />
+
+                <div className="p-6">
                     <div className="mb-5 rounded-[5px] border border-cyan-400 bg-cyan-50 p-4 text-cyan-900">
                         <p className="flex items-center gap-2 font-medium">
                             <ClipboardCheck className="h-4 w-4" />
                             Welcome! Your onboarding is in progress.
                         </p>
                         <p className="mt-1 ml-6 text-sm">
-                            {missingDocuments.length > 0
-                                ? 'Upload each required document under the Documents tab. Our team will review them and email you once your hire is confirmed — the rest of the portal unlocks then.'
-                                : 'All required documents are in. Our team is reviewing them and will email you once your hire is confirmed — the rest of the portal unlocks then.'}
+                            {isComplete
+                                ? 'Everything is in. Our team is reviewing it and will email you once your hire is confirmed — the rest of the portal unlocks then.'
+                                : 'Fill in the onboarding form below. Our team will review it and email you once your hire is confirmed — the rest of the portal unlocks then.'}
                         </p>
                     </div>
-                )}
 
-                <Tabs defaultValue={isOnboarding ? 'documents' : 'profile'}>
+                    <Tabs defaultValue="onboarding">
+                        <TabsList className="flex w-full flex-wrap justify-start">
+                            <TabsTrigger value="onboarding">
+                                Onboarding
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="onboarding" className="pt-5">
+                            <OnboardingTab
+                                documents={documents}
+                                requiredDocuments={requiredDocuments}
+                                missingDocuments={missingDocuments}
+                                hasSin={hasSin}
+                            />
+                        </TabsContent>
+                    </Tabs>
+                </div>
+            </>
+        );
+    }
+
+    return (
+        <>
+            <Head title="My Profile" />
+
+            <div className="p-6">
+                <Tabs defaultValue="profile">
                     <TabsList className="flex w-full flex-wrap justify-start">
                         <TabsTrigger value="profile">
                             Profile Information
@@ -278,6 +314,53 @@ export default function TherapistProfile({
                                             )
                                         }
                                     />
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="rounded-[10px]">
+                            <CardContent className="grid grid-cols-1 gap-5 p-5 md:grid-cols-2">
+                                <p className="font-bold text-primary md:col-span-2">
+                                    Personal Information
+                                </p>
+
+                                <div>
+                                    <Label htmlFor="profile-sin">
+                                        Social Insurance Number (SIN)
+                                    </Label>
+                                    <Input
+                                        id="profile-sin"
+                                        type="password"
+                                        inputMode="numeric"
+                                        autoComplete="off"
+                                        maxLength={11}
+                                        value={data.sin_number}
+                                        placeholder={
+                                            hasSin
+                                                ? 'On file. Leave blank to keep it'
+                                                : '9-digit SIN'
+                                        }
+                                        className="mt-2 rounded-[10px]"
+                                        onChange={(event) =>
+                                            setData(
+                                                'sin_number',
+                                                event.target.value.replace(
+                                                    /[^\d\s-]/g,
+                                                    '',
+                                                ),
+                                            )
+                                        }
+                                    />
+                                    {errors.sin_number ? (
+                                        <p className="mt-1 text-sm text-red-600">
+                                            {errors.sin_number}
+                                        </p>
+                                    ) : (
+                                        <p className="mt-1 text-xs text-muted-foreground">
+                                            Stored securely. It cannot be shown
+                                            back once saved.
+                                        </p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>

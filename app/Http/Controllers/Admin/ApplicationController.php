@@ -123,7 +123,7 @@ class ApplicationController extends Controller
      * position requires, what the candidate has uploaded through their
      * profile, and what is still outstanding. Null until onboarding starts.
      *
-     * @return array{required_documents: array<int, string>, missing_documents: array<int, string>, documents: array<int, array<string, mixed>>}|null
+     * @return array{required_documents: array<int, string>, missing_documents: array<int, string>, has_sin: bool, documents: array<int, array<string, mixed>>}|null
      */
     private function onboardingFor(Application $application, ApplicationHiringService $hiringService): ?array
     {
@@ -153,6 +153,7 @@ class ApplicationController extends Controller
         return [
             'required_documents' => $application->requiredDocuments(),
             'missing_documents' => $hiringService->missingDocuments($application),
+            'has_sin' => $teamMember?->hasSin() ?? false,
             'documents' => $documents,
         ];
     }
@@ -248,6 +249,12 @@ class ApplicationController extends Controller
             if ($missing !== []) {
                 throw ValidationException::withMessages([
                     'application_status' => 'The candidate still has to upload: '.implode(', ', $missing).'.',
+                ]);
+            }
+
+            if ($hiringService->teamMemberFor($application)?->hasSin() === false) {
+                throw ValidationException::withMessages([
+                    'application_status' => 'The candidate has not entered their SIN yet.',
                 ]);
             }
 

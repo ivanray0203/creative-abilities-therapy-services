@@ -119,6 +119,8 @@ export interface OnboardingDocument {
 export interface ApplicationOnboarding {
     required_documents: string[];
     missing_documents: string[];
+    /** Whether the candidate has entered their SIN (required to hire). */
+    has_sin: boolean;
     documents: OnboardingDocument[];
 }
 
