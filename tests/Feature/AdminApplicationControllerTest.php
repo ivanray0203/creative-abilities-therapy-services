@@ -12,9 +12,11 @@ use App\Models\Career;
 use App\Models\ClientDocument;
 use App\Models\TeamMember;
 use App\Models\User;
+use App\Services\ApplicationHiringService;
 use App\Services\Interviews\MeetingLinkGenerator;
 use App\Support\OnboardingDocuments;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -245,8 +247,96 @@ test('the application page lists the onboarding document checklist', function ()
                 ...OnboardingDocuments::CLINICIAN_ONLY,
                 'Professional License',
             ])
+            ->where('onboarding.has_sin', false)
             ->has('onboarding.documents', 1)
         );
+
+    $user->teamMember->update(['sin_number' => '046454286']);
+
+    $this->actingAs(adminUser())->get("/admin/applications/{$application->id}")
+        ->assertInertia(fn ($page) => $page->where('onboarding.has_sin', true));
+});
+
+test('a candidate cannot be hired before they have entered their SIN', function () {
+    Mail::fake();
+
+    [$application, $user] = onboardingCandidate([]);
+    uploadDocuments($user, $application->requiredDocuments());
+
+    $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
+        'application_status' => 'hired',
+    ])->assertSessionHasErrors(['application_status' => 'The candidate has not entered their SIN yet.']);
+
+    expect($application->refresh()->hired)->toBeFalse();
+    expect($user->teamMember->refresh()->employment_status)->toBe('onboarding');
+    Mail::assertNothingQueued();
+});
+
+test('the onboarding form takes the required documents and the SIN together', function () {
+    Storage::fake('public');
+
+    [$application, $user] = onboardingCandidate([], 'Behavioural & Developmental Aide');
+
+    $this->actingAs($user)->post('/therapist/profile/onboarding', [
+        'documents' => [
+            0 => ['type' => "Driver's License", 'file' => UploadedFile::fake()->create('licence.pdf', 100, 'application/pdf')],
+            2 => ['type' => 'Void Cheque / Direct Deposit Information', 'file' => UploadedFile::fake()->create('cheque.png', 100, 'image/png')],
+        ],
+        'sin_number' => '046-454-286',
+    ])->assertSessionHasNoErrors();
+
+    expect(ClientDocument::where('user_id', $user->id)->pluck('doc_type')->sort()->values()->all())
+        ->toBe(["Driver's License", 'Void Cheque / Direct Deposit Information'])
+        ->and($user->teamMember->refresh()->getRawOriginal('sin_number'))->toBe(hash('sha256', '046454286'))
+        ->and(app(ApplicationHiringService::class)->missingDocuments($application))
+        ->toBe(['Criminal Record / Vulnerable Sector Check']);
+
+    // The SIN is on file now, so the last document can come in on its own.
+    $this->actingAs($user)->post('/therapist/profile/onboarding', [
+        'documents' => [
+            1 => ['type' => 'Criminal Record / Vulnerable Sector Check', 'file' => UploadedFile::fake()->create('check.pdf', 100, 'application/pdf')],
+        ],
+    ])->assertSessionHasNoErrors();
+
+    expect(app(ApplicationHiringService::class)->missingDocuments($application))->toBe([])
+        ->and($user->teamMember->refresh()->getRawOriginal('sin_number'))->toBe(hash('sha256', '046454286'));
+});
+
+test('the onboarding form requires a valid SIN until one is on file', function () {
+    Storage::fake('public');
+
+    [, $user] = onboardingCandidate([]);
+
+    $this->actingAs($user)->post('/therapist/profile/onboarding', [])
+        ->assertSessionHasErrors(['sin_number' => 'Your SIN is required to complete onboarding.']);
+
+    $this->actingAs($user)->post('/therapist/profile/onboarding', ['sin_number' => '12345'])
+        ->assertSessionHasErrors(['sin_number' => 'Enter your 9-digit SIN.']);
+
+    expect($user->teamMember->refresh()->hasSin())->toBeFalse();
+});
+
+test('the onboarding form only accepts the candidate\'s required documents', function () {
+    Storage::fake('public');
+
+    [, $user] = onboardingCandidate([], 'Behavioural & Developmental Aide');
+
+    $this->actingAs($user)->post('/therapist/profile/onboarding', [
+        'documents' => [
+            0 => ['type' => 'Professional Liability Insurance', 'file' => UploadedFile::fake()->create('policy.pdf', 100, 'application/pdf')],
+        ],
+        'sin_number' => '046454286',
+    ])->assertSessionHasErrors('documents.0.type');
+
+    expect(ClientDocument::where('user_id', $user->id)->count())->toBe(0);
+});
+
+test('only an onboarding therapist can use the onboarding form', function () {
+    $therapist = User::factory()->therapist()->create();
+    TeamMember::factory()->create(['user_id' => $therapist->id, 'employment_status' => 'active']);
+
+    $this->actingAs($therapist)->post('/therapist/profile/onboarding', ['sin_number' => '046454286'])
+        ->assertForbidden();
 });
 
 test('hiring an onboarded candidate activates their team member and emails them', function () {
@@ -254,6 +344,7 @@ test('hiring an onboarded candidate activates their team member and emails them'
 
     [$application, $user] = onboardingCandidate(['Professional License']);
     uploadDocuments($user, $application->requiredDocuments());
+    $user->teamMember->update(['sin_number' => '046 454 286']);
 
     $this->actingAs(adminUser())->patch("/admin/applications/{$application->id}/status", [
         'application_status' => 'hired',
@@ -285,6 +376,7 @@ test('an application cannot be hired twice', function () {
 test('an onboarding therapist can only reach their profile until they are hired', function () {
     [$application, $user] = onboardingCandidate([]);
     uploadDocuments($user, $application->requiredDocuments());
+    $user->teamMember->update(['sin_number' => '046454286']);
 
     $this->actingAs($user)->get('/therapist')->assertRedirect('/therapist/profile');
     $this->actingAs($user)->get('/therapist/clients')->assertRedirect('/therapist/profile');

@@ -70,7 +70,9 @@ export default function AdminApplicationShow({
         application.offer_accepted_at && application.signed_offer_letter,
     );
     const missingDocuments = onboarding?.missing_documents ?? [];
-    const documentsComplete = isOnboarding && missingDocuments.length === 0;
+    const hasSin = onboarding?.has_sin ?? false;
+    const documentsComplete =
+        isOnboarding && missingDocuments.length === 0 && hasSin;
 
     const openStatusModal = (status: ApplicationStatus) => {
         setStatusUpdate(status);
@@ -248,7 +250,7 @@ export default function AdminApplicationShow({
                                 title={
                                     documentsComplete
                                         ? undefined
-                                        : 'The candidate has not uploaded every required document yet.'
+                                        : 'The candidate has not uploaded every required document or entered their SIN yet.'
                                 }
                             >
                                 <UserCheck2 />
@@ -388,7 +390,7 @@ export default function AdminApplicationShow({
                                 {isOnboarding
                                     ? documentsComplete
                                         ? 'Onboarding documents complete — ready to hire'
-                                        : 'Onboarding in progress — awaiting documents'
+                                        : 'Onboarding in progress — awaiting documents and SIN'
                                     : 'Onboarding documents'}
                             </p>
                             {application.onboarding_started_at && (
@@ -445,6 +447,21 @@ export default function AdminApplicationShow({
                                     )}
                                 </ul>
                             )}
+                            <p className="mt-3 flex items-center gap-2 text-sm">
+                                {hasSin ? (
+                                    <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                    <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                                )}
+                                <span
+                                    className={
+                                        hasSin ? undefined : 'text-red-700'
+                                    }
+                                >
+                                    Social Insurance Number (SIN)
+                                    {hasSin ? ' on file' : ' not entered yet'}
+                                </span>
+                            </p>
                         </div>
 
                         <div>

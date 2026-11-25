@@ -389,6 +389,7 @@ Route::middleware(['auth', 'role:therapist', 'onboarding.complete'])
         Route::get('profile', [TeamMemberController::class, 'me'])->name('therapist.team.me');
         Route::put('profile', [TeamMemberController::class, 'updateMe'])->name('therapist.team.update-me');
         Route::post('profile/documents', [TeamMemberController::class, 'uploadMyDocument'])->name('therapist.team.upload-my-document');
+        Route::post('profile/onboarding', [TeamMemberController::class, 'submitOnboarding'])->name('therapist.team.submit-onboarding');
         Route::delete('profile/documents/{document}', [TeamMemberController::class, 'deleteMyDocument'])->name('therapist.team.delete-my-document');
 
         Route::get('complaints', [ComplaintController::class, 'index'])->name('therapist.complaints.index');
